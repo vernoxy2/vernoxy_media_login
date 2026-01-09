@@ -1,6 +1,6 @@
 import { useProjects } from "../context/ProjectContext"
 import { Card, CardContent, CardHeader, CardTitle } from '../Components/ui/card';
-import { Badge } from '../components/ui/badge';
+import { Badge } from '../Components/ui/badge';
 import { Mail, Briefcase } from 'lucide-react';
 
 export default function Team() {
