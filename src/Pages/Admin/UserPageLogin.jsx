@@ -58,11 +58,16 @@ const UserPageLogin = () => {
 
   const [teamMembers] = useState([
     { id: 1, name: "Dhruv mistry", role: "Front-End Developer" },
-    { id: 2, name: "Nikhil Lad" },
-    { id: 3, name: "Tilak tiwari" },
-    { id: 4, name: "Bhumika Patel" },
-    { id: 5, name: "Vrunda Patel" },
-    { id: 6, name: "Divya Patel" },
+    { id: 2, name: "Nikhil Lad", role: "Designer" },
+    { id: 3, name: "Tilak tiwari", role: "Designer" },
+    { id: 4, name: "Bhumika Patel", role: "Content Writer" },
+    {
+      id: 5,
+      name: "Vrunda Patel",
+      role: ["Front-End Developer", "Back-End Developer"],
+    },
+    { id: 6, name: "Divya Patel", role: "Front-End Developer" },
+    { id: 7, name: "Jenil Dhimmar", role: "Video Editor" },
   ]);
 
   const [workLogs, setWorkLogs] = useState([]);
@@ -80,16 +85,59 @@ const UserPageLogin = () => {
     breakTime: "",
     status: "In Progress",
     priority: "Medium",
-    startTime: "",
-    endTime: "",
+    startHour: "",
+    startMinute: "",
+    startAMPM: "AM",
+    endHour: "",
+    endMinute: "",
+    endAMPM: "PM",
     notes: "",
     blockers: "",
     collaborators: [],
     mood: "neutral",
   });
+  const calculateHours = () => {
+    const { startHour, startMinute, startAMPM, endHour, endMinute, endAMPM } =
+      newWorkLog;
 
+    if (startHour && startMinute !== "" && endHour && endMinute !== "") {
+      // Convert to 24-hour format
+      let startHours24 = parseInt(startHour);
+      let endHours24 = parseInt(endHour);
+
+      if (startAMPM === "PM" && startHours24 !== 12) startHours24 += 12;
+      if (startAMPM === "AM" && startHours24 === 12) startHours24 = 0;
+      if (endAMPM === "PM" && endHours24 !== 12) endHours24 += 12;
+      if (endAMPM === "AM" && endHours24 === 12) endHours24 = 0;
+
+      // Calculate difference
+      let startTotalMinutes = startHours24 * 60 + parseInt(startMinute);
+      let endTotalMinutes = endHours24 * 60 + parseInt(endMinute);
+
+      if (endTotalMinutes < startTotalMinutes) {
+        endTotalMinutes += 24 * 60;
+      }
+
+      const diffMinutes = endTotalMinutes - startTotalMinutes;
+      const hours = diffMinutes / 60;
+
+      if (hours > 0) {
+        setNewWorkLog((prev) => ({ ...prev, hoursSpent: hours.toFixed(1) }));
+      }
+    }
+  };
   const [showAllCollaborators, setShowAllCollaborators] = useState(false);
 
+  useEffect(() => {
+    calculateHours();
+  }, [
+    newWorkLog.startHour,
+    newWorkLog.startMinute,
+    newWorkLog.startAMPM,
+    newWorkLog.endHour,
+    newWorkLog.endMinute,
+    newWorkLog.endAMPM,
+  ]);
   // Sign in anonymously when component mounts
   useEffect(() => {
     signInAnonymously(auth)
@@ -140,8 +188,12 @@ const UserPageLogin = () => {
           breakTime: parseFloat(newWorkLog.breakTime) || 0,
           status: newWorkLog.status,
           priority: newWorkLog.priority,
-          startTime: newWorkLog.startTime,
-          endTime: newWorkLog.endTime,
+          startTime: `${newWorkLog.startHour}:${String(
+            newWorkLog.startMinute
+          ).padStart(2, "0")} ${newWorkLog.startAMPM}`,
+          endTime: `${newWorkLog.endHour}:${String(
+            newWorkLog.endMinute
+          ).padStart(2, "0")} ${newWorkLog.endAMPM}`,
           notes: newWorkLog.notes,
           blockers: newWorkLog.blockers,
           collaborators: newWorkLog.collaborators,
@@ -381,16 +433,16 @@ const UserPageLogin = () => {
         )}
 
         {activeView === "add" && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
+          <div className="bg-white rounded-xl shadow-lg p-9 ">
             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
               <PlusCircle className="w-7 h-7 text-blue-600" />
               Log Your Work
             </h2>
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-lg font-semibold text-gray-700 mb-2 text-start">
                     Date
                   </label>
                   <input
@@ -401,7 +453,7 @@ const UserPageLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                  <label className="block text-lg text-start font-semibold text-gray-800 mb-2">
                     Mood
                   </label>
                   <select
@@ -420,9 +472,9 @@ const UserPageLogin = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-7">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2">
                     Project *
                   </label>
                   <input
@@ -439,11 +491,11 @@ const UserPageLogin = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
+                <div className="">
+                  <label className="block text-lg text-start  font-semibold text-gray-700 mb-2">
                     Priority *
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-5">
                     {["High", "Medium", "Low"].map((priority) => (
                       <button
                         key={priority}
@@ -457,7 +509,7 @@ const UserPageLogin = () => {
                               : priority === "Medium"
                               ? "bg-yellow-500 text-white"
                               : "bg-green-500 text-white"
-                            : "bg-gray-100 text-gray-700"
+                            : "bg-gray-100 text-gray-700 "
                         }`}
                       >
                         {priority}
@@ -465,23 +517,59 @@ const UserPageLogin = () => {
                     ))}
                   </div>
                 </div>
+                <div className="">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2">
+                    Task Description *
+                  </label>
+                  <textarea
+                    value={newWorkLog.task}
+                    onChange={(e) =>
+                      setNewWorkLog({ ...newWorkLog, task: e.target.value })
+                    }
+                    placeholder="What did you work on today?"
+                    className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-24"
+                  />
+                </div>
+                <div>
+                  <label className="block text-lg text-start font-semibold text-gray-700  flex items-center gap-2 ">
+                    <Users className="w-4 h-4" />
+                    Collaborators
+                  </label>
+                  <div className="flex flex-wrap gap-3 items-center">
+                    {(showAllCollaborators
+                      ? teamMembers
+                      : teamMembers.slice(0, 3)
+                    ).map((member) => (
+                      <button
+                        key={member.id}
+                        onClick={() => toggleCollaborator(member.id)}
+                        className={`px-3 py-2 rounded-lg border-2 transition ${
+                          newWorkLog.collaborators?.includes(member.id)
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 hover:border-gray-300 text-gray-700"
+                        }`}
+                      >
+                        {member.name}
+                      </button>
+                    ))}
+                    {teamMembers.length > 3 && (
+                      <button
+                        onClick={() =>
+                          setShowAllCollaborators(!showAllCollaborators)
+                        }
+                        className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-medium"
+                      >
+                        {showAllCollaborators
+                          ? "View Less"
+                          : `+${teamMembers.length - 3} More`}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Task Description *
-                </label>
-                <textarea
-                  value={newWorkLog.task}
-                  onChange={(e) =>
-                    setNewWorkLog({ ...newWorkLog, task: e.target.value })
-                  }
-                  placeholder="What did you work on today?"
-                  className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-24"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-7">
+                {/* Start Time - with AM/PM */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Start Time
@@ -495,9 +583,17 @@ const UserPageLogin = () => {
                         startTime: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    onBlur={calculateHours}
+                    min={(() => {
+                      const now = new Date();
+                      const hours = String(now.getHours()).padStart(2, "0");
+                      const minutes = String(now.getMinutes()).padStart(2, "0");
+                      return `${hours}:${minutes}`;
+                    })()}
+                    className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     End Time
@@ -506,17 +602,27 @@ const UserPageLogin = () => {
                     type="time"
                     value={newWorkLog.endTime}
                     onChange={(e) =>
-                      setNewWorkLog({
-                        ...newWorkLog,
-                        endTime: e.target.value,
-                      })
+                      setNewWorkLog({ ...newWorkLog, endTime: e.target.value })
                     }
-                    className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
+                    onBlur={calculateHours}
+                    min={
+                      newWorkLog.startTime ||
+                      (() => {
+                        const now = new Date();
+                        const hours = String(now.getHours()).padStart(2, "0");
+                        const minutes = String(now.getMinutes()).padStart(
+                          2,
+                          "0"
+                        );
+                        return `${hours}:${minutes}`;
+                      })()
+                    }
+                    className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700  mb-2">
-                   Total Hours
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Hours Spent *
                   </label>
                   <input
                     type="number"
@@ -535,7 +641,7 @@ const UserPageLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2">
                     Break (hours)
                   </label>
                   <input
@@ -553,7 +659,7 @@ const UserPageLogin = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2">
                     Hours Spent *
                   </label>
                   <input
@@ -572,79 +678,44 @@ const UserPageLogin = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Collaborators
-                </label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {(showAllCollaborators
-                    ? teamMembers
-                    : teamMembers.slice(0, 3)
-                  ).map((member) => (
-                    <button
-                      key={member.id}
-                      onClick={() => toggleCollaborator(member.id)}
-                      className={`px-4 py-2 rounded-lg border-2 transition ${
-                        newWorkLog.collaborators?.includes(member.id)
-                          ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-gray-200 hover:border-gray-300 text-gray-700"
-                      }`}
-                    >
-                      {member.name}
-                    </button>
-                  ))}
-                  {teamMembers.length > 3 && (
-                    <button
-                      onClick={() =>
-                        setShowAllCollaborators(!showAllCollaborators)
-                      }
-                      className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition font-medium"
-                    >
-                      {showAllCollaborators
-                        ? "View Less"
-                        : `+${teamMembers.length - 3} More`}
-                    </button>
-                  )}
+              <div className="grid grid-cols-12 gap-6">
+                <div className="col-span-6">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Notes
+                  </label>
+                  <textarea
+                    value={newWorkLog.notes}
+                    onChange={(e) =>
+                      setNewWorkLog({ ...newWorkLog, notes: e.target.value })
+                    }
+                    placeholder="Additional details, achievements..."
+                    className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-20"
+                  />
+                </div>
+
+                <div className="col-span-6">
+                  <label className="block text-lg text-start font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                    Blockers
+                  </label>
+                  <textarea
+                    value={newWorkLog.blockers}
+                    onChange={(e) =>
+                      setNewWorkLog({ ...newWorkLog, blockers: e.target.value })
+                    }
+                    placeholder="Any issues or challenges..."
+                    className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-20"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Notes
-                </label>
-                <textarea
-                  value={newWorkLog.notes}
-                  onChange={(e) =>
-                    setNewWorkLog({ ...newWorkLog, notes: e.target.value })
-                  }
-                  placeholder="Additional details, achievements..."
-                  className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                  Blockers
-                </label>
-                <textarea
-                  value={newWorkLog.blockers}
-                  onChange={(e) =>
-                    setNewWorkLog({ ...newWorkLog, blockers: e.target.value })
-                  }
-                  placeholder="Any issues or challenges..."
-                  className="w-full px-4 py-3 border rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 h-20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-lg font-semibold text-gray-700 mb-2">
                   Status
                 </label>
-                <div className="grid grid-cols-3 gap-4 text-xs md:text-sm">
-                  {["In Progress","Completed", "Pending"].map((status) => (
+                <div className="grid grid-cols-3 gap-4 text-sm md:text-sm">
+                  {["In Progress", "Completed", "Pending"].map((status) => (
                     <button
                       key={status}
                       onClick={() => setNewWorkLog({ ...newWorkLog, status })}

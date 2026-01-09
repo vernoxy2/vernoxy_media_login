@@ -1,25 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
-// import Right from "../../assets/Right.svg";
 import { BsPersonFill } from "react-icons/bs";
 import { IoMdNotifications } from "react-icons/io";
 import { IoMenu } from "react-icons/io5";
-import { BiLogOut, BiUser, BiKey } from "react-icons/bi";
+import { BiLogOut } from "react-icons/bi";
 import { Link, useNavigate } from "react-router-dom";
 import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
-import { db } from "../../firebase";
+import { db, auth } from "../../firebase";
 
 const Header = ({ toggleMobileSidebar }) => {
   const navigate = useNavigate();
-  //   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const notificationRef = useRef(null);
   const userMenuRef = useRef(null);
 
-  // Get user email from localStorage (initialize state directly)
+  // Get user info from localStorage
   const [userEmail] = useState(
     () => localStorage.getItem("userEmail") || "User"
+  );
+  
+  // ✅ NEW: Get user role (Admin or User)
+  const [userRole] = useState(
+    () => localStorage.getItem("userDisplayRole") || localStorage.getItem("userRole") || "User"
   );
 
   useEffect(() => {
@@ -39,19 +42,18 @@ const Header = ({ toggleMobileSidebar }) => {
         });
       });
 
-      // Filter only unread notifications (where notificationRead is not true)
+      // Filter only unread notifications
       const unreadNotifications = allNotifications.filter(
         (notification) => notification.notificationRead !== true
       );
 
-      //   setNotifications(unreadNotifications);
       setUnreadCount(unreadNotifications.length);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Close notification dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -69,36 +71,31 @@ const Header = ({ toggleMobileSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("userEmail");
-    navigate("/login");
+  // ✅ FIXED: Proper logout with Firebase signout
+  const handleLogout = async () => {
+    try {
+      // Sign out from Firebase
+      await auth.signOut();
+      
+      // Clear localStorage
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userDisplayRole");
+      
+      // Navigate to login page
+      navigate("/admin/login", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Even if Firebase signout fails, clear localStorage and navigate
+      localStorage.clear();
+      navigate("/admin/login", { replace: true });
+    }
   };
-
-  //   const handleNotificationClick = async (notificationId) => {
-  //     try {
-  //       // Mark notification as read in Firebase
-  //       const notificationDocRef = doc(db, "materialRequest", notificationId);
-  //       await updateDoc(notificationDocRef, {
-  //         notificationRead: true
-  //       });
-
-  //       // Close dropdown and navigate
-  //       setShowNotifications(false);
-  //       navigate("/issue_material", { state: { highlightId: notificationId } });
-  //     } catch (error) {
-  //       console.error("Error marking notification as read:", error);
-  //       // Still navigate even if update fails
-  //       setShowNotifications(false);
-  //       navigate("/issue_material", { state: { highlightId: notificationId } });
-  //     }
-  //   };
 
   return (
     <header className="bg-white shadow flex items-center justify-between px-4 md:pr-16 relative z-10 py-2">
-      {/* Background Image */}
       {/* Mobile Menu Icon */}
       <div className="flex items-center gap-2">
         <IoMenu
@@ -108,14 +105,7 @@ const Header = ({ toggleMobileSidebar }) => {
         />
         {/* Logo and Brand */}
         <Link to="/" className="flex items-center space-x-2 max-w-full z-10">
-          {/* <img
-            src={}
-            alt=""
-            className="h-16 md:h-20 py-2"
-          /> */}
-          {/* <p className="text-[#3668B1] font-bold md:text-base leading-tight">
-            SHRI JALARAM <br /> LABELS
-          </p> */}
+          {/* Add your logo here */}
         </Link>
       </div>
 
@@ -138,52 +128,6 @@ const Header = ({ toggleMobileSidebar }) => {
               </span>
             )}
           </button>
-
-          {/* Notification Dropdown */}
-          {/* {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 md:w-96 bg-white rounded-lg shadow-xl border border-gray-200 max-h-96 overflow-y-auto z-50">
-              <div className="p-4 border-b border-gray-200">
-                <h3 className="font-bold text-lg text-gray-800">Material Requests</h3>
-              </div>
-              
-              {notifications.length === 0 ? (
-                <div className="p-4 text-center text-gray-500">
-                  No new requests
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {notifications.map((notification) => (
-                    <button
-                      key={notification.id}
-                      onClick={() => handleNotificationClick(notification.id)}
-                      className="w-full p-4 hover:bg-blue-50 transition-colors text-left border-l-4 border-transparent hover:border-blue-500"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-800">
-                            {notification.jobName || "New Request"}
-                          </p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Job Card: {notification.jobCardNo}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Required: {notification.requiredMaterial} meter
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            By {notification.createdBy} •{" "}
-                            {notification.createdAt
-                              ? new Date(notification.createdAt.seconds * 1000).toLocaleDateString()
-                              : ""}
-                          </p>
-                        </div>
-                        <span className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1 animate-pulse"></span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )} */}
         </div>
 
         {/* User Profile Menu */}
@@ -202,7 +146,11 @@ const Header = ({ toggleMobileSidebar }) => {
               {/* User Info Section */}
               <div className="px-4 py-3 border-b border-gray-200">
                 <p className="text-sm text-gray-500">Signed in as</p>
-                <p className="text-sm font-semibold text-gray-800 truncate">
+                {/* ✅ FIXED: Show role (Admin/User) instead of just "User" */}
+                <p className="text-sm font-semibold text-[#3668B1]">
+                  {userRole}
+                </p>
+                <p className="text-xs text-gray-600 truncate mt-1">
                   {userEmail}
                 </p>
               </div>

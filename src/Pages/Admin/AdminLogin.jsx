@@ -30,7 +30,6 @@ export default function AdminLogin() {
   const navigate = useNavigate();
 
   // Check if already logged in
-  // Check if already logged in
   useEffect(() => {
     const checkAuth = async () => {
       const user = auth.currentUser;
@@ -45,6 +44,7 @@ export default function AdminLogin() {
     checkAuth();
   }, [navigate]);
 
+  // ✅ FIXED: Changed navigation from /admin/login to /admin
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -73,6 +73,17 @@ export default function AdminLogin() {
 
       // Both admin and user go to /admin
       if (userData.role === "admin" || userData.role === "user") {
+        // Save user data to localStorage
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userRole", userData.role); // "admin" or "user"
+        localStorage.setItem("userEmail", userData.email || email);
+        localStorage.setItem("userId", user.uid);
+        
+        // Display role with capital first letter
+        const displayRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
+        localStorage.setItem("userDisplayRole", displayRole); // "Admin" or "User"
+        
+        // ✅ FIXED: Navigate to /admin instead of /admin/login
         navigate("/admin", { replace: true });
       } else {
         setError("Access denied. Admin privileges required.");

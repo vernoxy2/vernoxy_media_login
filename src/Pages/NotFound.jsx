@@ -1,20 +1,22 @@
-import { Link } from "react-router-dom";
-import { FaHome } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
 const NotFound = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+  }, [location.pathname]);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
-      <h1 className="text-7xl font-extrabold text-primary font-Bai_Jamjuree">404</h1>
-      <h2 className="text-2xl md:text-3xl font-bold mt-4 font-Mulish">Page Not Found</h2>
-      <p className="text-gray-600 mt-2 font-Bai_Jamjuree">
-        Oops! The page you’re looking for doesn’t exist.
-      </p>
-      <Link
-        to="/"
-        className="mt-6 flex items-center font-Mulish gap-2.5 bg-gradient-to-r from-primary to-white text-[#1168B5] font-bold px-5 py-3 rounded-lg shadow hover:scale-95 transition"
-      >
-        <FaHome className="text-xl" /> Back to Home
-      </Link>
+    <div className="flex min-h-screen items-center justify-center bg-muted">
+      <div className="text-center">
+        <h1 className="mb-4 text-4xl font-bold">404</h1>
+        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
+        <a href="/" className="text-primary underline hover:text-primary/90">
+          Return to Home
+        </a>
+      </div>
     </div>
   );
 };

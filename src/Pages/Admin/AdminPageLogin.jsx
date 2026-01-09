@@ -182,7 +182,7 @@ const AdmerPageLogin = () => {
     }
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 ">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-6 py-4">
@@ -269,13 +269,13 @@ const AdmerPageLogin = () => {
               onClick={() => setActiveView("today")}
               className={`flex-1 px-6 py-3 rounded-lg font-medium transition ${
                 activeView === "today"
-                  ? "bg-blue-600 text-black"
+                  ? "bg-blue-600 "
                   : "text-gray-800 hover:bg-gray-100 bg-white"
               }`}
             >
               Today's Work
             </button>
-            <button
+            {/* <button
               onClick={() => setActiveView("add")}
               className={`flex-1 px-6 py-3 rounded-lg font-medium transition ${
                 activeView === "add"
@@ -284,7 +284,7 @@ const AdmerPageLogin = () => {
               }`}
             >
               Add New Entry
-            </button>
+            </button> */}
             <button
               onClick={() => setActiveView("history")}
               className={`flex-1 px-6 py-3 rounded-lg font-medium transition ${
@@ -306,10 +306,10 @@ const AdmerPageLogin = () => {
               Log Your Work
             </h2>
 
-            <div className="space-y-6">
+            <div className=" grid grid-cols-1 md:grid-cols-2 gap-9">
               {/* Date Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 ">
                   Date
                 </label>
                 <input
@@ -322,7 +322,7 @@ const AdmerPageLogin = () => {
 
               {/* Project Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 ">
                   Project *
                 </label>
                 <input
@@ -350,32 +350,10 @@ const AdmerPageLogin = () => {
                   }
                   className="w-full px-4 py-3 border text-gray-900 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 resize-none"
                 />
-
-                {/* Quick Task Suggestions */}
-                <div className="mt-3">
-                  <p className="text-xs text-gray-500 mb-2">
-                    Quick suggestions:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {taskPresets[currentEmployee.department]?.map(
-                      (preset, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() =>
-                            setNewWorkLog({ ...newWorkLog, task: preset })
-                          }
-                          className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs hover:bg-gray-200 transition"
-                        >
-                          {preset}
-                        </button>
-                      )
-                    )}
-                  </div>
-                </div>
               </div>
 
               {/* Time Tracking */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Start Time

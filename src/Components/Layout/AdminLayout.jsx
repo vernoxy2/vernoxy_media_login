@@ -1,7 +1,8 @@
 import React from "react";
-import Sidebar from "./SideBar";
+import { SideBar } from "./SideBar";
 import Header from "./Header";
 import { Outlet, useLocation } from "react-router-dom";
+
 
 const AdminLayout = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -20,13 +21,13 @@ const AdminLayout = () => {
   const shouldHideHeader = hideHeaderPaths.includes(location.pathname);
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-x-hidden">
+    <div className="h-screen w-screen flex flex-col overflow-x-hidden bg-white text-black">
       {/* Conditionally render Header */}
       {!shouldHideHeader && <Header toggleMobileSidebar={toggleMobileSidebar} />}
 
       <div className="flex flex-1 w-full">
         {/* Sidebar */}
-        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        <SideBar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
         {/* Main Content */}
         <main className="flex flex-col px-6 py-6 md:pt-10 w-full container">
