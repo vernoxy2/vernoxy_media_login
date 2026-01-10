@@ -3,7 +3,7 @@ export const COUNTRY_NAMES = {
   IN: 'India',
   US: 'United States',
   CA: 'Canada',
-  UAE: 'United Arab Emirates',
+  UAE:'United Arab Emirates',
 };
 
 export const SERVICE_NAMES = {
@@ -19,7 +19,17 @@ export const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-export const YEARS = ['2024', '2025', '2026', '2027'];
+// ✅ Current year + Previous year in dropdown
+const currentYear = new Date().getFullYear();
+export const YEARS = [// Previous year
+  currentYear.toString(),        // Current year (default)
+];
+
+// ✅ Current year as default (always selected)
+export const CURRENT_YEAR = currentYear.toString();
+
+// ✅ Get current month name
+export const CURRENT_MONTH = MONTHS[new Date().getMonth()];
 
 // Valid values as constants (optional - for validation if needed)
 export const COUNTRIES = ['IN', 'US', 'CA', 'UAE'];

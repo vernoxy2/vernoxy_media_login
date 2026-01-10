@@ -57,7 +57,7 @@ export function WebsiteDesignForm({ form }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Website Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -82,7 +82,7 @@ export function WebsiteDesignForm({ form }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Number of Pages</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select range" />
@@ -244,7 +244,7 @@ function PageSections({ form, pageIndex, sectionTypes }) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">Section Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="h-8">
                         <SelectValue placeholder="Select type" />

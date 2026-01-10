@@ -33,7 +33,7 @@ export function ContentWritingForm({ form }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Content Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -72,7 +72,7 @@ export function ContentWritingForm({ form }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tone</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select tone" />

@@ -18,9 +18,14 @@ export default function Dashboard() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your projects and team activity</p>
+      <div className="mb-8 grid grid-cols-1 md:grid-cols-2">
+        <div className='text-start'>
+        <h1 className="text-2xl font-bold text-foreground ">Dashboard</h1>
+        <p className="text-muted-foreground ">Overview of your projects and team activity</p>
+        </div>
+        <div className='text-start'> 
+
+        </div>
       </div>
 
       {/* Stats Grid */}

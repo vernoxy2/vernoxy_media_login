@@ -1,11 +1,12 @@
-import { Project, TeamMember } from '@/types/project';
+import { Project, TeamMember } from '../types/project';
 
 export const mockTeamMembers: TeamMember[] = [
-  { id: '1', name: 'Sarah Chen', role: 'Admin', email: 'sarah@company.com' },
-  { id: '2', name: 'Michael Park', role: 'Designer', email: 'michael@company.com' },
-  { id: '3', name: 'Emily Rodriguez', role: 'Content Writer', email: 'emily@company.com' },
-  { id: '4', name: 'David Kim', role: 'Developer', email: 'david@company.com' },
-  { id: '5', name: 'Lisa Thompson', role: 'Reviewer', email: 'lisa@company.com' },
+  { id: '1', name: 'Bhumika Patel', role: 'Content Writer', email: '' },
+  { id: '2', name: 'Nikhil Lad', role: 'Designer', email: '' },
+  { id: '3', name: 'Jenil Dhimmar', role: 'Video Editor', email: '' },
+  { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer', email: '' },
+  { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer', email: '' },
+  { id: '6', name: 'Divya Patel', role: 'Front-End Developer', email: '' },
 ];
 
 export const mockProjects: Project[] = [
