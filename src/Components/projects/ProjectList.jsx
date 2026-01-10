@@ -120,7 +120,8 @@ export function ProjectList({ projects }) {
     <>
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground text-start">
-          <div className="col-span-4">Project</div>
+          <div className="col-span-2">Project</div>
+          <div className="col-span-2">Start & End Time</div>
           <div className="col-span-2">Service</div>
           <div className="col-span-2">Assigned To</div>
           <div className="col-span-2">Updated</div>

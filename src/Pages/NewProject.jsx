@@ -24,17 +24,7 @@ const projectSchema = z.object({
   assignedTo: z.string().optional(),
   internalNotes: z.string().optional(),
   graphicDesign: z
-    .object({
-      postType: z.string().optional(),
-      platform: z.string().optional(),
-      size: z.string().optional(),
-      mainText: z.string().optional(),
-      subText: z.string().optional(),
-      ctaText: z.string().optional(),
-      hashtags: z.string().optional(),
-      caption: z.string().optional(),
-      designerNotes: z.string().optional(),
-    })
+    .record(z.string(), z.any()) // This allows any dynamic keys with any values
     .optional(),
   websiteDesign: z
     .object({
@@ -96,7 +86,6 @@ export default function NewProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
 
-  // Check if we're in edit mode based on URL parameter
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
 
@@ -149,9 +138,30 @@ export default function NewProject() {
     },
   });
 
-  // Load existing project data when in edit mode
   useEffect(() => {
     if (isEditMode && existingProject) {
+      // Prepare graphicDesign data with all dynamic fields
+      const graphicDesignData = existingProject.graphicDesign || {
+        postType: "",
+        platform: "",
+        size: "",
+        mainText: "",
+        subText: "",
+        ctaText: "",
+        hashtags: "",
+        caption: "",
+        designerNotes: "",
+      };
+
+      // If graphicDesign exists, copy all mainText and subText updates dynamically
+      if (existingProject.graphicDesign) {
+        Object.keys(existingProject.graphicDesign).forEach((key) => {
+          if (key.startsWith('mainText') || key.startsWith('subText')) {
+            graphicDesignData[key] = existingProject.graphicDesign[key];
+          }
+        });
+      }
+
       form.reset({
         clientName: existingProject.clientName || "",
         country: existingProject.country || "",
@@ -161,17 +171,7 @@ export default function NewProject() {
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
-        graphicDesign: existingProject.graphicDesign || {
-          postType: "",
-          platform: "",
-          size: "",
-          mainText: "",
-          subText: "",
-          ctaText: "",
-          hashtags: "",
-          caption: "",
-          designerNotes: "",
-        },
+        graphicDesign: graphicDesignData,
         websiteDesign: existingProject.websiteDesign || {
           websiteType: "",
           numberOfPages: "",
@@ -200,14 +200,12 @@ export default function NewProject() {
     }
   }, [isEditMode, existingProject, form]);
 
-  // Watch form fields for dynamic updates
   const watchedServiceType = form.watch("serviceType");
   const watchedClientName = form.watch("clientName");
   const watchedCountry = form.watch("country");
   const watchedMonth = form.watch("month");
   const watchedYear = form.watch("year");
 
-  // Generate project ID automatically
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
@@ -242,75 +240,78 @@ export default function NewProject() {
     projects,
   ]);
 
-  // Handle form submission
-const onSubmit = async (data) => {
-  setIsSubmitting(true);
-  try {
-    if (isEditMode) {
-      const updatedProject = {
-        ...existingProject,
-        status: data.status,
-        internalNotes: data.internalNotes || "",
-      };
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    try {
+      if (isEditMode) {
+        const updatedProject = {
+          ...existingProject,
+          status: data.status,
+          internalNotes: data.internalNotes || "",
+        };
 
-      // Update mainText and subText updates
-      Object.keys(data.graphicDesign || {}).forEach(key => {
-        if (key.startsWith('mainText') || key.startsWith('subText')) {
-          if (!updatedProject.graphicDesign) {
-            updatedProject.graphicDesign = {};
-          }
-          updatedProject.graphicDesign[key] = data.graphicDesign[key];
+        if (data.graphicDesign || existingProject.graphicDesign) {
+          updatedProject.graphicDesign = {
+            ...existingProject.graphicDesign,
+            ...data.graphicDesign
+          };
         }
-      });
 
-      await updateProject(id, updatedProject);
-      navigate(`/admin/projects/${id}`);
-    } else {
-      const newProject = {
-        projectId: generatedProjectId,
-        clientName: data.clientName,
-        country: data.country,
-        serviceType: data.serviceType,
-        month: data.month,
-        year: data.year,
-        status: data.status,
-        assignedTo: data.assignedTo || "",
-        internalNotes: data.internalNotes || "",
-        graphicDesign: data.serviceType === "GD" ? {
-          // Basic fields
-          postType: data.graphicDesign?.postType || "",
-          platform: data.graphicDesign?.platform || "",
-          size: data.graphicDesign?.size || "",
-          mainText: data.graphicDesign?.mainText || "",
-          subText: data.graphicDesign?.subText || "",
-          ctaText: data.graphicDesign?.ctaText || "",
-          hashtags: data.graphicDesign?.hashtags || "",
-          caption: data.graphicDesign?.caption || "",
-          designerNotes: data.graphicDesign?.designerNotes || "",
-          ...Object.keys(data.graphicDesign || {})
-            .filter(key => key.startsWith('mainText') && key !== 'mainText')
-            .reduce((acc, key) => ({ ...acc, [key]: data.graphicDesign[key] }), {}),
-          ...Object.keys(data.graphicDesign || {})
-            .filter(key => key.startsWith('subText') && key !== 'subText')
-            .reduce((acc, key) => ({ ...acc, [key]: data.graphicDesign[key] }), {}),
-        } : null,
-        websiteDesign: data.serviceType === "WD" ? data.websiteDesign : null,
-        contentWriting: data.serviceType === "CW" ? data.contentWriting : null,
-        erp: data.serviceType === "ERP" ? data.erp : null,
-      };
+        console.log("Updating project with data:", updatedProject);
+        await updateProject(id, updatedProject);
+        navigate(`/admin/projects/${id}`);
+      } else {
+        const getTextUpdates = (graphicDesignData) => {
+          const updates = {};
+          if (graphicDesignData) {
+            Object.keys(graphicDesignData).forEach(key => {
+              if (key.startsWith('mainText') || key.startsWith('subText')) {
+                updates[key] = graphicDesignData[key];
+              }
+            });
+          }
+          return updates;
+        };
 
-      await addProject(newProject);
-      navigate("/admin/projects");
+        const newProject = {
+          projectId: generatedProjectId,
+          clientName: data.clientName,
+          country: data.country,
+          serviceType: data.serviceType,
+          month: data.month,
+          year: data.year,
+          status: data.status,
+          assignedTo: data.assignedTo || "",
+          internalNotes: data.internalNotes || "",
+          graphicDesign: data.serviceType === "GD" ? {
+            postType: data.graphicDesign?.postType || "",
+            platform: data.graphicDesign?.platform || "",
+            size: data.graphicDesign?.size || "",
+            mainText: data.graphicDesign?.mainText || "",
+            subText: data.graphicDesign?.subText || "",
+            ctaText: data.graphicDesign?.ctaText || "",
+            hashtags: data.graphicDesign?.hashtags || "",
+            caption: data.graphicDesign?.caption || "",
+            designerNotes: data.graphicDesign?.designerNotes || "",
+            ...getTextUpdates(data.graphicDesign)
+          } : null,
+          websiteDesign: data.serviceType === "WD" ? data.websiteDesign : null,
+          contentWriting: data.serviceType === "CW" ? data.contentWriting : null,
+          erp: data.serviceType === "ERP" ? data.erp : null,
+        };
+
+        console.log("Creating new project with data:", newProject);
+        await addProject(newProject);
+        navigate("/admin/projects");
+      }
+    } catch (error) {
+      console.error("Error submitting project:", error);
+      alert("Error saving project. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error("Error submitting project:", error);
-    alert("Error saving project. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
-  // Show loading state
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
@@ -319,7 +320,6 @@ const onSubmit = async (data) => {
     );
   }
 
-  // Show error if project not found in edit mode
   if (isEditMode && !existingProject) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
@@ -330,7 +330,6 @@ const onSubmit = async (data) => {
 
   return (
     <div className="p-8 text-start">
-      {/* Page Header */}
       <div className="mb-8 flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -345,7 +344,6 @@ const onSubmit = async (data) => {
               : "Create a new project with all required details"}
           </p>
         </div>
-        {/* Toggle button to show/hide old data summary */}
         {isEditMode && (
           <Button
             variant="outline"
@@ -362,7 +360,6 @@ const onSubmit = async (data) => {
         )}
       </div>
 
-      {/* Expandable section showing current project data in edit mode */}
       {isEditMode && showOldData && existingProject && (
         <div className="mb-8 rounded-xl border border-blue-500/50 bg-blue-50 dark:bg-blue-950/20 p-6">
           <h3 className="mb-4 text-lg font-semibold text-blue-900 dark:text-blue-100">
@@ -425,7 +422,6 @@ const onSubmit = async (data) => {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* Base Project Information Section */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h2 className="mb-6 text-lg font-semibold text-foreground">
               Project Information
@@ -437,7 +433,6 @@ const onSubmit = async (data) => {
             />
           </div>
 
-          {/* Service-specific forms - shown based on service type */}
           {watchedServiceType === "GD" && (
             <GraphicDesignForm
               form={form}
@@ -455,7 +450,6 @@ const onSubmit = async (data) => {
             <ERPForm form={form} isEditMode={isEditMode} />
           )}
 
-          {/* Form action buttons */}
           <div className="flex items-center justify-end gap-4">
             <Button
               type="button"

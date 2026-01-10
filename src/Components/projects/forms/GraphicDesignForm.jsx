@@ -5,17 +5,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../Components/ui/form';
-import { Input } from '../../../Components/ui/input';
-import { Textarea } from '../../../Components/ui/textarea';
-import { Button } from '../../../Components/ui/button';
+} from '../../ui/form';
+import { Input } from '../../ui/input';
+import { Textarea } from '../../ui/textarea';
+import { Button } from '../../ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../Components/ui/select';
+} from '../../ui/select';
 import { Plus, X } from 'lucide-react';
 
 const postTypes = ['Social Post', 'Banner', 'Ad', 'Poster', 'Thumbnail'];
@@ -23,96 +23,101 @@ const platforms = ['Instagram', 'Facebook', 'LinkedIn', 'Website'];
 const sizes = ['Square', 'Portrait', 'Landscape'];
 
 export function GraphicDesignForm({ form, isEditMode = false, existingData = null }) {
-  // State for managing main text updates
   const [mainTextUpdates, setMainTextUpdates] = useState([]);
   const [subTextUpdates, setSubTextUpdates] = useState([]);
 
   // Load existing updates when in edit mode
   useEffect(() => {
     if (isEditMode && existingData) {
+      console.log("Loading existing data:", existingData);
+      
       // Load existing main text updates
       const existingMainUpdates = [];
-      let index = 1;
-      while (existingData[`mainText${index}`]) {
-        existingMainUpdates.push({
-          index: index,
-          value: existingData[`mainText${index}`],
-          isExisting: true // Mark as existing/old record
-        });
-        // Set form value for existing updates
-        form.setValue(`graphicDesign.mainText${index}`, existingData[`mainText${index}`]);
-        index++;
-      }
+      Object.keys(existingData).forEach((key) => {
+        if (key.startsWith('mainText') && key !== 'mainText') {
+          const indexMatch = key.match(/mainText(\d+)/);
+          if (indexMatch) {
+            const index = parseInt(indexMatch[1]);
+            existingMainUpdates.push({
+              index: index,
+              value: existingData[key],
+              isExisting: true
+            });
+            form.setValue(`graphicDesign.mainText${index}`, existingData[key]);
+          }
+        }
+      });
+      
+      existingMainUpdates.sort((a, b) => a.index - b.index);
       setMainTextUpdates(existingMainUpdates);
+      console.log("Loaded main text updates:", existingMainUpdates);
 
       // Load existing sub text updates
       const existingSubUpdates = [];
-      index = 1;
-      while (existingData[`subText${index}`]) {
-        existingSubUpdates.push({
-          index: index,
-          value: existingData[`subText${index}`],
-          isExisting: true // Mark as existing/old record
-        });
-        // Set form value for existing updates
-        form.setValue(`graphicDesign.subText${index}`, existingData[`subText${index}`]);
-        index++;
-      }
+      Object.keys(existingData).forEach((key) => {
+        if (key.startsWith('subText') && key !== 'subText') {
+          const indexMatch = key.match(/subText(\d+)/);
+          if (indexMatch) {
+            const index = parseInt(indexMatch[1]);
+            existingSubUpdates.push({
+              index: index,
+              value: existingData[key],
+              isExisting: true
+            });
+            form.setValue(`graphicDesign.subText${index}`, existingData[key]);
+          }
+        }
+      });
+      
+      existingSubUpdates.sort((a, b) => a.index - b.index);
       setSubTextUpdates(existingSubUpdates);
+      console.log("Loaded sub text updates:", existingSubUpdates);
     }
   }, [isEditMode, existingData, form]);
 
   // Add new main text update field
   const addMainTextUpdate = () => {
-    // Find next available index
-    let newIndex = 1;
-    const usedIndices = mainTextUpdates.map(item => item.index);
-    while (usedIndices.includes(newIndex)) {
-      newIndex++;
-    }
+    const highestIndex = mainTextUpdates.length > 0 
+      ? Math.max(...mainTextUpdates.map(item => item.index))
+      : 0;
+    const newIndex = highestIndex + 1;
     setMainTextUpdates([...mainTextUpdates, { index: newIndex, value: '', isExisting: false }]);
   };
 
   // Add new sub text update field
   const addSubTextUpdate = () => {
-    // Find next available index
-    let newIndex = 1;
-    const usedIndices = subTextUpdates.map(item => item.index);
-    while (usedIndices.includes(newIndex)) {
-      newIndex++;
-    }
+    const highestIndex = subTextUpdates.length > 0 
+      ? Math.max(...subTextUpdates.map(item => item.index))
+      : 0;
+    const newIndex = highestIndex + 1;
     setSubTextUpdates([...subTextUpdates, { index: newIndex, value: '', isExisting: false }]);
   };
 
-  // Remove main text update (only for new, non-existing updates)
+  // Remove main text update
   const removeMainTextUpdate = (index) => {
     setMainTextUpdates(mainTextUpdates.filter(item => item.index !== index));
-    // Remove from form as well
     form.setValue(`graphicDesign.mainText${index}`, undefined);
   };
 
-  // Remove sub text update (only for new, non-existing updates)
+  // Remove sub text update
   const removeSubTextUpdate = (index) => {
     setSubTextUpdates(subTextUpdates.filter(item => item.index !== index));
-    // Remove from form as well
     form.setValue(`graphicDesign.subText${index}`, undefined);
   };
 
-  // Update main text value (only for new updates)
+  // Update main text value
   const updateMainTextValue = (index, value) => {
     setMainTextUpdates(mainTextUpdates.map(item => 
       item.index === index ? { ...item, value } : item
     ));
-    // Update form value with correct field name
     form.setValue(`graphicDesign.mainText${index}`, value);
   };
 
-  // Update sub text value (only for new updates)
+  // Update sub text value
   const updateSubTextValue = (index, value) => {
     setSubTextUpdates(subTextUpdates.map(item => 
       item.index === index ? { ...item, value } : item
     ));
-    // Update form value with correct field name
     form.setValue(`graphicDesign.subText${index}`, value);
   };
 
@@ -221,7 +226,7 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
         />
       </div>
 
-      {/* Main Text Field - Original (Always disabled in edit mode) */}
+      {/* Main Text Field - Original */}
       <FormField
         control={form.control}
         name="graphicDesign.mainText"
@@ -295,7 +300,7 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
         )}
       </div>
 
-      {/* Sub Text Field - Original (Always disabled in edit mode) */}
+      {/* Sub Text Field - Original */}
       <FormField
         control={form.control}
         name="graphicDesign.subText"

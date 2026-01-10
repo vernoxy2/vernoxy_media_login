@@ -226,39 +226,91 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           )}
         />
 
-        {/* Assigned To Field */}
-        <FormField
-          control={form.control}
-          name="assignedTo"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>
-                Assigned To
-              </FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {teamMembers.find(m => m.id === field.value)?.name || field.value || 'Not Assigned'}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select team member" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name} ({member.role})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      </div>
+
+      {/* Assigned To (6 cols) + Start Time (3 cols) + End Time (3 cols) in one row */}
+      <div className="grid gap-6 md:grid-cols-12">
+        {/* Assigned To Field - 6 columns */}
+        <div className="md:col-span-6">
+          <FormField
+            control={form.control}
+            name="assignedTo"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Assigned To
+                </FormLabel>
+                {isEditMode ? (
+                  <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    {teamMembers.find(m => m.id === field.value)?.name || field.value || 'Not Assigned'}
+                  </div>
+                ) : (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select team member" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} ({member.role})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Start Time Field - 3 columns */}
+        <div className="md:col-span-3">
+          <FormField
+            control={form.control}
+            name="startTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Start Time
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="time"
+                    {...field}
+                    className="w-full"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* End Time Field - 3 columns */}
+        <div className="md:col-span-3">
+          <FormField
+            control={form.control}
+            name="endTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  End Time
+                </FormLabel>
+                <FormControl>
+                  <Input 
+                    type="time"
+                    {...field}
+                    className="w-full"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
       </div>
 
       {/* Internal Notes Field - ALWAYS EDITABLE */}
