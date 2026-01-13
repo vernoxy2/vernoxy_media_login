@@ -4,28 +4,39 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../Components/ui/form';
-import { Input } from '../../../Components/ui/input';
-import { Textarea } from '../../../Components/ui/textarea';
+} from "../../../Components/ui/form";
+import { Input } from "../../../Components/ui/input";
+import { Textarea } from "../../../Components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../Components/ui/select';
+} from "../../../Components/ui/select";
 import {
   COUNTRY_NAMES,
   SERVICE_NAMES,
   MONTHS,
   YEARS,
-} from '../../../types/project';
-import { useProjects } from '../../../context/ProjectContext';
+} from "../../../types/project";
+import { useProjects } from "../../../context/ProjectContext";
 
-const statuses = ['Draft', 'In Progress', 'Review', 'Approved', 'Delivered'];
+const statuses = ["Draft", "In Progress", "Review", "Approved", "Delivered"];
 
-export function BaseProjectForm({ form, projectId, isEditMode = false }) {
-  const { teamMembers } = useProjects();
+export function BaseProjectForm({ form, projectId, isEditMode = false, isContentWriter = false, currentUser = null }) {
+  const { teamMembers, availableTeamMembers } = useProjects();
+
+  // 🎯 Filter months to show only current month + future months
+  const getAvailableMonths = () => {
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth(); // 0-11 (0 = January, 11 = December)
+    
+    // Return months from current month onwards
+    return MONTHS.slice(currentMonth);
+  };
+
+  const availableMonths = getAvailableMonths();
 
   return (
     <div className="space-y-6">
@@ -35,7 +46,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           Project ID
         </label>
         <p className="font-mono text-lg font-semibold text-foreground mt-1">
-          {projectId || 'Will be generated...'}
+          {projectId || "Will be generated..."}
         </p>
       </div>
 
@@ -47,14 +58,19 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Client Name {!isEditMode && <span className="text-destructive">*</span>}
+                Client Name{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="Enter client name" 
+                <Input
+                  placeholder="Enter client name"
                   {...field}
                   disabled={isEditMode}
-                  className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
+                  className={
+                    isEditMode
+                      ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                      : ""
+                  }
                 />
               </FormControl>
               <FormMessage />
@@ -69,7 +85,8 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Country {!isEditMode && <span className="text-destructive">*</span>}
+                Country{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
@@ -103,7 +120,8 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Service Type {!isEditMode && <span className="text-destructive">*</span>}
+                Service Type{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
@@ -130,7 +148,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           )}
         />
 
-        {/* Status Field - ALWAYS EDITABLE */}
+        {/* 🎯 Status Field - Content Writers see only "Draft", others see all */}
         <FormField
           control={form.control}
           name="status"
@@ -139,33 +157,48 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
               <FormLabel>
                 Status <span className="text-destructive">*</span>
               </FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select 
+                onValueChange={field.onChange} 
+                value={field.value}
+                disabled={isContentWriter}
+              >
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className={isContentWriter ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {statuses.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status}
-                    </SelectItem>
-                  ))}
+                  {isContentWriter ? (
+                    // Content Writer માટે માત્ર Draft
+                    <SelectItem value="Draft">Draft</SelectItem>
+                  ) : (
+                    // બીજા બધા માટે બધા status
+                    statuses.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {isContentWriter && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Month Field */}
+        {/* 🎯 Month Field - Shows only current + future months */}
         <FormField
           control={form.control}
           name="month"
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Month {!isEditMode && <span className="text-destructive">*</span>}
+                Month{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
@@ -179,7 +212,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {MONTHS.map((month) => (
+                    {availableMonths.map((month) => (
                       <SelectItem key={month} value={month}>
                         {month}
                       </SelectItem>
@@ -199,7 +232,8 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Year {!isEditMode && <span className="text-destructive">*</span>}
+                Year{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
@@ -225,10 +259,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
             </FormItem>
           )}
         />
-
       </div>
-
-      {/* Assigned To (6 cols) + Start Time (3 cols) + End Time (3 cols) in one row */}
       <div className="grid gap-6 md:grid-cols-12">
         {/* Assigned To Field - 6 columns */}
         <div className="md:col-span-6">
@@ -237,12 +268,13 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
             name="assignedTo"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  Assigned To
-                </FormLabel>
+                <FormLabel>Assigned To</FormLabel>
                 {isEditMode ? (
                   <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                    {teamMembers.find(m => m.id === field.value)?.name || field.value || 'Not Assigned'}
+                    {(teamMembers || []).find((m) => m.id === field.value)
+                      ?.name ||
+                      field.value ||
+                      "Not Assigned"}
                   </div>
                 ) : (
                   <Select onValueChange={field.onChange} value={field.value}>
@@ -252,7 +284,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {teamMembers.map((member) => (
+                      {(teamMembers || []).map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.name} ({member.role})
                         </SelectItem>
@@ -266,21 +298,20 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           />
         </div>
 
-        {/* Start Time Field - 3 columns */}
         <div className="md:col-span-3">
           <FormField
             control={form.control}
             name="startTime"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  Start Time
-                </FormLabel>
+                <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="time"
+                  <Input
                     {...field}
-                    className="w-full"
+                    placeholder="--:-- --"
+                    readOnly
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed font-medium"
                   />
                 </FormControl>
                 <FormMessage />
@@ -289,21 +320,20 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
           />
         </div>
 
-        {/* End Time Field - 3 columns */}
         <div className="md:col-span-3">
           <FormField
             control={form.control}
             name="endTime"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  End Time
-                </FormLabel>
+                <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <Input 
-                    type="time"
+                  <Input
                     {...field}
-                    className="w-full"
+                    placeholder="--:-- --"
+                    readOnly
+                    disabled
+                    className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed font-medium"
                   />
                 </FormControl>
                 <FormMessage />
@@ -313,15 +343,12 @@ export function BaseProjectForm({ form, projectId, isEditMode = false }) {
         </div>
       </div>
 
-      {/* Internal Notes Field - ALWAYS EDITABLE */}
       <FormField
         control={form.control}
         name="internalNotes"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>
-              Internal Notes
-            </FormLabel>
+            <FormLabel>Internal Notes</FormLabel>
             <FormControl>
               <Textarea
                 placeholder="Add any internal notes or comments..."

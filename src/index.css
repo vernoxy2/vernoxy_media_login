@@ -112,43 +112,44 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings: "rlig"1, "calt"1;
   }
 
   p {
     @apply text-white text-sm md:text-xl font-Mulish;
   }
-  
+
   section {
     @apply py-10 md:py-24 space-y-8 md:space-y-16;
   }
 }
 
 @layer components {
+
   /* Status badges */
   .status-badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
-  
+
   .status-draft {
     @apply bg-muted text-muted-foreground;
   }
-  
+
   .status-in-progress {
     background-color: hsl(var(--status-in-progress) / 0.15);
     color: hsl(var(--status-in-progress));
   }
-  
+
   .status-review {
     background-color: hsl(var(--status-review) / 0.15);
     color: hsl(var(--status-review));
   }
-  
+
   .status-approved {
     background-color: hsl(var(--status-approved) / 0.15);
     color: hsl(var(--status-approved));
   }
-  
+
   .status-delivered {
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
@@ -186,6 +187,7 @@
 }
 
 @layer utilities {
+
   /* Fade in animation */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
@@ -196,6 +198,7 @@
       opacity: 0;
       transform: translateY(4px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -208,28 +211,29 @@
   }
 
   /* Fix Sonner toast positioning */
-[data-sonner-toaster] {
-  position: fixed !important;
-  z-index: 9999 !important;
-  top: 0 !important;
-  right: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  pointer-events: none !important;
-}
+  [data-sonner-toaster] {
+    position: fixed !important;
+    z-index: 9999 !important;
+    top: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+  }
 
-[data-sonner-toaster] > * {
-  pointer-events: auto !important;
-}
+  [data-sonner-toaster]>* {
+    pointer-events: auto !important;
+  }
+
   /* Fix Sonner toast positioning */
   .toaster {
     position: fixed !important;
     z-index: 9999 !important;
-     margin: 0 !important;
-  padding: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
-  
-  .toaster > * {
+
+  .toaster>* {
     margin: 0 !important;
   }
 
@@ -242,6 +246,7 @@
     0% {
       transform: translateX(0%);
     }
+
     100% {
       transform: translateX(-100%);
     }
@@ -256,9 +261,11 @@
     0% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
+
     50% {
       transform: rotate(180deg) scale(1.5) translateX(10%);
     }
+
     100% {
       transform: rotate(360deg) scale(1) translateX(0%);
     }
@@ -273,11 +280,39 @@
     0% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
+
     50% {
       transform: rotate(180deg) scale(22);
     }
+
     100% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
   }
+}
+
+/* Table scroll container styles */
+.table-scroll-container::-webkit-scrollbar {
+  height: 10px;
+}
+
+.table-scroll-container::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 8px;
+  margin: 0 12px;
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4);
+  border-radius: 8px;
+  border: 2px solid hsl(var(--muted));
+}
+
+.table-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.6);
+}
+
+.table-scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.4) hsl(var(--muted));
 }

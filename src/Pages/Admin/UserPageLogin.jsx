@@ -204,10 +204,7 @@ const UserPageLogin = () => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
-
         const docRef = await addDoc(collection(db, "workLogs"), workLogData);
-        console.log("✅ Work log saved to Firebase with ID:", docRef.id);
-
         setSubmitStatus({
           type: "success",
           message: "✅ Work entry saved successfully!",
@@ -257,7 +254,6 @@ const UserPageLogin = () => {
   const deleteWorkLog = async (id) => {
     try {
       await deleteDoc(doc(db, "workLogs", id));
-      console.log("✅ Work log deleted from Firebase");
       await loadWorkLogs();
     } catch (error) {
       console.error("❌ Error deleting work log:", error);

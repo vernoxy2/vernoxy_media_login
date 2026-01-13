@@ -23,8 +23,21 @@ const projectSchema = z.object({
   status: z.string().default("Draft"),
   assignedTo: z.string().optional(),
   internalNotes: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
   graphicDesign: z
-    .record(z.string(), z.any()) // This allows any dynamic keys with any values
+    .object({
+      postType: z.string().optional(),
+      platform: z.string().optional(),
+      size: z.string().optional(),
+      mainText: z.string().optional(),
+      subText: z.string().optional(),
+      ctaText: z.string().optional(),
+      hashtags: z.string().optional(),
+      caption: z.string().optional(),
+      designerNotes: z.string().optional(),
+    })
+    .catchall(z.any())
     .optional(),
   websiteDesign: z
     .object({
@@ -32,27 +45,19 @@ const projectSchema = z.object({
       numberOfPages: z.string().optional(),
       technologyPreference: z.string().optional(),
       referenceWebsites: z.string().optional(),
-      pages: z
-        .array(
-          z.object({
-            pageName: z.string().optional(),
-            pagePurpose: z.string().optional(),
-            sections: z
-              .array(
-                z.object({
-                  sectionType: z.string().optional(),
-                  mainHeading: z.string().optional(),
-                  subHeading: z.string().optional(),
-                  paragraphText: z.string().optional(),
-                  buttonText: z.string().optional(),
-                  buttonLink: z.string().optional(),
-                  layoutNotes: z.string().optional(),
-                })
-              )
-              .optional(),
-          })
-        )
-        .optional(),
+      pages: z.array(z.object({
+        pageName: z.string().optional(),
+        pagePurpose: z.string().optional(),
+        sections: z.array(z.object({
+          sectionType: z.string().optional(),
+          mainHeading: z.string().optional(),
+          subHeading: z.string().optional(),
+          paragraphText: z.string().optional(),
+          buttonText: z.string().optional(),
+          buttonLink: z.string().optional(),
+          layoutNotes: z.string().optional(),
+        })).optional(),
+      })).optional(),
     })
     .optional(),
   contentWriting: z
@@ -78,16 +83,27 @@ const projectSchema = z.object({
     .optional(),
 });
 
+const getCurrentTime = () => {
+  const now = new Date();
+  let hours = now.getHours();
+  let minutes = now.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  minutes = minutes < 10 ? '0' + minutes : minutes;
+  return `${hours}:${minutes} ${ampm}`;
+};
+
 export default function NewProject() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { projects, addProject, updateProject, getProjectById, loading } =
-    useProjects();
+  const { projects, addProject, updateProject, getProjectById, loading, currentUser } = useProjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
-
+  const [showServiceForm, setShowServiceForm] = useState(false);
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
+  const isContentWriter = currentUser?.department === "Content Writing";
 
   const form = useForm({
     resolver: zodResolver(projectSchema),
@@ -100,6 +116,8 @@ export default function NewProject() {
       status: "Draft",
       assignedTo: "",
       internalNotes: "",
+      startTime: "",
+      endTime: "",
       graphicDesign: {
         postType: "",
         platform: "",
@@ -140,8 +158,7 @@ export default function NewProject() {
 
   useEffect(() => {
     if (isEditMode && existingProject) {
-      // Prepare graphicDesign data with all dynamic fields
-      const graphicDesignData = existingProject.graphicDesign || {
+      const graphicDesignData = {
         postType: "",
         platform: "",
         size: "",
@@ -151,16 +168,8 @@ export default function NewProject() {
         hashtags: "",
         caption: "",
         designerNotes: "",
+        ...(existingProject.graphicDesign || {})
       };
-
-      // If graphicDesign exists, copy all mainText and subText updates dynamically
-      if (existingProject.graphicDesign) {
-        Object.keys(existingProject.graphicDesign).forEach((key) => {
-          if (key.startsWith('mainText') || key.startsWith('subText')) {
-            graphicDesignData[key] = existingProject.graphicDesign[key];
-          }
-        });
-      }
 
       form.reset({
         clientName: existingProject.clientName || "",
@@ -171,6 +180,8 @@ export default function NewProject() {
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
+        startTime: existingProject.startTime || "",
+        endTime: existingProject.endTime || "",
         graphicDesign: graphicDesignData,
         websiteDesign: existingProject.websiteDesign || {
           websiteType: "",
@@ -197,6 +208,9 @@ export default function NewProject() {
           technicalNotes: "",
         },
       });
+      setShowServiceForm(true);
+    } else {
+      form.setValue("status", "Draft");
     }
   }, [isEditMode, existingProject, form]);
 
@@ -210,14 +224,7 @@ export default function NewProject() {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
     }
-
-    if (
-      !watchedCountry ||
-      !watchedServiceType ||
-      !watchedClientName ||
-      !watchedMonth ||
-      !watchedYear
-    ) {
+    if (!watchedCountry || !watchedServiceType || !watchedClientName || !watchedMonth || !watchedYear) {
       return "";
     }
     const clientCode = generateClientCode(watchedClientName);
@@ -240,14 +247,27 @@ export default function NewProject() {
     projects,
   ]);
 
+  const handleCreateProject = () => {
+    if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
+      alert("Please fill all required fields before creating project!");
+      return;
+    }
+    const currentTime = getCurrentTime();
+    form.setValue("startTime", currentTime);
+    setShowServiceForm(true);
+  };
+
   const onSubmit = async (data) => {
     setIsSubmitting(true);
+    const endTime = getCurrentTime();
     try {
       if (isEditMode) {
         const updatedProject = {
           ...existingProject,
-          status: data.status,
+          status: isContentWriter ? "Draft" : data.status,
           internalNotes: data.internalNotes || "",
+          startTime: data.startTime,
+          endTime: endTime,
         };
 
         if (data.graphicDesign || existingProject.graphicDesign) {
@@ -257,7 +277,17 @@ export default function NewProject() {
           };
         }
 
-        console.log("Updating project with data:", updatedProject);
+        if (data.websiteDesign) {
+          updatedProject.websiteDesign = data.websiteDesign;
+        }
+
+        if (data.contentWriting) {
+          updatedProject.contentWriting = data.contentWriting;
+        }
+
+        if (data.erp) {
+          updatedProject.erp = data.erp;
+        }
         await updateProject(id, updatedProject);
         navigate(`/admin/projects/${id}`);
       } else {
@@ -280,9 +310,11 @@ export default function NewProject() {
           serviceType: data.serviceType,
           month: data.month,
           year: data.year,
-          status: data.status,
+          status: isContentWriter ? "Draft" : data.status,
           assignedTo: data.assignedTo || "",
           internalNotes: data.internalNotes || "",
+          startTime: data.startTime,
+          endTime: endTime,
           graphicDesign: data.serviceType === "GD" ? {
             postType: data.graphicDesign?.postType || "",
             platform: data.graphicDesign?.platform || "",
@@ -299,17 +331,20 @@ export default function NewProject() {
           contentWriting: data.serviceType === "CW" ? data.contentWriting : null,
           erp: data.serviceType === "ERP" ? data.erp : null,
         };
-
-        console.log("Creating new project with data:", newProject);
         await addProject(newProject);
         navigate("/admin/projects");
       }
     } catch (error) {
-      console.error("Error submitting project:", error);
       alert("Error saving project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCancelServiceForm = () => {
+    setShowServiceForm(false);
+    form.setValue("startTime", "");
+    form.setValue("endTime", "");
   };
 
   if (loading) {
@@ -335,7 +370,7 @@ export default function NewProject() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground">
+          <h1 className="text-3xl font-bold text-foreground">
             {isEditMode ? "Edit Project" : "New Project"}
           </h1>
           <p className="text-muted-foreground text-md">
@@ -368,52 +403,20 @@ export default function NewProject() {
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Project ID:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.projectId}
-                </p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">Project ID:</span>
+                <p className="text-blue-800 dark:text-blue-300">{existingProject.projectId}</p>
               </div>
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Client Name:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.clientName}
-                </p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">Client Name:</span>
+                <p className="text-blue-800 dark:text-blue-300">{existingProject.clientName}</p>
               </div>
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Service Type:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.serviceType}
-                </p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">Start Time:</span>
+                <p className="text-blue-800 dark:text-blue-300">{existingProject.startTime || 'Not set'}</p>
               </div>
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Country:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.country}
-                </p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Month:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.month}
-                </p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">
-                  Year:
-                </span>
-                <p className="text-blue-800 dark:text-blue-300">
-                  {existingProject.year}
-                </p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">End Time:</span>
+                <p className="text-blue-800 dark:text-blue-300">{existingProject.endTime || 'Not set'}</p>
               </div>
             </div>
           </div>
@@ -430,48 +433,66 @@ export default function NewProject() {
               form={form}
               projectId={generatedProjectId}
               isEditMode={isEditMode}
+              isContentWriter={isContentWriter}
+              currentUser={currentUser}
             />
-          </div>
-
-          {watchedServiceType === "GD" && (
-            <GraphicDesignForm
-              form={form}
-              isEditMode={isEditMode}
-              existingData={existingProject?.graphicDesign}
-            />
-          )}
-          {watchedServiceType === "WD" && (
-            <WebsiteDesignForm form={form} isEditMode={isEditMode} />
-          )}
-          {watchedServiceType === "CW" && (
-            <ContentWritingForm form={form} isEditMode={isEditMode} />
-          )}
-          {watchedServiceType === "ERP" && (
-            <ERPForm form={form} isEditMode={isEditMode} />
-          )}
-
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate(-1)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditMode ? "Updating..." : "Creating..."}
-                </>
-              ) : (
-                <>
+            {!isEditMode && !showServiceForm && (
+              <div className="mt-6 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={handleCreateProject}
+                  className="bg-primary hover:bg-primary/90"
+                >
                   <Save className="mr-2 h-4 w-4" />
-                  {isEditMode ? "Update Project" : "Create Project"}
-                </>
-              )}
-            </Button>
+                  Create Project
+                </Button>
+              </div>
+            )}
           </div>
+
+          {showServiceForm && (
+            <>
+              {watchedServiceType === "GD" && (
+                <GraphicDesignForm
+                  form={form}
+                  isEditMode={isEditMode}
+                  existingData={existingProject?.graphicDesign}
+                />
+              )}
+              {watchedServiceType === "WD" && (
+                <WebsiteDesignForm form={form} isEditMode={isEditMode} />
+              )}
+              {watchedServiceType === "CW" && (
+                <ContentWritingForm form={form} isEditMode={isEditMode} />
+              )}
+              {watchedServiceType === "ERP" && (
+                <ERPForm form={form} isEditMode={isEditMode} />
+              )}
+
+              <div className="flex items-center justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancelServiceForm}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Submit Project
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
         </form>
       </Form>
     </div>

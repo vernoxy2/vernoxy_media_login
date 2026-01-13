@@ -72,35 +72,20 @@ const Form = () => {
   });
 };
 
-// useEffect at the top level of your component
 React.useEffect(() => {
-  // console.log("Form data changed:", formData); // ✅ logs latest values
 }, [formData]);
 
-
-  // Add Error Handling
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const newErrors = {};
-
     // Validate form data here
     if (!formData.name) newErrors.name = "Name is required";
     if (!formData.email) newErrors.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(formData.email))
       newErrors.email = "Invalid email format";
     if (!formData.message) newErrors.message = "Message is required";
-
-    // Set errors
     setErrors(newErrors);
-
-    // If there are errors, stop submission
     if (Object.keys(newErrors).length > 0) return;
-
-    // Submit data
-    console.log("✅ Form Submitted:", formData);
-
-    // Clear form
     resetForm();
   };
 

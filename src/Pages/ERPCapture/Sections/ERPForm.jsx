@@ -339,22 +339,12 @@ export default function ERPForm() {
         updatedAt: serverTimestamp(),
         submissionStatus: "new",
       };
-
-      // Add document to Firestore
       const docRef = await addDoc(
         collection(db, "erpSubmissions"),
         submissionData
       );
-      console.log("✅ Saved to Firestore with ID:", docRef.id);
-
-      // Step 2: Generate PDF
-      console.log("📄 Generating PDF...");
       const doc = generatePDF();
       const pdfBase64 = doc.output("datauristring").split(",")[1];
-      console.log("✅ PDF generated");
-
-      // Step 3: Prepare form data for email
-      console.log("📧 Preparing email data...");
       const formDataToSend = new FormData();
       formDataToSend.append("pdfData", pdfBase64);
       formDataToSend.append("firestoreId", docRef.id);
@@ -397,7 +387,6 @@ export default function ERPForm() {
       formDataToSend.append("priority", formData.priority);
 
       // Step 4: Send to Google Apps Script
-      console.log("📮 Sending email...");
       const GOOGLE_SCRIPT_URL =
         "https://script.google.com/macros/s/AKfycbxbiVFSZoz2to_AfZJtDgJ5ecaj90NhKWDTJOHOjPUYJAWb7Pswy6JMeZ0u3v4uRWqc/exec";
 

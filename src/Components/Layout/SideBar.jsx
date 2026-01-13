@@ -37,22 +37,24 @@ const bottomNavigation = [
 export function SideBar() {
   const location = useLocation();
 
-  // ✅ FIXED: Better isActive function for Dashboard and other routes
   const isActive = (href) => {
-    // Remove query parameters for comparison
-    const pathWithoutQuery = href.split("?")[0];
-    const currentPathWithoutQuery = location.pathname;
+    const [hrefPath, hrefQuery] = href.split("?");
+    const currentPath = location.pathname;
+    const currentQuery = location.search.substring(1); 
 
-    // For Dashboard (/admin), match exactly
-    if (pathWithoutQuery === "/admin") {
+    if (hrefPath === "/admin") {
       return (
-        currentPathWithoutQuery === "/admin" ||
-        currentPathWithoutQuery === "/admin/"
+        (currentPath === "/admin" || currentPath === "/admin/") &&
+        !currentQuery
       );
     }
-
-    // For other routes, check if current path starts with the href
-    return currentPathWithoutQuery.startsWith(pathWithoutQuery);
+    if (hrefQuery) {
+      return currentPath === hrefPath && currentQuery === hrefQuery;
+    }
+    if (hrefPath === "/admin/projects" && !hrefQuery) {
+      return currentPath === "/admin/projects" && !currentQuery;
+    }
+    return currentPath.startsWith(hrefPath);
   };
 
   return (
@@ -63,7 +65,7 @@ export function SideBar() {
           <FolderKanban className="h-4 w-4 text-sidebar-primary-foreground" />
         </div>
         <span className="text-lg font-semibold text-sidebar-foreground">
-        Vernoxy Media
+          Vernoxy Media
         </span>
       </div>
 
@@ -100,9 +102,8 @@ export function SideBar() {
                   to={item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    // ✅ FIXED: Added active state for service links too
                     isActive(item.href)
-                      ? "bg-sidebar-accent/50 text-sidebar-accent-foreground"
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
                   )}
                 >

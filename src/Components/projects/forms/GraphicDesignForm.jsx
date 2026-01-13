@@ -29,9 +29,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
   // Load existing updates when in edit mode
   useEffect(() => {
     if (isEditMode && existingData) {
-      console.log("Loading existing data:", existingData);
-      
-      // Load existing main text updates
       const existingMainUpdates = [];
       Object.keys(existingData).forEach((key) => {
         if (key.startsWith('mainText') && key !== 'mainText') {
@@ -50,9 +47,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
       
       existingMainUpdates.sort((a, b) => a.index - b.index);
       setMainTextUpdates(existingMainUpdates);
-      console.log("Loaded main text updates:", existingMainUpdates);
-
-      // Load existing sub text updates
       const existingSubUpdates = [];
       Object.keys(existingData).forEach((key) => {
         if (key.startsWith('subText') && key !== 'subText') {
@@ -71,11 +65,9 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
       
       existingSubUpdates.sort((a, b) => a.index - b.index);
       setSubTextUpdates(existingSubUpdates);
-      console.log("Loaded sub text updates:", existingSubUpdates);
     }
   }, [isEditMode, existingData, form]);
 
-  // Add new main text update field
   const addMainTextUpdate = () => {
     const highestIndex = mainTextUpdates.length > 0 
       ? Math.max(...mainTextUpdates.map(item => item.index))
@@ -84,7 +76,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
     setMainTextUpdates([...mainTextUpdates, { index: newIndex, value: '', isExisting: false }]);
   };
 
-  // Add new sub text update field
   const addSubTextUpdate = () => {
     const highestIndex = subTextUpdates.length > 0 
       ? Math.max(...subTextUpdates.map(item => item.index))
@@ -93,19 +84,16 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
     setSubTextUpdates([...subTextUpdates, { index: newIndex, value: '', isExisting: false }]);
   };
 
-  // Remove main text update
   const removeMainTextUpdate = (index) => {
     setMainTextUpdates(mainTextUpdates.filter(item => item.index !== index));
     form.setValue(`graphicDesign.mainText${index}`, undefined);
   };
 
-  // Remove sub text update
   const removeSubTextUpdate = (index) => {
     setSubTextUpdates(subTextUpdates.filter(item => item.index !== index));
     form.setValue(`graphicDesign.subText${index}`, undefined);
   };
 
-  // Update main text value
   const updateMainTextValue = (index, value) => {
     setMainTextUpdates(mainTextUpdates.map(item => 
       item.index === index ? { ...item, value } : item
@@ -113,7 +101,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
     form.setValue(`graphicDesign.mainText${index}`, value);
   };
 
-  // Update sub text value
   const updateSubTextValue = (index, value) => {
     setSubTextUpdates(subTextUpdates.map(item => 
       item.index === index ? { ...item, value } : item

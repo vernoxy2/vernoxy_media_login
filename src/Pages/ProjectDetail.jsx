@@ -1,19 +1,43 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useProjects } from '../context/ProjectContext'
-import { SERVICE_NAMES, COUNTRY_NAMES } from '../types/project';
-import { getStatusColor, getServiceColor } from '../lib/projectUtils';
-import { Button } from '../Components/ui/button';
-import { Badge } from '../Components/ui/badge';
-import { Separator } from '../Components/ui/separator';
-import { ArrowLeft, Edit, Calendar, User, Globe, FileText } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useProjects } from "../context/ProjectContext";
+import { SERVICE_NAMES, COUNTRY_NAMES } from "../types/project";
+import { getStatusColor, getServiceColor } from "../lib/projectUtils";
+import { Button } from "../Components/ui/button";
+import { Badge } from "../Components/ui/badge";
+import { Separator } from "../Components/ui/separator";
+import { Textarea } from "../Components/ui/textarea";
+import {
+  ArrowLeft,
+  Edit,
+  Calendar,
+  User,
+  Globe,
+  FileText,
+  CheckCircle,
+  Save,
+} from "lucide-react";
+import { cn } from "../lib/utils";
+import { useState, useEffect } from "react";
+import { db } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { toast } from "sonner";
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getProjectById, teamMembers } = useProjects();
+  const { getProjectById, teamMembers, updateProject } = useProjects();
+  const [notes, setNotes] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const project = getProjectById(id || '');
+  const project = getProjectById(id || "");
+
+  // Load notes when project loads
+  useEffect(() => {
+    if (project?.notes) {
+      setNotes(project.notes);
+    }
+  }, [project]);
 
   if (!project) {
     return (
@@ -26,19 +50,88 @@ export default function ProjectDetail() {
     );
   }
 
-  const assignedMember = teamMembers.find(m => m.id === project.assignedTo);
+  const assignedMember = teamMembers.find((m) => m.id === project.assignedTo);
 
   const formatDate = (date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
     }).format(new Date(date));
   };
 
-  // Handler to navigate to edit page
-  const handleEditClick = () => {
-    navigate(`/admin/projects/edit/${id}`);
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
+  const handleEditClick = async () => {
+    // Only for Graphic Design projects
+    if (project.serviceType !== "GD") {
+      navigate(`/admin/projects/edit/${id}`);
+      return;
+    }
+
+    // For GD projects, check if it's in progress
+    if (project.status !== "In Progress") {
+      toast.error("Project must be in progress to submit");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const currentTime = getCurrentTime();
+      const updateData = {
+        status: "Done",
+        endTime: currentTime,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Update Firebase
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, updateData);
+
+      // Update local state
+      updateProject(id, updateData);
+
+      toast.success("Project submitted successfully!");
+
+      // Navigate back after a short delay
+      setTimeout(() => {
+        navigate("/admin/projects");
+      }, 1000);
+    } catch (error) {
+      console.error("Error submitting project:", error);
+      toast.error("Failed to submit project");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!id) return;
+
+    setIsSaving(true);
+    try {
+      // Update Firebase
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, {
+        notes: notes,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update local state
+      updateProject(id, { notes: notes });
+
+      toast.success("Notes saved successfully!");
+    } catch (error) {
+      console.error("Error saving notes:", error);
+      toast.error("Failed to save notes");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -50,19 +143,19 @@ export default function ProjectDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="font-mono text-2xl font-bold text-foreground">{project.projectId}</h1>
-              <Badge className={cn('status-badge', getStatusColor(project.status))}>
-                {project.status}
-              </Badge>
+            <div className=" items-center gap-3">
+              <h1 className="font-mono text-2xl font-bold text-foreground">
+                {project.projectId}
+              </h1>
             </div>
-            <p className="mt-1 text-lg text-muted-foreground">{project.clientName}</p>
           </div>
         </div>
-        <Button onClick={handleEditClick}>
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Project
-        </Button>
+        {project.serviceType === "GD" && project.status === "In Progress" && (
+          <Button onClick={handleEditClick} disabled={isSubmitting}>
+            <Edit className="mr-2 h-4 w-4" />
+            {isSubmitting ? "Submitting..." : "Submit"}
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -70,15 +163,19 @@ export default function ProjectDetail() {
         <div className="lg:col-span-2 space-y-6">
           {/* Project Overview */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Project Overview</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+            <h2 className="mb-4 text-lg font-semibold text-foreground">
+              Project Overview
+            </h2>
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <FileText className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Country</p>
-                  <p className="font-medium text-foreground">{COUNTRY_NAMES[project.country]}</p>
+                  <p className="text-sm text-muted-foreground">Client Name</p>
+                  <p className="font-medium text-foreground">
+                    {project.clientName || "Not specified"}
+                  </p>
                 </div>
               </div>
 
@@ -88,19 +185,44 @@ export default function ProjectDetail() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Service Type</p>
-                  <Badge className={cn('service-badge', getServiceColor(project.serviceType))}>
+                  <Badge
+                    className={cn(
+                      "service-badge",
+                      getServiceColor(project.serviceType)
+                    )}
+                  >
                     {SERVICE_NAMES[project.serviceType]}
                   </Badge>
                 </div>
               </div>
-
+              <div>
+                <p className="text-sm text-muted-foreground text-start">Status</p>
+                <Badge
+                  className={cn("status-badge" , getStatusColor(project.status))}
+                >
+                  {project.status}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-muted p-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Country</p>
+                  <p className="font-medium text-foreground">
+                    {COUNTRY_NAMES[project.country]}
+                  </p>
+                </div>
+              </div>
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Period</p>
-                  <p className="font-medium text-foreground">{project.month} {project.year}</p>
+                  <p className="font-medium text-foreground">
+                    {project.month} {project.year}
+                  </p>
                 </div>
               </div>
 
@@ -111,7 +233,7 @@ export default function ProjectDetail() {
                 <div>
                   <p className="text-sm text-muted-foreground">Assigned To</p>
                   <p className="font-medium text-foreground">
-                    {assignedMember?.name || 'Unassigned'}
+                    {assignedMember?.name || "Unassigned"}
                   </p>
                 </div>
               </div>
@@ -121,7 +243,9 @@ export default function ProjectDetail() {
               <>
                 <Separator className="my-4" />
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">Internal Notes</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                    Internal Notes
+                  </p>
                   <p className="text-foreground">{project.internalNotes}</p>
                 </div>
               </>
@@ -129,42 +253,52 @@ export default function ProjectDetail() {
           </div>
 
           {/* Service-specific details */}
-          {project.serviceType === 'GD' && project.graphicDesign && (
+          {project.serviceType === "GD" && project.graphicDesign && (
             <div className="rounded-xl border border-service-graphic/20 bg-service-graphic/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-graphic" />
                 Graphic Design Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
+              <div className="grid gap-4 md:grid-cols-3 text-start">
+                <div className="">
                   <p className="text-sm text-muted-foreground">Post Type</p>
-                  <p className="font-medium text-foreground">{project.graphicDesign.postType}</p>
+                  <p className="font-medium text-foreground">
+                    {project.graphicDesign.postType}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Platform</p>
-                  <p className="font-medium text-foreground">{project.graphicDesign.platform}</p>
+                  <p className="font-medium text-foreground">
+                    {project.graphicDesign.platform}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Size</p>
-                  <p className="font-medium text-foreground">{project.graphicDesign.size}</p>
+                  <p className="font-medium text-foreground">
+                    {project.graphicDesign.size}
+                  </p>
                 </div>
               </div>
               {project.graphicDesign.mainText && (
-                <div className="mt-4">
+                <div className="mt-4 text-start">
                   <p className="text-sm text-muted-foreground">Main Text</p>
-                  <p className="font-medium text-foreground">{project.graphicDesign.mainText}</p>
+                  <p className="font-medium text-foreground">
+                    {project.graphicDesign.mainText}
+                  </p>
                 </div>
               )}
               {project.graphicDesign.ctaText && (
-                <div className="mt-4">
+                <div className="mt-4 text-start">
                   <p className="text-sm text-muted-foreground">CTA</p>
-                  <p className="font-medium text-foreground">{project.graphicDesign.ctaText}</p>
+                  <p className="font-medium text-foreground">
+                    {project.graphicDesign.ctaText}
+                  </p>
                 </div>
               )}
             </div>
           )}
 
-          {project.serviceType === 'WD' && project.websiteDesign && (
+          {project.serviceType === "WD" && project.websiteDesign && (
             <div className="rounded-xl border border-service-website/20 bg-service-website/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-website" />
@@ -173,21 +307,30 @@ export default function ProjectDetail() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Website Type</p>
-                  <p className="font-medium text-foreground">{project.websiteDesign.websiteType}</p>
+                  <p className="font-medium text-foreground">
+                    {project.websiteDesign.websiteType}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Number of Pages</p>
-                  <p className="font-medium text-foreground">{project.websiteDesign.numberOfPages}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Number of Pages
+                  </p>
+                  <p className="font-medium text-foreground">
+                    {project.websiteDesign.numberOfPages}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Technology</p>
-                  <p className="font-medium text-foreground">{project.websiteDesign.technologyPreference || 'Not specified'}</p>
+                  <p className="font-medium text-foreground">
+                    {project.websiteDesign.technologyPreference ||
+                      "Not specified"}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {project.serviceType === 'CW' && project.contentWriting && (
+          {project.serviceType === "CW" && project.contentWriting && (
             <div className="rounded-xl border border-service-content/20 bg-service-content/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-content" />
@@ -196,21 +339,27 @@ export default function ProjectDetail() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <p className="text-sm text-muted-foreground">Content Type</p>
-                  <p className="font-medium text-foreground">{project.contentWriting.contentType}</p>
+                  <p className="font-medium text-foreground">
+                    {project.contentWriting.contentType}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Word Count</p>
-                  <p className="font-medium text-foreground">{project.contentWriting.wordCount}</p>
+                  <p className="font-medium text-foreground">
+                    {project.contentWriting.wordCount}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Tone</p>
-                  <p className="font-medium text-foreground">{project.contentWriting.tone}</p>
+                  <p className="font-medium text-foreground">
+                    {project.contentWriting.tone}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          {project.serviceType === 'ERP' && project.erp && (
+          {project.serviceType === "ERP" && project.erp && (
             <div className="rounded-xl border border-service-erp/20 bg-service-erp/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-erp" />
@@ -219,23 +368,32 @@ export default function ProjectDetail() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">ERP Type</p>
-                  <p className="font-medium text-foreground">{project.erp.erpType}</p>
+                  <p className="font-medium text-foreground">
+                    {project.erp.erpType}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Integrations</p>
-                  <p className="font-medium text-foreground">{project.erp.integrationsRequired || 'None'}</p>
+                  <p className="font-medium text-foreground">
+                    {project.erp.integrationsRequired || "None"}
+                  </p>
                 </div>
               </div>
-              {project.erp.modulesRequired && project.erp.modulesRequired.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm text-muted-foreground mb-2">Modules</p>
-                  <div className="flex flex-wrap gap-2">
-                    {project.erp.modulesRequired.map((module) => (
-                      <Badge key={module} variant="secondary">{module}</Badge>
-                    ))}
+              {project.erp.modulesRequired &&
+                project.erp.modulesRequired.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Modules
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {project.erp.modulesRequired.map((module) => (
+                        <Badge key={module} variant="secondary">
+                          {module}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </div>
@@ -244,40 +402,90 @@ export default function ProjectDetail() {
         <div className="space-y-6">
           {/* Activity */}
           <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">Activity</h3>
+            <h3 className="mb-4 text-sm font-semibold text-foreground">
+              Activity
+            </h3>
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
                 <div>
                   <p className="text-sm text-foreground">Project created</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(project.createdAt)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(project.createdAt)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-muted-foreground" />
                 <div>
                   <p className="text-sm text-foreground">Last updated</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(project.updatedAt)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(project.updatedAt)}
+                  </p>
                 </div>
               </div>
+              {project.isAccepted && project.serviceType === "GD" && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
+                  <div>
+                    <p className="text-sm text-foreground">Project accepted</p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.acceptedAt
+                        ? formatDate(project.acceptedAt)
+                        : formatDate(new Date())}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Team */}
           {assignedMember && (
             <div className="rounded-xl border border-border bg-card p-6">
-              <h3 className="mb-4 text-sm font-semibold text-foreground">Team Member</h3>
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Team Member
+              </h3>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
-                  {assignedMember.name.split(' ').map(n => n[0]).join('')}
+                  {assignedMember.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
                 </div>
                 <div>
-                  <p className="font-medium text-foreground">{assignedMember.name}</p>
-                  <p className="text-sm text-muted-foreground">{assignedMember.role}</p>
+                  <p className="font-medium text-foreground">
+                    {assignedMember.name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {assignedMember.role}
+                  </p>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Notes Section */}
+          <div className="rounded-xl border border-border bg-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">Notes</h3>
+              <Button size="sm" onClick={handleSaveNotes} disabled={isSaving}>
+                <Save className="mr-2 h-4 w-4" />
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add your notes here..."
+              className="min-h-[150px] resize-none"
+            />
+            {project.notes && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Last saved: {formatDate(project.updatedAt)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

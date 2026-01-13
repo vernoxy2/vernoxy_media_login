@@ -1,17 +1,25 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { SERVICE_NAMES, COUNTRY_NAMES } from '../../types/project';
-import { getStatusColor, getServiceColor } from '../../lib/projectUtils';
-import { useProjects } from '../../context/ProjectContext';
-import { Calendar, User, MoreHorizontal, Trash2, Copy, Edit2 } from 'lucide-react';
-import { cn } from '../../lib/utils';
-import { Button } from '../ui/button';
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { SERVICE_NAMES, COUNTRY_NAMES } from "../../types/project";
+import { getStatusColor, getServiceColor } from "../../lib/projectUtils";
+import { useProjects } from "../../context/ProjectContext";
+import {
+  Calendar,
+  User,
+  MoreHorizontal,
+  Trash2,
+  Copy,
+  Edit2,
+  Clock,
+} from "lucide-react";
+import { cn } from "../../lib/utils";
+import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '../ui/dropdown-menu';
+} from "../ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,76 +29,163 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
-import { useState } from 'react';
-import { toast } from 'sonner';
+} from "../ui/alert-dialog";
+import { useEffect, useState, useMemo } from "react";
+import { toast } from "sonner";
+import { db } from "../../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
+const ITEMS_PER_PAGE = 10;
 export function ProjectList({ projects }) {
-  const { teamMembers, deleteProject, addProject } = useProjects();
+  const { teamMembers, deleteProject, addProject, updateProject } =
+    useProjects();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [userRole, setUserRole] = useState(() =>
+    localStorage.getItem("userRole")
+  );
+  const [userDepartment, setUserDepartment] = useState(() =>
+    localStorage.getItem("userDepartment")
+  );
+  const isAdmin = userRole === "admin";
+  const serviceFilter = searchParams.get("service");
 
-  // ✅ Check user role from localStorage
-  const userRole = localStorage.getItem('userRole');
-  const isAdmin = userRole === 'admin';
+  useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    const dept = localStorage.getItem("userDepartment");
+    setUserRole(role);
+    setUserDepartment(dept);
+  }, []);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const role = localStorage.getItem("userRole");
+      const dept = localStorage.getItem("userDepartment");
+      setUserRole(role);
+      setUserDepartment(dept);
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const filteredProjects = useMemo(() => {
+    console.log(
+      "Filtering - userRole:",
+      userRole,
+      "department:",
+      userDepartment,
+      "serviceFilter:",
+      serviceFilter,
+      "pathname:",
+      location.pathname,
+      "Projects:",
+      projects.length
+    );
+
+    if (location.pathname === "/admin/projects" && !serviceFilter) {
+      return projects;
+    }
+ 
+    if (serviceFilter) {
+      return projects.filter((p) => p.serviceType === serviceFilter);
+    }
+    
+    if (userRole === "admin") {
+      return projects;
+    }
+    
+    if (
+      userDepartment === "Graphic Design" ||
+      userDepartment === "Content Writing"
+    ) {
+      return projects.filter(
+        (p) => p.serviceType === "GD" || p.serviceType === "CW"
+      );
+    }
+
+    if (userDepartment === "Website Design") {
+      return projects.filter((p) => p.serviceType === "WD");
+    }
+
+    if (userDepartment === "ERP Development") {
+      return projects.filter((p) => p.serviceType === "ERP");
+    }
+    
+    return projects;
+  }, [projects, userRole, userDepartment, serviceFilter, location.pathname]);
+
+  const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
+
+  const paginatedProjects = filteredProjects.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [serviceFilter, projects.length]);
 
   const getTeamMemberName = (id) => {
-    const member = teamMembers.find(m => m.id === id);
-    return member?.name || 'Unassigned';
+    const member = teamMembers.find((m) => m.id === id);
+    return member?.name || "Unassigned";
   };
 
   const formatDate = (date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     }).format(new Date(date));
   };
 
-  // ✅ Edit - Both User & Admin can edit
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
   const handleEdit = (e, projectId) => {
     e.preventDefault();
     e.stopPropagation();
     navigate(`/admin/projects/edit/${projectId}`);
   };
 
-  // ✅ Duplicate - Both User & Admin can duplicate
   const handleDuplicate = (e, projectId) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    const projectToDuplicate = projects.find(p => p.id === projectId);
-    
+
+    const projectToDuplicate = filteredProjects.find((p) => p.id === projectId);
+
     if (!projectToDuplicate) {
-      toast.error('Project not found');
+      toast.error("Project not found");
       return;
     }
 
     const duplicatedProject = {
       ...projectToDuplicate,
-      projectId: projectToDuplicate.projectId + '-COPY',
-      status: 'Draft',
+      projectId: projectToDuplicate.projectId + "-COPY",
+      status: "Draft",
     };
 
-    // Remove Firebase IDs before duplicating
     delete duplicatedProject.id;
     delete duplicatedProject.createdAt;
     delete duplicatedProject.updatedAt;
 
     addProject(duplicatedProject);
   };
-
-  // ✅ Delete - Only Admin can delete
+  
   const handleDeleteClick = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!isAdmin) {
-      toast.error('Only admins can delete projects');
+      toast.error("Only admins can delete projects");
       return;
     }
-
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
   };
@@ -103,133 +198,198 @@ export function ProjectList({ projects }) {
     }
   };
 
-  if (projects.length === 0) {
+  if (filteredProjects.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16">
-        <p className="text-muted-foreground">No projects found</p>
-        <Link to="/admin/projects/new">
-          <Button className="mt-4" size="sm">
-            Create New Project
-          </Button>
-        </Link>
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 px-8">
+        <p className="text-muted-foreground mb-4">No projects found</p>
+        {isAdmin && (
+          <Link to="/admin/projects/new">
+            <Button className="mt-4" size="sm">
+              Create New Project
+            </Button>
+          </Link>
+        )}
       </div>
     );
   }
 
   return (
     <>
+      {/* Table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 border-b border-border bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground text-start">
-          <div className="col-span-2">Project</div>
-          <div className="col-span-2">Start & End Time</div>
-          <div className="col-span-2">Service</div>
-          <div className="col-span-2">Assigned To</div>
-          <div className="col-span-2">Updated</div>
-          <div className="col-span-1">Status</div>
-          <div className="col-span-1"></div>
-        </div>
+        <div className="overflow-x-auto table-scroll-container">
+          <div className="min-w-[1400px]">
+            {/* Header */}
+            <div className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
+              <div>Project</div>
+              <div>Start Time</div>
+              <div>End Time</div>
+              <div>Total Time</div>
+              <div>Service</div>
+              <div>Assigned To</div>
+              <div>Updated</div>
+              <div>Status</div>
+              <div className="text-end">More</div>
+            </div>
 
-        <div className="divide-y divide-border text-start">
-          {projects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/admin/projects/${project.id}`}
-              className="grid grid-cols-12 items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/30"
-            >
-              <div className="col-span-4 space-y-1">
-                <div className="font-mono text-sm font-medium text-foreground">
-                  {project.projectId}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {project.clientName} • {COUNTRY_NAMES[project.country]}
-                </div>
-              </div>
+            {/* Body */}
+            <div className="divide-y divide-border">
+              {paginatedProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  to={`/admin/projects/${project.id}`}
+                  className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start"
+                >
+                  <div className="space-y-1">
+                    <div className="font-mono text-sm font-medium">
+                      {project.projectId}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {project.clientName} • {COUNTRY_NAMES[project.country]}
+                    </div>
+                  </div>
 
-              <div className="col-span-2">
-                <span className={cn('service-badge', getServiceColor(project.serviceType))}>
-                  {SERVICE_NAMES[project.serviceType]}
-                </span>
-              </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {project.startTime || "--:--"}
+                    </span>
+                  </div>
 
-              <div className="col-span-2 flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {getTeamMemberName(project.assignedTo)}
-                </span>
-              </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {project.endTime || "--:--"}
+                    </span>
+                  </div>
 
-              <div className="col-span-2 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {formatDate(project.updatedAt)}
-                </span>
-              </div>
+                  <div>total time</div>
 
-              <div className="col-span-1">
-                <span className={cn('status-badge', getStatusColor(project.status))}>
-                  {project.status}
-                </span>
-              </div>
+                  <div>
+                    <span
+                      className={cn(
+                        "service-badge",
+                        getServiceColor(project.serviceType)
+                      )}
+                    >
+                      {SERVICE_NAMES[project.serviceType]}
+                    </span>
+                  </div>
 
-              <div className="col-span-1 flex justify-end">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {/* ✅ Edit - Available for both User & Admin */}
-                    <DropdownMenuItem onClick={(e) => handleEdit(e, project.id)}>
-                      <Edit2 className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground truncate">
+                      {getTeamMemberName(project.assignedTo)}
+                    </span>
+                  </div>
 
-                    {/* ✅ Duplicate - Available for both User & Admin */}
-                    <DropdownMenuItem onClick={(e) => handleDuplicate(e, project.id)}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Duplicate
-                    </DropdownMenuItem>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(project.updatedAt)}
+                    </span>
+                  </div>
 
-                    {/* ✅ Delete - Only for Admin */}
-                    {isAdmin && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-destructive focus:text-destructive"
-                          onClick={(e) => handleDeleteClick(e, project)}
+                  <div>
+                    <span
+                      className={cn(
+                        "status-badge",
+                        getStatusColor(project.status)
+                      )}
+                    >
+                      {project.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        asChild
+                        onClick={(e) => e.preventDefault()}
+                      >
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => handleEdit(e, project.id)}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
+                          <Edit2 className="mr-2 h-4 w-4" />
+                          Edit
                         </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </Link>
-          ))}
+
+                        <DropdownMenuItem
+                          onClick={(e) => handleDuplicate(e, project.id)}
+                        >
+                          <Copy className="mr-2 h-4 w-4" />
+                          Duplicate
+                        </DropdownMenuItem>
+
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={(e) => handleDeleteClick(e, project)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Pagination */}
+      <div className="flex items-start justify-between mt-4">
+        <p className="text-sm text-muted-foreground">
+          Page {currentPage} of {totalPages}
+        </p>
+
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            Previous
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
+      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the project{' '}
-              <span className="font-semibold text-foreground">
-                {projectToDelete?.projectId}
-              </span>{' '}
-              for {projectToDelete?.clientName}. This action cannot be undone.
+              This will permanently delete{" "}
+              <strong>{projectToDelete?.projectId}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive"
             >
               Delete
             </AlertDialogAction>

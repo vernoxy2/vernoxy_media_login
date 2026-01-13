@@ -68,22 +68,16 @@ export default function AdminLogin() {
         setLoading(false);
         return;
       }
-
       const userData = userDoc.data();
-
-      // Both admin and user go to /admin
       if (userData.role === "admin" || userData.role === "user") {
-        // Save user data to localStorage
         localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", userData.role); // "admin" or "user"
+        localStorage.setItem("userRole", userData.role); 
         localStorage.setItem("userEmail", userData.email || email);
         localStorage.setItem("userId", user.uid);
-        
-        // Display role with capital first letter
-        const displayRole = userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
-        localStorage.setItem("userDisplayRole", displayRole); // "Admin" or "User"
-        
-        // ✅ FIXED: Navigate to /admin instead of /admin/login
+        localStorage.setItem("userDepartment", userData.department || ""); 
+        const displayRole =
+          userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
+        localStorage.setItem("userDisplayRole", displayRole); 
         navigate("/admin", { replace: true });
       } else {
         setError("Access denied. Admin privileges required.");
@@ -92,7 +86,6 @@ export default function AdminLogin() {
       }
     } catch (err) {
       console.error("Login error:", err);
-
       if (err.code === "auth/user-not-found") {
         setError("No account found with this email");
       } else if (err.code === "auth/wrong-password") {
@@ -106,7 +99,6 @@ export default function AdminLogin() {
       } else {
         setError("Login failed. Please try again.");
       }
-
       setLoading(false);
     }
   };
@@ -130,8 +122,6 @@ export default function AdminLogin() {
 
     try {
       const emailToCheck = resetEmail.trim().toLowerCase();
-
-      // Check if email exists in Firestore users collection
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("email", "==", emailToCheck), limit(1));
       const querySnapshot = await getDocs(q);
@@ -143,16 +133,11 @@ export default function AdminLogin() {
         setLoading(false);
         return;
       }
-
-      // Email exists, send password reset email
       await sendPasswordResetEmail(auth, emailToCheck);
-
       setResetMessage(
         "Password reset email sent successfully! Check your inbox and spam folder."
       );
       setResetEmail("");
-
-      // Auto close after 3 seconds
       setTimeout(() => {
         setShowForgotPassword(false);
         setResetMessage("");
@@ -189,7 +174,6 @@ export default function AdminLogin() {
     }
   };
 
-  // Forgot Password Screen
   if (showForgotPassword) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -293,7 +277,6 @@ export default function AdminLogin() {
     );
   }
 
-  // Login Screen
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
