@@ -12,7 +12,7 @@ import { ContentWritingForm } from "../Components/projects/forms/ContentWritingF
 import { ERPForm } from "../Components/projects/forms/ERPForm";
 import { useProjects } from "../context/ProjectContext";
 import { generateProjectId, generateClientCode } from "../lib/projectUtils";
-import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
 
 const projectSchema = z.object({
   clientName: z.string().min(1, "Client name is required"),
@@ -101,6 +101,8 @@ export default function NewProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [duplicateNameWarning, setDuplicateNameWarning] = useState("");
+  
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
   const isContentWriter = currentUser?.department === "Content Writing";
@@ -220,6 +222,24 @@ export default function NewProject() {
   const watchedMonth = form.watch("month");
   const watchedYear = form.watch("year");
 
+  // Check for duplicate client names
+  useEffect(() => {
+    if (!isEditMode && watchedClientName) {
+      const normalizedNewName = watchedClientName.trim().toLowerCase();
+      const duplicateProject = projects.find(
+        (project) => project.clientName.trim().toLowerCase() === normalizedNewName
+      );
+
+      if (duplicateProject) {
+        setDuplicateNameWarning(
+          `⚠️ A project with client name "${duplicateProject.clientName}" already exists (ID: ${duplicateProject.projectId}). Please use a different name.`
+        );
+      } else {
+        setDuplicateNameWarning("");
+      }
+    }
+  }, [watchedClientName, projects, isEditMode]);
+
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
@@ -252,12 +272,25 @@ export default function NewProject() {
       alert("Please fill all required fields before creating project!");
       return;
     }
+
+    // Block creation if duplicate name exists
+    if (duplicateNameWarning) {
+      alert("Cannot create project: A project with this client name already exists. Please use a different name.");
+      return;
+    }
+
     const currentTime = getCurrentTime();
     form.setValue("startTime", currentTime);
     setShowServiceForm(true);
   };
 
   const onSubmit = async (data) => {
+    // Final check for duplicate name before submission
+    if (!isEditMode && duplicateNameWarning) {
+      alert("Cannot submit project: A project with this client name already exists. Please use a different name.");
+      return;
+    }
+
     setIsSubmitting(true);
     const endTime = getCurrentTime();
     try {
@@ -395,6 +428,23 @@ export default function NewProject() {
         )}
       </div>
 
+      {/* Duplicate Name Warning */}
+      {duplicateNameWarning && (
+        <div className="mb-6 rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">
+                Duplicate Client Name Detected
+              </h3>
+              <p className="text-sm text-red-800 dark:text-red-200">
+                {duplicateNameWarning}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isEditMode && showOldData && existingProject && (
         <div className="mb-8 rounded-xl border border-blue-500/50 bg-blue-50 dark:bg-blue-950/20 p-6">
           <h3 className="mb-4 text-lg font-semibold text-blue-900 dark:text-blue-100">
@@ -442,6 +492,7 @@ export default function NewProject() {
                   type="button"
                   onClick={handleCreateProject}
                   className="bg-primary hover:bg-primary/90"
+                  disabled={!!duplicateNameWarning}
                 >
                   <Save className="mr-2 h-4 w-4" />
                   Create Project
@@ -477,7 +528,7 @@ export default function NewProject() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || !!duplicateNameWarning}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

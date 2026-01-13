@@ -50,7 +50,7 @@ export function WebsiteDesignForm({ form }) {
       </div>
 
       {/* Website Basics */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 ">
         <FormField
           control={form.control}
           name="websiteDesign.websiteType"

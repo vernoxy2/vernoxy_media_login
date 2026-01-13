@@ -1,5 +1,4 @@
-// Simulated counter storage (in real app, this would be in database)
-const projectCounters = {};
+// projectUtils.js - Fixed version
 
 export function generateProjectId(
   country,
@@ -13,18 +12,35 @@ export function generateProjectId(
   const monthNum = String(getMonthNumber(month)).padStart(2, '0');
   const yearShort = year.slice(-2);
   
-  // Create base key for counter
-  const baseKey = `${country}-${service}-${clientCode}-${monthNum}${yearShort}`;
+  // Create base pattern for matching
+  const basePattern = `${country}-${service}-${clientCode}-${monthNum}${yearShort}`;
   
-  // Count existing projects with same pattern
-  const existingCount = existingProjects.filter(p => 
-    p.projectId.startsWith(baseKey)
-  ).length;
+  // Find all existing projects that match this base pattern
+  const matchingProjects = existingProjects.filter(p => 
+    p.projectId && p.projectId.startsWith(basePattern)
+  );
   
-  // Generate serial number
-  const serialNum = String(existingCount + 1).padStart(4, '0');
+  // Extract sequence numbers from matching projects
+  const sequenceNumbers = matchingProjects
+    .map(project => {
+      const parts = project.projectId.split('-');
+      const lastPart = parts[parts.length - 1]; // Get "0001", "0002", etc.
+      return parseInt(lastPart, 10);
+    })
+    .filter(num => !isNaN(num)); // Filter out any invalid numbers
   
-  return `${baseKey}-${serialNum}`;
+  // Find the highest sequence number
+  const maxSequence = sequenceNumbers.length > 0 
+    ? Math.max(...sequenceNumbers) 
+    : 0;
+  
+  // Increment by 1 for new project
+  const newSequence = maxSequence + 1;
+  
+  // Format as 4 digits with leading zeros
+  const serialNum = String(newSequence).padStart(4, '0');
+  
+  return `${basePattern}-${serialNum}`;
 }
 
 export function getMonthNumber(monthName) {

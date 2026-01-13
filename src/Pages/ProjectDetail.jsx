@@ -166,7 +166,7 @@ export default function ProjectDetail() {
             <h2 className="mb-4 text-lg font-semibold text-foreground">
               Project Overview
             </h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3 text-start">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
@@ -242,8 +242,8 @@ export default function ProjectDetail() {
             {project.internalNotes && (
               <>
                 <Separator className="my-4" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">
+                <div className="text-start">
+                  <p className="text-sm font-medium text-muted-foreground mb-2 ">
                     Internal Notes
                   </p>
                   <p className="text-foreground">{project.internalNotes}</p>
@@ -299,7 +299,7 @@ export default function ProjectDetail() {
           )}
 
           {project.serviceType === "WD" && project.websiteDesign && (
-            <div className="rounded-xl border border-service-website/20 bg-service-website/5 p-6">
+            <div className="rounded-xl border border-service-website/20 bg-service-website/5 p-6 text-start">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-website" />
                 Website Design Details
@@ -360,12 +360,12 @@ export default function ProjectDetail() {
           )}
 
           {project.serviceType === "ERP" && project.erp && (
-            <div className="rounded-xl border border-service-erp/20 bg-service-erp/5 p-6">
+            <div className="rounded-xl border border-service-erp/20 bg-service-erp/5 p-6 text-start">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-erp" />
                 ERP Development Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2 ">
                 <div>
                   <p className="text-sm text-muted-foreground">ERP Type</p>
                   <p className="font-medium text-foreground">
