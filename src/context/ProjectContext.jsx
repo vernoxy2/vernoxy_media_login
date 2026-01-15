@@ -24,10 +24,11 @@ export function ProjectProvider({ children }) {
   const [teamMembers] = useState([
     { id: '1', name: 'Bhumika Patel', role: 'Content Writer' },
     { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer' },
-    { id: '3', name: 'Dhruv Patel', role: 'Front-End Developer' },
-    { id: '4', name: 'Vrunda Patel', role: 'Front-End Developer' },
-    {id: '5', name: 'Divya Patel', role: 'Front-End Developer' },
-    {id: '6', name: 'Jenil Dhimmar', role: 'Video Editor' },
+    { id: '3', name: 'Mayur Patel', role: 'Graphic Designer' },
+    { id: '4', name: 'Dhruv Patel', role: 'Front-End Developer' },
+    { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer' },
+    {id: '6', name: 'Divya Patel', role: 'Front-End Developer' },
+    {id: '7', name: 'Jenil Dhimmar', role: 'Video Editor' },
   ]);
 
   // ✅ Fetch current logged-in user data from Firestore
@@ -51,6 +52,7 @@ export function ProjectProvider({ children }) {
               id: user.uid,
               email: user.email,
               department: userData.department,
+              role: userData.role,
             });
           } else {
             console.warn('⚠️ User document not found in Firestore');
@@ -155,20 +157,60 @@ export function ProjectProvider({ children }) {
       throw error;
     }
   };
+
   const deleteProject = async (projectId) => {
     try {
-      const userRole = localStorage.getItem('userRole');n
+      // Check if user is admin
+      const userRole = localStorage.getItem('userRole');
+      const userEmail = localStorage.getItem('userEmail');
+      
+      console.log('🗑️ Delete attempt:', {
+        projectId,
+        userRole,
+        userEmail,
+        isAdmin: userRole === 'admin',
+        currentUser: currentUser
+      });
+      
       if (userRole !== 'admin') {
+        console.error('❌ Not authorized - user role:', userRole);
         toast.error('Only admins can delete projects');
-        return;
+        throw new Error('Unauthorized: Only admins can delete projects');
       }
+
+      console.log('✅ User is admin, attempting to delete from Firebase...');
+      
+      // Delete from Firebase
       const projectRef = doc(db, 'projects', projectId);
       await deleteDoc(projectRef);
+      
+      console.log('✅ Deleted from Firebase, updating local state...');
+      
+      // Update local state
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      
+      console.log('✅ Project deleted successfully!');
       toast.success('Project deleted successfully!');
+      return true;
     } catch (error) {
-      console.error('Error deleting project:', error);
-      toast.error('Failed to delete project');
+      console.error('❌ Error deleting project:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // More specific error messages
+      if (error.message.includes('Unauthorized')) {
+        toast.error('Only admins can delete projects');
+      } else if (error.code === 'permission-denied') {
+        toast.error('Permission denied. Check Firebase security rules.');
+      } else if (error.code === 'not-found') {
+        toast.error('Project not found');
+      } else {
+        toast.error('Failed to delete project. Please try again.');
+      }
+      
       throw error;
     }
   };

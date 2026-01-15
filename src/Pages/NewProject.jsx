@@ -12,7 +12,169 @@ import { ContentWritingForm } from "../Components/projects/forms/ContentWritingF
 import { ERPForm } from "../Components/projects/forms/ERPForm";
 import { useProjects } from "../context/ProjectContext";
 import { generateProjectId, generateClientCode } from "../lib/projectUtils";
-import { ArrowLeft, Save, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, Clock, Play, Pause, RotateCcw } from "lucide-react";
+
+// User Info Component (for top-right corner)
+const UserInfoDisplay = ({ currentUser }) => {
+  if (!currentUser) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
+        <span className="text-sm text-gray-500">Loading user info...</span>
+      </div>
+    );
+  }
+
+  // Get display text based on role and department
+  const getDisplayRole = () => {
+    if (currentUser.role === "admin") {
+      return "Admin";
+    }
+    return currentUser.department || "User";
+  };
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold text-lg">
+        {currentUser.name?.charAt(0).toUpperCase() || 'U'}
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {currentUser.name || 'User'}
+        </span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {getDisplayRole()} 
+        </span>
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+      {currentUser.email || 'Email'}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// Countdown Timer Component (for BaseProjectForm - right side of Project ID)
+const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActive, onTimerStop }) => {
+  const [totalSeconds, setTotalSeconds] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => {
+    if (timerActive) {
+      const hours = parseInt(estimatedHours) || 0;
+      const minutes = parseInt(estimatedMinutes) || 0;
+      const total = (hours * 3600) + (minutes * 60);
+      setTotalSeconds(total);
+      setRemainingSeconds(total);
+      setIsRunning(true);
+    }
+  }, [timerActive, estimatedHours, estimatedMinutes]);
+
+  useEffect(() => {
+    let interval;
+    if (isRunning && remainingSeconds > 0) {
+      interval = setInterval(() => {
+        setRemainingSeconds(prev => {
+          if (prev <= 1) {
+            setIsRunning(false);
+            if (onTimerStop) onTimerStop();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRunning, remainingSeconds, onTimerStop]);
+
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const getProgressPercentage = () => {
+    if (totalSeconds === 0) return 0;
+    return ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
+  };
+
+  const handleStart = () => {
+    if (remainingSeconds > 0 && isActive) {
+      setIsRunning(true);
+    }
+  };
+
+  const handlePause = () => {
+    setIsRunning(false);
+  };
+
+  const handleReset = () => {
+    setRemainingSeconds(totalSeconds);
+    setIsRunning(false);
+  };
+
+  if (!isActive || !timerActive || totalSeconds === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-3 shadow-md">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-white" />
+          <div>
+            <div className="text-white text-xl font-bold font-mono">
+              {formatTime(remainingSeconds)}
+            </div>
+            <div className="text-indigo-100 text-xs">
+              {remainingSeconds === 0 ? "Time's up!" : "Remaining"}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="flex-1 max-w-[120px]">
+          <div className="w-full h-1.5 bg-white/30 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white transition-all duration-1000 ease-linear"
+              style={{ width: `${getProgressPercentage()}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex gap-1.5">
+          {!isRunning ? (
+            <button
+              onClick={handleStart}
+              disabled={remainingSeconds === 0}
+              className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Start Timer"
+            >
+              <Play className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={handlePause}
+              className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors"
+              title="Pause Timer"
+            >
+              <Pause className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            onClick={handleReset}
+            disabled={remainingSeconds === totalSeconds}
+            className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Reset Timer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const projectSchema = z.object({
   clientName: z.string().min(1, "Client name is required"),
@@ -25,6 +187,8 @@ const projectSchema = z.object({
   internalNotes: z.string().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  estimatedHours: z.string().optional(),
+  estimatedMinutes: z.string().optional(),
   graphicDesign: z
     .object({
       postType: z.string().optional(),
@@ -101,7 +265,7 @@ export default function NewProject() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
-  const [duplicateNameWarning, setDuplicateNameWarning] = useState("");
+  const [timerActive, setTimerActive] = useState(false);
   
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
@@ -120,6 +284,8 @@ export default function NewProject() {
       internalNotes: "",
       startTime: "",
       endTime: "",
+      estimatedHours: "0",
+      estimatedMinutes: "0",
       graphicDesign: {
         postType: "",
         platform: "",
@@ -184,6 +350,8 @@ export default function NewProject() {
         internalNotes: existingProject.internalNotes || "",
         startTime: existingProject.startTime || "",
         endTime: existingProject.endTime || "",
+        estimatedHours: existingProject.estimatedHours || "0",
+        estimatedMinutes: existingProject.estimatedMinutes || "0",
         graphicDesign: graphicDesignData,
         websiteDesign: existingProject.websiteDesign || {
           websiteType: "",
@@ -221,24 +389,8 @@ export default function NewProject() {
   const watchedCountry = form.watch("country");
   const watchedMonth = form.watch("month");
   const watchedYear = form.watch("year");
-
-  // Check for duplicate client names
-  useEffect(() => {
-    if (!isEditMode && watchedClientName) {
-      const normalizedNewName = watchedClientName.trim().toLowerCase();
-      const duplicateProject = projects.find(
-        (project) => project.clientName.trim().toLowerCase() === normalizedNewName
-      );
-
-      if (duplicateProject) {
-        setDuplicateNameWarning(
-          `⚠️ A project with client name "${duplicateProject.clientName}" already exists (ID: ${duplicateProject.projectId}). Please use a different name.`
-        );
-      } else {
-        setDuplicateNameWarning("");
-      }
-    }
-  }, [watchedClientName, projects, isEditMode]);
+  const watchedEstimatedHours = form.watch("estimatedHours");
+  const watchedEstimatedMinutes = form.watch("estimatedMinutes");
 
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
@@ -273,24 +425,21 @@ export default function NewProject() {
       return;
     }
 
-    // Block creation if duplicate name exists
-    if (duplicateNameWarning) {
-      alert("Cannot create project: A project with this client name already exists. Please use a different name.");
+    const hours = parseInt(watchedEstimatedHours) || 0;
+    const minutes = parseInt(watchedEstimatedMinutes) || 0;
+    
+    if (hours === 0 && minutes === 0) {
+      alert("Please set estimated time before creating project!");
       return;
     }
 
     const currentTime = getCurrentTime();
     form.setValue("startTime", currentTime);
     setShowServiceForm(true);
+    setTimerActive(true);
   };
 
   const onSubmit = async (data) => {
-    // Final check for duplicate name before submission
-    if (!isEditMode && duplicateNameWarning) {
-      alert("Cannot submit project: A project with this client name already exists. Please use a different name.");
-      return;
-    }
-
     setIsSubmitting(true);
     const endTime = getCurrentTime();
     try {
@@ -301,6 +450,8 @@ export default function NewProject() {
           internalNotes: data.internalNotes || "",
           startTime: data.startTime,
           endTime: endTime,
+          estimatedHours: data.estimatedHours,
+          estimatedMinutes: data.estimatedMinutes,
         };
 
         if (data.graphicDesign || existingProject.graphicDesign) {
@@ -348,6 +499,8 @@ export default function NewProject() {
           internalNotes: data.internalNotes || "",
           startTime: data.startTime,
           endTime: endTime,
+          estimatedHours: data.estimatedHours,
+          estimatedMinutes: data.estimatedMinutes,
           graphicDesign: data.serviceType === "GD" ? {
             postType: data.graphicDesign?.postType || "",
             platform: data.graphicDesign?.platform || "",
@@ -376,6 +529,7 @@ export default function NewProject() {
 
   const handleCancelServiceForm = () => {
     setShowServiceForm(false);
+    setTimerActive(false);
     form.setValue("startTime", "");
     form.setValue("endTime", "");
   };
@@ -412,6 +566,10 @@ export default function NewProject() {
               : "Create a new project with all required details"}
           </p>
         </div>
+        
+        {/* User Info Display - Top Right Corner */}
+        <UserInfoDisplay currentUser={currentUser} />
+
         {isEditMode && (
           <Button
             variant="outline"
@@ -427,23 +585,6 @@ export default function NewProject() {
           </Button>
         )}
       </div>
-
-      {/* Duplicate Name Warning */}
-      {duplicateNameWarning && (
-        <div className="mb-6 rounded-xl border border-red-500/50 bg-red-50 dark:bg-red-950/20 p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold text-red-900 dark:text-red-100 mb-1">
-                Duplicate Client Name Detected
-              </h3>
-              <p className="text-sm text-red-800 dark:text-red-200">
-                {duplicateNameWarning}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isEditMode && showOldData && existingProject && (
         <div className="mb-8 rounded-xl border border-blue-500/50 bg-blue-50 dark:bg-blue-950/20 p-6">
@@ -485,20 +626,36 @@ export default function NewProject() {
               isEditMode={isEditMode}
               isContentWriter={isContentWriter}
               currentUser={currentUser}
+              showServiceForm={showServiceForm}
+              onTimerStart={() => {
+                const hours = parseInt(watchedEstimatedHours) || 0;
+                const minutes = parseInt(watchedEstimatedMinutes) || 0;
+                
+                if (hours === 0 && minutes === 0) {
+                  alert("Please set estimated time before starting timer!");
+                  return;
+                }
+                
+                if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
+                  alert("Please fill all required fields before starting timer!");
+                  return;
+                }
+                
+                const currentTime = getCurrentTime();
+                form.setValue("startTime", currentTime);
+                setShowServiceForm(true);
+                setTimerActive(true);
+              }}
+              countdownTimerComponent={
+                <CountdownTimer
+                  estimatedHours={watchedEstimatedHours}
+                  estimatedMinutes={watchedEstimatedMinutes}
+                  isActive={showServiceForm}
+                  timerActive={timerActive}
+                  onTimerStop={() => setTimerActive(false)}
+                />
+              }
             />
-            {!isEditMode && !showServiceForm && (
-              <div className="mt-6 flex justify-end">
-                <Button
-                  type="button"
-                  onClick={handleCreateProject}
-                  className="bg-primary hover:bg-primary/90"
-                  disabled={!!duplicateNameWarning}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  Create Project
-                </Button>
-              </div>
-            )}
           </div>
 
           {showServiceForm && (
@@ -528,7 +685,7 @@ export default function NewProject() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting || !!duplicateNameWarning}>
+                <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -8,18 +8,15 @@ import { Separator } from "../Components/ui/separator";
 import { Textarea } from "../Components/ui/textarea";
 import {
   ArrowLeft,
-  Edit,
   Calendar,
   User,
   Globe,
   FileText,
-  CheckCircle,
-  Save,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { toast } from "sonner";
 
 export default function ProjectDetail() {
@@ -27,17 +24,56 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const { getProjectById, teamMembers, updateProject } = useProjects();
   const [notes, setNotes] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [showButtons, setShowButtons] = useState(false);
   const project = getProjectById(id || "");
 
-  // Load notes when project loads
+  // Get current user's email from localStorage or auth
+  const currentUserEmail = localStorage.getItem("userEmail");
+
   useEffect(() => {
     if (project?.notes) {
       setNotes(project.notes);
     }
   }, [project]);
+
+  // Check if current user is assigned to this project
+  useEffect(() => {
+    const checkUserAssignment = async () => {
+      if (!currentUserEmail || !project) {
+        console.log("Missing data:", { currentUserEmail, project: !!project });
+        return;
+      }
+
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", currentUserEmail));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const currentUserId = querySnapshot.docs[0].id;
+          
+          console.log("Debug Info:", {
+            currentUserEmail,
+            currentUserId,
+            projectAssignedTo: project.assignedTo,
+            match: project.assignedTo === currentUserId
+          });
+          
+          // Show buttons only if this user is assigned to the project
+          if (project.assignedTo === currentUserId) {
+            setShowButtons(true);
+          }
+        } else {
+          console.log("User not found in Firebase with email:", currentUserEmail);
+        }
+      } catch (error) {
+        console.error("Error checking user assignment:", error);
+      }
+    };
+
+    checkUserAssignment();
+  }, [currentUserEmail, project]);
 
   if (!project) {
     return (
@@ -67,19 +103,32 @@ export default function ProjectDetail() {
     return `${hours}:${minutes}`;
   };
 
-  const handleEditClick = async () => {
-    // Only for Graphic Design projects
-    if (project.serviceType !== "GD") {
-      navigate(`/admin/projects/edit/${id}`);
-      return;
-    }
+  const handleAcceptClick = async () => {
+    setIsSubmitting(true);
+    try {
+      const currentTime = getCurrentTime();
+      const updateData = {
+        status: "In Progress",
+        startTime: currentTime,
+        isAccepted: true,
+        acceptedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
 
-    // For GD projects, check if it's in progress
-    if (project.status !== "In Progress") {
-      toast.error("Project must be in progress to submit");
-      return;
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, updateData);
+      
+      updateProject(id, updateData);
+      toast.success("Project accepted and started!");
+    } catch (error) {
+      console.error("Error accepting project:", error);
+      toast.error("Failed to accept project");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
 
+  const handleSubmitClick = async () => {
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
@@ -89,16 +138,12 @@ export default function ProjectDetail() {
         updatedAt: new Date().toISOString(),
       };
 
-      // Update Firebase
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
-
-      // Update local state
+      
       updateProject(id, updateData);
-
       toast.success("Project submitted successfully!");
-
-      // Navigate back after a short delay
+      
       setTimeout(() => {
         navigate("/admin/projects");
       }, 1000);
@@ -107,30 +152,6 @@ export default function ProjectDetail() {
       toast.error("Failed to submit project");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleSaveNotes = async () => {
-    if (!id) return;
-
-    setIsSaving(true);
-    try {
-      // Update Firebase
-      const projectRef = doc(db, "projects", id);
-      await updateDoc(projectRef, {
-        notes: notes,
-        updatedAt: new Date().toISOString(),
-      });
-
-      // Update local state
-      updateProject(id, { notes: notes });
-
-      toast.success("Notes saved successfully!");
-    } catch (error) {
-      console.error("Error saving notes:", error);
-      toast.error("Failed to save notes");
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -150,10 +171,21 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
-        {project.serviceType === "GD" && project.status === "In Progress" && (
-          <Button onClick={handleEditClick} disabled={isSubmitting}>
-            <Edit className="mr-2 h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit"}
+        
+        {/* Show Accept/Submit Button only if user is assigned to this project */}
+        {showButtons && project.status !== "Done" && (
+          <Button 
+            onClick={project.status === "In Progress" ? handleSubmitClick : handleAcceptClick}
+            disabled={isSubmitting}
+            className={project.status === "In Progress" 
+              ? "bg-green-600 hover:bg-green-700" 
+              : "bg-blue-400 hover:bg-blue-700"
+            }
+          >
+            {project.status === "In Progress" 
+              ? (isSubmitting ? "Submitting..." : "Submit")
+              : (isSubmitting ? "Accepting..." : "Accept")
+            }
           </Button>
         )}
       </div>
@@ -331,7 +363,7 @@ export default function ProjectDetail() {
           )}
 
           {project.serviceType === "CW" && project.contentWriting && (
-            <div className="rounded-xl border border-service-content/20 bg-service-content/5 p-6">
+            <div className="rounded-xl border border-service-content/20 bg-service-content/5 p-6 text-start ">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-content" />
                 Content Writing Details
@@ -424,7 +456,7 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
-              {project.isAccepted && project.serviceType === "GD" && (
+              {project.isAccepted && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
                   <div>
@@ -469,10 +501,6 @@ export default function ProjectDetail() {
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground">Notes</h3>
-              <Button size="sm" onClick={handleSaveNotes} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Saving..." : "Save"}
-              </Button>
             </div>
             <Textarea
               value={notes}
@@ -480,11 +508,6 @@ export default function ProjectDetail() {
               placeholder="Add your notes here..."
               className="min-h-[150px] resize-none"
             />
-            {project.notes && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Last saved: {formatDate(project.updatedAt)}
-              </p>
-            )}
           </div>
         </div>
       </div>

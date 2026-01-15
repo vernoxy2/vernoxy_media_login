@@ -24,30 +24,55 @@ import { useProjects } from "../../../context/ProjectContext";
 
 const statuses = ["Draft", "In Progress", "Review", "Approved", "Delivered"];
 
-export function BaseProjectForm({ form, projectId, isEditMode = false, isContentWriter = false, currentUser = null }) {
-  const { teamMembers, availableTeamMembers } = useProjects();
+export function BaseProjectForm({
+  form,
+  projectId,
+  isEditMode = false,
+  isContentWriter = false,
+  currentUser = null,
+  onTimerStart = null,
+  showServiceForm = false,
+  countdownTimerComponent = null,
+}) {
+  const { teamMembers } = useProjects();
 
-  // 🎯 Filter months to show only current month + future months
+  // Filter months to show only current month + future months
   const getAvailableMonths = () => {
     const currentDate = new Date();
-    const currentMonth = currentDate.getMonth(); // 0-11 (0 = January, 11 = December)
-    
-    // Return months from current month onwards
+    const currentMonth = currentDate.getMonth();
     return MONTHS.slice(currentMonth);
   };
 
   const availableMonths = getAvailableMonths();
 
+  // Generate hours options (0-23)
+  const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
+
+  // Generate minutes options (0-59)
+  const minutesOptions = Array.from({ length: 60 }, (_, i) => i);
+
+  // Filter team members - Remove logged-in user from dropdown
+  const filteredTeamMembers = isEditMode
+    ? teamMembers || []
+    : (teamMembers || []).filter((member) => member.name !== currentUser?.name);
+
   return (
     <div className="space-y-6">
-      {/* Project ID Display - Always visible in both modes */}
-      <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
-        <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Project ID
-        </label>
-        <p className="font-mono text-lg font-semibold text-foreground mt-1">
-          {projectId || "Will be generated..."}
-        </p>
+      {/* Project ID Display with Timer/User Info */}
+      <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Project ID
+          </label>
+          <p className="font-mono text-lg font-semibold text-foreground mt-1">
+            {projectId || "Will be generated..."}
+          </p>
+        </div>
+        
+        {/* Countdown Timer Display */}
+        <div>
+          {showServiceForm && countdownTimerComponent && countdownTimerComponent}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -148,7 +173,7 @@ export function BaseProjectForm({ form, projectId, isEditMode = false, isContent
           )}
         />
 
-        {/* 🎯 Status Field - Content Writers see only "Draft", others see all */}
+        {/* Status Field */}
         <FormField
           control={form.control}
           name="status"
@@ -157,22 +182,26 @@ export function BaseProjectForm({ form, projectId, isEditMode = false, isContent
               <FormLabel>
                 Status <span className="text-destructive">*</span>
               </FormLabel>
-              <Select 
-                onValueChange={field.onChange} 
+              <Select
+                onValueChange={field.onChange}
                 value={field.value}
                 disabled={isContentWriter}
               >
                 <FormControl>
-                  <SelectTrigger className={isContentWriter ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}>
+                  <SelectTrigger
+                    className={
+                      isContentWriter
+                        ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                        : ""
+                    }
+                  >
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {isContentWriter ? (
-                    // Content Writer માટે માત્ર Draft
                     <SelectItem value="Draft">Draft</SelectItem>
                   ) : (
-                    // બીજા બધા માટે બધા status
                     statuses.map((status) => (
                       <SelectItem key={status} value={status}>
                         {status}
@@ -182,15 +211,14 @@ export function BaseProjectForm({ form, projectId, isEditMode = false, isContent
                 </SelectContent>
               </Select>
               {isContentWriter && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
-                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1"></p>
               )}
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* 🎯 Month Field - Shows only current + future months */}
+        {/* Month Field */}
         <FormField
           control={form.control}
           name="month"
@@ -260,86 +288,148 @@ export function BaseProjectForm({ form, projectId, isEditMode = false, isContent
           )}
         />
       </div>
-      <div className="grid gap-6 md:grid-cols-12">
-        {/* Assigned To Field - 6 columns */}
-        <div className="md:col-span-6">
-          <FormField
-            control={form.control}
-            name="assignedTo"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Assigned To</FormLabel>
-                {isEditMode ? (
-                  <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                    {(teamMembers || []).find((m) => m.id === field.value)
-                      ?.name ||
-                      field.value ||
-                      "Not Assigned"}
-                  </div>
-                ) : (
-                  <Select onValueChange={field.onChange} value={field.value}>
+
+      {/* Estimated Time - Hours and Minutes with Start Button */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Assigned To Field */}
+        <FormField
+          control={form.control}
+          name="assignedTo"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Assigned To</FormLabel>
+              {isEditMode ? (
+                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                  {(teamMembers || []).find((m) => m.id === field.value)
+                    ?.name ||
+                    field.value ||
+                    "Not Assigned"}
+                </div>
+              ) : (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select team member" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {filteredTeamMembers.length > 0 ? (
+                      filteredTeamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} ({member.role})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                        No team members available
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div>
+          <FormLabel>Estimated Time</FormLabel>
+          <div className="flex gap-3 mt-2">
+            {/* Hours Dropdown */}
+            <FormField
+              control={form.control}
+              name="estimatedHours"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value?.toString()}
+                    disabled={isEditMode}
+                  >
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select team member" />
+                      <SelectTrigger
+                        className={
+                          isEditMode
+                            ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue placeholder="Hours" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(teamMembers || []).map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.name} ({member.role})
+                      {hoursOptions.map((hour) => (
+                        <SelectItem key={hour} value={hour.toString()}>
+                          {hour} {hour === 1 ? "hour" : "hours"}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="md:col-span-3">
-          <FormField
-            control={form.control}
-            name="startTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Start Time</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="--:-- --"
-                    readOnly
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed font-medium"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+            {/* Minutes Dropdown */}
+            <FormField
+              control={form.control}
+              name="estimatedMinutes"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value?.toString()}
+                    disabled={isEditMode}
+                  >
+                    <FormControl>
+                      <SelectTrigger
+                        className={
+                          isEditMode
+                            ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            : ""
+                        }
+                      >
+                        <SelectValue placeholder="Minutes" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {minutesOptions.map((minute) => (
+                        <SelectItem key={minute} value={minute.toString()}>
+                          {minute} {minute === 1 ? "min" : "mins"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <div className="md:col-span-3">
-          <FormField
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Time</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="--:-- --"
-                    readOnly
-                    disabled
-                    className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 cursor-not-allowed font-medium"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+            {/* Start Button */}
+            {!isEditMode && onTimerStart && (
+              <button
+                type="button"
+                onClick={onTimerStart}
+                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                Start
+              </button>
             )}
-          />
+          </div>
         </div>
       </div>
 

@@ -32,25 +32,20 @@ import {
 } from "../ui/alert-dialog";
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
-import { db } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
 
 const ITEMS_PER_PAGE = 10;
+
 export function ProjectList({ projects }) {
-  const { teamMembers, deleteProject, addProject, updateProject } =
-    useProjects();
+  const { teamMembers, deleteProject, addProject, updateProject } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [userRole, setUserRole] = useState(() =>
-    localStorage.getItem("userRole")
-  );
-  const [userDepartment, setUserDepartment] = useState(() =>
-    localStorage.getItem("userDepartment")
-  );
+  const [userRole, setUserRole] = useState(() => localStorage.getItem("userRole"));
+  const [userDepartment, setUserDepartment] = useState(() => localStorage.getItem("userDepartment"));
+  
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
 
@@ -73,19 +68,6 @@ export function ProjectList({ projects }) {
   }, []);
 
   const filteredProjects = useMemo(() => {
-    console.log(
-      "Filtering - userRole:",
-      userRole,
-      "department:",
-      userDepartment,
-      "serviceFilter:",
-      serviceFilter,
-      "pathname:",
-      location.pathname,
-      "Projects:",
-      projects.length
-    );
-
     if (location.pathname === "/admin/projects" && !serviceFilter) {
       return projects;
     }
@@ -98,13 +80,8 @@ export function ProjectList({ projects }) {
       return projects;
     }
     
-    if (
-      userDepartment === "Graphic Design" ||
-      userDepartment === "Content Writing"
-    ) {
-      return projects.filter(
-        (p) => p.serviceType === "GD" || p.serviceType === "CW"
-      );
+    if (userDepartment === "Graphic Design" || userDepartment === "Content Writing") {
+      return projects.filter((p) => p.serviceType === "GD" || p.serviceType === "CW");
     }
 
     if (userDepartment === "Website Design") {
@@ -124,6 +101,7 @@ export function ProjectList({ projects }) {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
   useEffect(() => {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
@@ -139,13 +117,6 @@ export function ProjectList({ projects }) {
       day: "numeric",
       year: "numeric",
     }).format(new Date(date));
-  };
-
-  const getCurrentTime = () => {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${hours}:${minutes}`;
   };
 
   const handleEdit = (e, projectId) => {
@@ -176,6 +147,7 @@ export function ProjectList({ projects }) {
     delete duplicatedProject.updatedAt;
 
     addProject(duplicatedProject);
+    toast.success("Project duplicated successfully!");
   };
   
   const handleDeleteClick = (e, project) => {
@@ -186,15 +158,52 @@ export function ProjectList({ projects }) {
       toast.error("Only admins can delete projects");
       return;
     }
+    
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (projectToDelete) {
-      deleteProject(projectToDelete.id);
-      setProjectToDelete(null);
-      setDeleteDialogOpen(false);
+      try {
+        await deleteProject(projectToDelete.id);
+        toast.success(`Project ${projectToDelete.projectId} deleted successfully!`);
+        setProjectToDelete(null);
+        setDeleteDialogOpen(false);
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        toast.error("Failed to delete project. Please try again.");
+      }
+    }
+  };
+
+  const calculateTotalTime = (startTime, endTime) => {
+    if (!startTime || !endTime) return "--:--";
+    
+    try {
+      // Parse time strings (format: "HH:MM AM/PM" or "HH:MM")
+      const parseTime = (timeStr) => {
+        const [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        
+        return hours * 60 + minutes; // Return total minutes
+      };
+      
+      const startMinutes = parseTime(startTime);
+      const endMinutes = parseTime(endTime);
+      
+      let diffMinutes = endMinutes - startMinutes;
+      if (diffMinutes < 0) diffMinutes += 24 * 60; // Handle overnight
+      
+      const hours = Math.floor(diffMinutes / 60);
+      const minutes = diffMinutes % 60;
+      
+      return `${hours}h ${minutes}m`;
+    } catch (error) {
+      return "--:--";
     }
   };
 
@@ -263,7 +272,12 @@ export function ProjectList({ projects }) {
                     </span>
                   </div>
 
-                  <div>total time</div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs font-medium text-foreground">
+                      {calculateTotalTime(project.startTime, project.endTime)}
+                    </span>
+                  </div>
 
                   <div>
                     <span
@@ -330,7 +344,7 @@ export function ProjectList({ projects }) {
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              className="text-destructive"
+                              className="text-destructive focus:text-destructive"
                               onClick={(e) => handleDeleteClick(e, project)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -379,19 +393,19 @@ export function ProjectList({ projects }) {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete{" "}
-              <strong>{projectToDelete?.projectId}</strong>
+              This action cannot be undone. This will permanently delete the project{" "}
+              <strong className="text-foreground">{projectToDelete?.projectId}</strong> and remove all its data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
-              className="bg-destructive"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Delete Project
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
