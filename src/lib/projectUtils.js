@@ -1,4 +1,4 @@
-// projectUtils.js
+// projectUtils.js - Complete Fixed Version
 
 export const generateClientCode = (clientName) => {
   if (!clientName) return "";
@@ -27,10 +27,7 @@ export const generateProjectId = (
     return "";
   }
 
-  // DEBUG - આ અસ્થાયી છે, બાદમાં remove કરજો
-  console.log("🔍 Total existingProjects:", existingProjects.length);
-  console.log("🔍 Project IDs:", existingProjects.map(p => p.projectId));
-
+  // Month mapping for consistency
   const monthMap = {
     January: "01",
     February: "02",
@@ -48,49 +45,29 @@ export const generateProjectId = (
 
   const monthNumber = monthMap[month];
   const yearShort = year.slice(-2);
-
   // Base pattern without sequence number
   const basePattern = `${country}-${serviceType}-${clientCode}-${monthNumber}${yearShort}`;
-  
-  console.log("🔍 Base Pattern:", basePattern);
-
-  // Find all existing projects with the same base pattern
-  const matchingProjects = existingProjects.filter(project => 
-    project.projectId && project.projectId.startsWith(basePattern)
-  );
-  
-  console.log("🔍 Matching Projects:", matchingProjects.map(p => p.projectId));
-
-  // Extract sequence numbers from matching projects using regex
-  const sequenceNumbers = matchingProjects.map(project => {
-    // Use regex to extract the last 4 digits after the final dash
-    const match = project.projectId.match(/-(\d{4})$/);
-    if (match) {
-      const num = parseInt(match[1], 10);
-      console.log(`🔍 Extracted ${num} from ${project.projectId}`);
-      return num;
-    }
-    return 0;
-  }).filter(num => num > 0); // Remove any 0s from failed matches
-
-  console.log("🔍 Sequence Numbers Found:", sequenceNumbers);
-
-  // Find the highest sequence number
-  const maxSequence = sequenceNumbers.length > 0 
-    ? Math.max(...sequenceNumbers) 
+  // ✅ CHANGED: Extract sequence numbers from ALL projects (not just matching ones)
+  const allSequenceNumbers = existingProjects
+    .map(project => {
+      if (!project.projectId) return 0;
+      // Use regex to extract the last 4 digits after the final dash
+      const match = project.projectId.match(/-(\d{4})$/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+      return 0;
+    })
+    .filter(num => num > 0); // Remove any 0s from failed matches
+  // Find the highest sequence number across ALL projects
+  const maxSequence = allSequenceNumbers.length > 0 
+    ? Math.max(...allSequenceNumbers) 
     : 0;
-  
-  console.log("🔍 Max Sequence:", maxSequence);
-
   // Increment for new project
   const newSequence = maxSequence + 1;
-
   // Format as 4-digit number with leading zeros
   const sequenceFormatted = String(newSequence).padStart(4, '0');
-  
   const finalId = `${basePattern}-${sequenceFormatted}`;
-  console.log("🔍 Generated Project ID:", finalId);
-
   return finalId;
 };
 

@@ -398,8 +398,6 @@ export default function ERPForm() {
         console.log("❌ Email notification failed (non-critical):", err)
       );
 
-      console.log("✅ All operations completed");
-
       // Show success
       setSubmitStatus({
         type: "success",

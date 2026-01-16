@@ -12,7 +12,7 @@ import { ContentWritingForm } from "../Components/projects/forms/ContentWritingF
 import { ERPForm } from "../Components/projects/forms/ERPForm";
 import { useProjects } from "../context/ProjectContext";
 import { generateProjectId, generateClientCode } from "../lib/projectUtils";
-import { ArrowLeft, Save, Eye, EyeOff, Loader2, Clock, Play, Pause, RotateCcw } from "lucide-react";
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, Clock, Play, Pause } from "lucide-react";
 
 // User Info Component (for top-right corner)
 const UserInfoDisplay = ({ currentUser }) => {
@@ -45,14 +45,14 @@ const UserInfoDisplay = ({ currentUser }) => {
           {getDisplayRole()} 
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">
-      {currentUser.email || 'Email'}
+          {currentUser.email || 'Email'}
         </span>
       </div>
     </div>
   );
 };
 
-// Countdown Timer Component (for BaseProjectForm - right side of Project ID)
+// Countdown Timer Component (Fixed - No form submission)
 const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActive, onTimerStop }) => {
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
@@ -98,19 +98,15 @@ const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActiv
     return ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
   };
 
-  const handleStart = () => {
-    if (remainingSeconds > 0 && isActive) {
+  const handleToggle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isRunning) {
+      setIsRunning(false);
+    } else if (remainingSeconds > 0) {
       setIsRunning(true);
     }
-  };
-
-  const handlePause = () => {
-    setIsRunning(false);
-  };
-
-  const handleReset = () => {
-    setRemainingSeconds(totalSeconds);
-    setIsRunning(false);
   };
 
   if (!isActive || !timerActive || totalSeconds === 0) {
@@ -127,7 +123,7 @@ const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActiv
               {formatTime(remainingSeconds)}
             </div>
             <div className="text-indigo-100 text-xs">
-              {remainingSeconds === 0 ? "Time's up!" : "Remaining"}
+              {remainingSeconds === 0 ? "Time's up!" : isRunning ? "Running" : "Paused"}
             </div>
           </div>
         </div>
@@ -144,31 +140,18 @@ const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActiv
 
         {/* Controls */}
         <div className="flex gap-1.5">
-          {!isRunning ? (
-            <button
-              onClick={handleStart}
-              disabled={remainingSeconds === 0}
-              className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Start Timer"
-            >
-              <Play className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={handlePause}
-              className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors"
-              title="Pause Timer"
-            >
-              <Pause className="w-3.5 h-3.5" />
-            </button>
-          )}
           <button
-            onClick={handleReset}
-            disabled={remainingSeconds === totalSeconds}
+            type="button"
+            onClick={handleToggle}
+            disabled={remainingSeconds === 0}
             className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Reset Timer"
+            title={isRunning ? "Pause Timer" : "Resume Timer"}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            {isRunning ? (
+              <Pause className="w-3.5 h-3.5" />
+            ) : (
+              <Play className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       </div>
@@ -396,11 +379,17 @@ export default function NewProject() {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
     }
+    
+    if (loading) {
+      return "";
+    }
+    
     if (!watchedCountry || !watchedServiceType || !watchedClientName || !watchedMonth || !watchedYear) {
       return "";
     }
+    
     const clientCode = generateClientCode(watchedClientName);
-    return generateProjectId(
+    const newId = generateProjectId(
       watchedCountry,
       watchedServiceType,
       clientCode,
@@ -408,9 +397,11 @@ export default function NewProject() {
       watchedYear,
       projects
     );
+    return newId;
   }, [
     isEditMode,
     existingProject,
+    loading,
     watchedCountry,
     watchedServiceType,
     watchedClientName,
@@ -433,6 +424,10 @@ export default function NewProject() {
       return;
     }
 
+    if (!generatedProjectId) {
+      alert("Project ID generation failed. Please try again.");
+      return;
+    }
     const currentTime = getCurrentTime();
     form.setValue("startTime", currentTime);
     setShowServiceForm(true);
@@ -442,6 +437,7 @@ export default function NewProject() {
   const onSubmit = async (data) => {
     setIsSubmitting(true);
     const endTime = getCurrentTime();
+    
     try {
       if (isEditMode) {
         const updatedProject = {
@@ -472,9 +468,14 @@ export default function NewProject() {
         if (data.erp) {
           updatedProject.erp = data.erp;
         }
+        
         await updateProject(id, updatedProject);
         navigate(`/admin/projects/${id}`);
+        
       } else {
+        if (!generatedProjectId) {
+          throw new Error("Project ID generation failed. Please refresh and try again.");
+        }
         const getTextUpdates = (graphicDesignData) => {
           const updates = {};
           if (graphicDesignData) {
@@ -521,7 +522,8 @@ export default function NewProject() {
         navigate("/admin/projects");
       }
     } catch (error) {
-      alert("Error saving project. Please try again.");
+      console.error("❌ Error saving project:", error);
+      alert(`Error saving project: ${error.message}. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -567,7 +569,6 @@ export default function NewProject() {
           </p>
         </div>
         
-        {/* User Info Display - Top Right Corner */}
         <UserInfoDisplay currentUser={currentUser} />
 
         {isEditMode && (
@@ -638,6 +639,11 @@ export default function NewProject() {
                 
                 if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
                   alert("Please fill all required fields before starting timer!");
+                  return;
+                }
+
+                if (!generatedProjectId) {
+                  alert("Project ID generation failed. Please try again.");
                   return;
                 }
                 

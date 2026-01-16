@@ -36,7 +36,6 @@ export function BaseProjectForm({
 }) {
   const { teamMembers } = useProjects();
 
-  // Filter months to show only current month + future months
   const getAvailableMonths = () => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
@@ -44,17 +43,17 @@ export function BaseProjectForm({
   };
 
   const availableMonths = getAvailableMonths();
-
-  // Generate hours options (0-23)
   const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
-
-  // Generate minutes options (0-59)
   const minutesOptions = Array.from({ length: 60 }, (_, i) => i);
 
-  // Filter team members - Remove logged-in user from dropdown
   const filteredTeamMembers = isEditMode
     ? teamMembers || []
-    : (teamMembers || []).filter((member) => member.name !== currentUser?.name);
+    : (teamMembers || []).filter((member) => {
+        if (currentUser?.role === 'admin') {
+          return true;
+        }
+        return member.id !== currentUser?.id;
+      });
 
   return (
     <div className="space-y-6">
@@ -297,16 +296,21 @@ export function BaseProjectForm({
           name="assignedTo"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Assigned To</FormLabel>
+              <FormLabel>
+                Assigned To {!isEditMode && <span className="text-destructive">*</span>}
+              </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {(teamMembers || []).find((m) => m.id === field.value)
-                    ?.name ||
-                    field.value ||
-                    "Not Assigned"}
+                  {(() => {
+                    const member = (teamMembers || []).find((m) => m.id === field.value);
+                    return member?.name || field.value || "Not Assigned";
+                  })()}
                 </div>
               ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select 
+                  onValueChange={field.onChange} 
+                  value={field.value || ""}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select team member" />

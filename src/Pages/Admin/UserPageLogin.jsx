@@ -60,7 +60,7 @@ const UserPageLogin = () => {
     { id: 1, name: "Dhruv mistry", role: "Front-End Developer" },
     { id: 2, name: "Nikhil Lad", role: "Designer" },
     { id: 3, name: "Tilak tiwari", role: "Designer" },
-    { id: 4, name: "Bhumika Patel", role: "Content Writer" },
+    { id: 4, name: "Bhoomika Patel", role: "Content Writer" },
     {
       id: 5,
       name: "Vrunda Patel",

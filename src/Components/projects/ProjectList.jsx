@@ -32,7 +32,6 @@ import {
 } from "../ui/alert-dialog";
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
-
 const ITEMS_PER_PAGE = 10;
 
 export function ProjectList({ projects }) {
@@ -45,10 +44,8 @@ export function ProjectList({ projects }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [userRole, setUserRole] = useState(() => localStorage.getItem("userRole"));
   const [userDepartment, setUserDepartment] = useState(() => localStorage.getItem("userDepartment"));
-  
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
-
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
@@ -68,35 +65,28 @@ export function ProjectList({ projects }) {
   }, []);
 
   const filteredProjects = useMemo(() => {
-    if (location.pathname === "/admin/projects" && !serviceFilter) {
-      return projects;
-    }
- 
-    if (serviceFilter) {
-      return projects.filter((p) => p.serviceType === serviceFilter);
-    }
-    
-    if (userRole === "admin") {
-      return projects;
-    }
-    
-    if (userDepartment === "Graphic Design" || userDepartment === "Content Writing") {
-      return projects.filter((p) => p.serviceType === "GD" || p.serviceType === "CW");
-    }
-
-    if (userDepartment === "Website Design") {
-      return projects.filter((p) => p.serviceType === "WD");
-    }
-
-    if (userDepartment === "ERP Development") {
-      return projects.filter((p) => p.serviceType === "ERP");
-    }
-    
+  if (serviceFilter) {
+    return projects.filter((p) => p.serviceType === serviceFilter);
+  }
+  if (location.pathname === "/admin/projects") {
     return projects;
-  }, [projects, userRole, userDepartment, serviceFilter, location.pathname]);
-
+  }
+  if (userRole === "admin") {
+    return projects;
+  }
+  if (userDepartment === "Graphic Design" || userDepartment === "Content Writing") {
+    return projects.filter((p) => p.serviceType === "GD" || p.serviceType === "CW");
+  }
+  if (userDepartment === "Front-End Developer" || userDepartment === "Website") {
+    return projects.filter((p) => p.serviceType === "WD");
+  }
+  if (userDepartment === "ERP") {
+    return projects.filter((p) => p.serviceType === "ERP");
+  }
+  
+  return projects;
+}, [projects, userRole, userDepartment, serviceFilter, location.pathname]);
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
-
   const paginatedProjects = filteredProjects.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -106,10 +96,14 @@ export function ProjectList({ projects }) {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
 
-  const getTeamMemberName = (id) => {
-    const member = teamMembers.find((m) => m.id === id);
-    return member?.name || "Unassigned";
-  };
+ const getTeamMemberName = (id) => {
+  if (!id) return "Unassigned";
+  let member = teamMembers.find((m) => m.id === id);
+  if (!member) {
+    member = teamMembers.find((m) => m.email === id);
+  }
+  return member?.name || "Unassigned";
+};
 
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -128,24 +122,19 @@ export function ProjectList({ projects }) {
   const handleDuplicate = (e, projectId) => {
     e.preventDefault();
     e.stopPropagation();
-
     const projectToDuplicate = filteredProjects.find((p) => p.id === projectId);
-
     if (!projectToDuplicate) {
       toast.error("Project not found");
       return;
     }
-
     const duplicatedProject = {
       ...projectToDuplicate,
       projectId: projectToDuplicate.projectId + "-COPY",
       status: "Draft",
     };
-
     delete duplicatedProject.id;
     delete duplicatedProject.createdAt;
     delete duplicatedProject.updatedAt;
-
     addProject(duplicatedProject);
     toast.success("Project duplicated successfully!");
   };
@@ -153,12 +142,10 @@ export function ProjectList({ projects }) {
   const handleDeleteClick = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
-
     if (!isAdmin) {
       toast.error("Only admins can delete projects");
       return;
     }
-    
     setProjectToDelete(project);
     setDeleteDialogOpen(true);
   };
@@ -179,28 +166,20 @@ export function ProjectList({ projects }) {
 
   const calculateTotalTime = (startTime, endTime) => {
     if (!startTime || !endTime) return "--:--";
-    
     try {
-      // Parse time strings (format: "HH:MM AM/PM" or "HH:MM")
       const parseTime = (timeStr) => {
         const [time, period] = timeStr.split(' ');
         let [hours, minutes] = time.split(':').map(Number);
-        
         if (period === 'PM' && hours !== 12) hours += 12;
         if (period === 'AM' && hours === 12) hours = 0;
-        
         return hours * 60 + minutes; // Return total minutes
       };
-      
       const startMinutes = parseTime(startTime);
       const endMinutes = parseTime(endTime);
-      
       let diffMinutes = endMinutes - startMinutes;
       if (diffMinutes < 0) diffMinutes += 24 * 60; // Handle overnight
-      
       const hours = Math.floor(diffMinutes / 60);
       const minutes = diffMinutes % 60;
-      
       return `${hours}h ${minutes}m`;
     } catch (error) {
       return "--:--";

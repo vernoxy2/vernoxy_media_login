@@ -26,9 +26,10 @@ export default function ProjectDetail() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
+
   const project = getProjectById(id || "");
 
-  // Get current user's email from localStorage or auth
+  // Get current user's email from localStorage
   const currentUserEmail = localStorage.getItem("userEmail");
 
   useEffect(() => {
@@ -37,42 +38,15 @@ export default function ProjectDetail() {
     }
   }, [project]);
 
-  // Check if current user is assigned to this project
+  // Always show buttons if user is logged in
   useEffect(() => {
-    const checkUserAssignment = async () => {
-      if (!currentUserEmail || !project) {
-        console.log("Missing data:", { currentUserEmail, project: !!project });
-        return;
-      }
-
-      try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("email", "==", currentUserEmail));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          const currentUserId = querySnapshot.docs[0].id;
-          
-          console.log("Debug Info:", {
-            currentUserEmail,
-            currentUserId,
-            projectAssignedTo: project.assignedTo,
-            match: project.assignedTo === currentUserId
-          });
-          
-          // Show buttons only if this user is assigned to the project
-          if (project.assignedTo === currentUserId) {
-            setShowButtons(true);
-          }
-        } else {
-          console.log("User not found in Firebase with email:", currentUserEmail);
-        }
-      } catch (error) {
-        console.error("Error checking user assignment:", error);
-      }
-    };
-
-    checkUserAssignment();
+    if (currentUserEmail && project) {
+      console.log("✅ User logged in and project exists - Showing buttons");
+      setShowButtons(true);
+    } else {
+      console.log("❌ Missing user or project - Hiding buttons");
+      setShowButtons(false);
+    }
   }, [currentUserEmail, project]);
 
   if (!project) {
@@ -98,9 +72,15 @@ export default function ProjectDetail() {
 
   const getCurrentTime = () => {
     const now = new Date();
-    const hours = String(now.getHours()).padStart(2, "0");
+    let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${hours}:${minutes}`;
+    const period = hours >= 12 ? "PM" : "AM";
+    
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const formattedHours = String(hours).padStart(2, "0");
+    
+    return `${formattedHours}:${minutes} ${period}`;
   };
 
   const handleAcceptClick = async () => {
@@ -117,12 +97,12 @@ export default function ProjectDetail() {
 
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
+      await updateProject(id, updateData);
       
-      updateProject(id, updateData);
       toast.success("Project accepted and started!");
     } catch (error) {
       console.error("Error accepting project:", error);
-      toast.error("Failed to accept project");
+      toast.error("Failed to accept project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -140,16 +120,16 @@ export default function ProjectDetail() {
 
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
+      await updateProject(id, updateData);
       
-      updateProject(id, updateData);
       toast.success("Project submitted successfully!");
       
       setTimeout(() => {
-        navigate("/admin/projects");
-      }, 1000);
+        navigate("/projects");
+      }, 1500);
     } catch (error) {
       console.error("Error submitting project:", error);
-      toast.error("Failed to submit project");
+      toast.error("Failed to submit project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -157,6 +137,8 @@ export default function ProjectDetail() {
 
   return (
     <div className="p-8">
+
+
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -164,7 +146,7 @@ export default function ProjectDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <div className=" items-center gap-3">
+            <div className="items-center gap-3">
               <h1 className="font-mono text-2xl font-bold text-foreground">
                 {project.projectId}
               </h1>
@@ -172,21 +154,29 @@ export default function ProjectDetail() {
           </div>
         </div>
         
-        {/* Show Accept/Submit Button only if user is assigned to this project */}
-        {showButtons && project.status !== "Done" && (
-          <Button 
-            onClick={project.status === "In Progress" ? handleSubmitClick : handleAcceptClick}
-            disabled={isSubmitting}
-            className={project.status === "In Progress" 
-              ? "bg-green-600 hover:bg-green-700" 
-              : "bg-blue-400 hover:bg-blue-700"
-            }
-          >
-            {project.status === "In Progress" 
-              ? (isSubmitting ? "Submitting..." : "Submit")
-              : (isSubmitting ? "Accepting..." : "Accept")
-            }
-          </Button>
+        {/* Accept/Submit Buttons */}
+        {showButtons && (
+          <div>
+            {project.status === "Draft" && (
+              <Button 
+                onClick={handleAcceptClick}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isSubmitting ? "Accepting..." : "Accept "}
+              </Button>
+            )}
+            
+            {project.status === "In Progress" && (
+              <Button 
+                onClick={handleSubmitClick}
+                disabled={isSubmitting}
+                className="bg-green-500 hover:bg-green-700 text-white"
+              >
+                {isSubmitting ? "Submitting..." : "Submit "}
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -230,7 +220,7 @@ export default function ProjectDetail() {
               <div>
                 <p className="text-sm text-muted-foreground text-start">Status</p>
                 <Badge
-                  className={cn("status-badge" , getStatusColor(project.status))}
+                  className={cn("status-badge", getStatusColor(project.status))}
                 >
                   {project.status}
                 </Badge>
@@ -275,7 +265,7 @@ export default function ProjectDetail() {
               <>
                 <Separator className="my-4" />
                 <div className="text-start">
-                  <p className="text-sm font-medium text-muted-foreground mb-2 ">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">
                     Internal Notes
                   </p>
                   <p className="text-foreground">{project.internalNotes}</p>
@@ -292,7 +282,7 @@ export default function ProjectDetail() {
                 Graphic Design Details
               </h2>
               <div className="grid gap-4 md:grid-cols-3 text-start">
-                <div className="">
+                <div>
                   <p className="text-sm text-muted-foreground">Post Type</p>
                   <p className="font-medium text-foreground">
                     {project.graphicDesign.postType}
@@ -363,7 +353,7 @@ export default function ProjectDetail() {
           )}
 
           {project.serviceType === "CW" && project.contentWriting && (
-            <div className="rounded-xl border border-service-content/20 bg-service-content/5 p-6 text-start ">
+            <div className="rounded-xl border border-service-content/20 bg-service-content/5 p-6 text-start">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
                 <div className="h-2 w-2 rounded-full bg-service-content" />
                 Content Writing Details
@@ -397,7 +387,7 @@ export default function ProjectDetail() {
                 <div className="h-2 w-2 rounded-full bg-service-erp" />
                 ERP Development Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 ">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">ERP Type</p>
                   <p className="font-medium text-foreground">
@@ -456,15 +446,35 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
-              {project.isAccepted && (
+              {project.isAccepted && project.acceptedAt && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
                   <div>
                     <p className="text-sm text-foreground">Project accepted</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.acceptedAt
-                        ? formatDate(project.acceptedAt)
-                        : formatDate(new Date())}
+                      {formatDate(project.acceptedAt)}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {project.status === "In Progress" && project.startTime && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
+                  <div>
+                    <p className="text-sm text-foreground">Started at</p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.startTime}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {project.status === "Done" && project.endTime && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
+                  <div>
+                    <p className="text-sm text-foreground">Completed at</p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.endTime}
                     </p>
                   </div>
                 </div>
