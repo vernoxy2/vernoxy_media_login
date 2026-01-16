@@ -55,7 +55,7 @@ const bottomNavigation = [
 
 // Department access rules
 const departmentAccess = {
-  "Content Writing": ["CW", "GD"], 
+  "Content Writing": ["CW", "GD", "WD", "ERP"], 
   "Graphic Design": ["GD", "WD", "ERP"], 
   "Front-End Developer": ["WD", "GD", "ERP"], 
   "ERP": ["ERP", "GD", "WD"], 

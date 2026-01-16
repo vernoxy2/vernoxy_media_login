@@ -46,14 +46,21 @@ export function BaseProjectForm({
   const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
   const minutesOptions = Array.from({ length: 60 }, (_, i) => i);
 
-  const filteredTeamMembers = isEditMode
-    ? teamMembers || []
-    : (teamMembers || []).filter((member) => {
-        if (currentUser?.role === 'admin') {
-          return true;
-        }
-        return member.id !== currentUser?.id;
-      });
+  const filteredTeamMembers = (teamMembers || []).filter((member) => {
+    if (isEditMode) {
+      return true;
+    }
+
+    if (currentUser?.role === "admin") {
+      return true;
+    }
+
+    // Filter out current user by name or email
+    const matchByName = currentUser?.name && member.name === currentUser.name;
+    const matchByEmail = currentUser?.email && member.email === currentUser.email;
+    
+    return !matchByName && !matchByEmail;
+  });
 
   return (
     <div className="space-y-6">
@@ -67,10 +74,12 @@ export function BaseProjectForm({
             {projectId || "Will be generated..."}
           </p>
         </div>
-        
+
         {/* Countdown Timer Display */}
         <div>
-          {showServiceForm && countdownTimerComponent && countdownTimerComponent}
+          {showServiceForm &&
+            countdownTimerComponent &&
+            countdownTimerComponent}
         </div>
       </div>
 
@@ -297,18 +306,21 @@ export function BaseProjectForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Assigned To {!isEditMode && <span className="text-destructive">*</span>}
+                Assigned To{" "}
+                {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                   {(() => {
-                    const member = (teamMembers || []).find((m) => m.id === field.value);
+                    const member = (teamMembers || []).find(
+                      (m) => m.name === field.value
+                    );
                     return member?.name || field.value || "Not Assigned";
                   })()}
                 </div>
               ) : (
-                <Select 
-                  onValueChange={field.onChange} 
+                <Select
+                  onValueChange={field.onChange}
                   value={field.value || ""}
                 >
                   <FormControl>
@@ -319,7 +331,7 @@ export function BaseProjectForm({
                   <SelectContent>
                     {filteredTeamMembers.length > 0 ? (
                       filteredTeamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
+                        <SelectItem key={member.id} value={member.name}>
                           {member.name} ({member.role})
                         </SelectItem>
                       ))

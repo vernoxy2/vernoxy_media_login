@@ -22,7 +22,7 @@ export function ProjectProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [teamMembers] = useState([
-    { id: '1', name: 'Bhumika Patel', role: 'Content Writer' },
+    { id: '1', name: 'Bhoomika Patel', role: 'Content Writer' },
     { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer' },
     { id: '3', name: 'Mayur Patel', role: 'Graphic Designer' },
     { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer' },

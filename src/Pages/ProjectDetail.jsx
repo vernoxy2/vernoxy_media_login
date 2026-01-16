@@ -125,7 +125,7 @@ export default function ProjectDetail() {
       toast.success("Project submitted successfully!");
       
       setTimeout(() => {
-        navigate("/projects");
+        navigate("/admin/projects");
       }, 1500);
     } catch (error) {
       console.error("Error submitting project:", error);
@@ -155,7 +155,7 @@ export default function ProjectDetail() {
         </div>
         
         {/* Accept/Submit Buttons */}
-        {showButtons && (
+       {showButtons && project.serviceType === "GD" && (
           <div>
             {project.status === "Draft" && (
               <Button 

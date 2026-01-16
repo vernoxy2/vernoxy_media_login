@@ -1,7 +1,7 @@
 import { Project, TeamMember } from '../types/project';
 
 export const mockTeamMembers: TeamMember[] = [
-  { id: '1', name: 'Bhumika Patel', role: 'Content Writer', email: 'vernoxyuser1@gmail.com' },
+  { id: '1', name: 'Bhoomika Patel', role: 'Content Writer', email: 'vernoxyuser1@gmail.com' },
   { id: '2', name: 'Nikhil Lad', role: 'Designer', email: 'vernoxy4@gmail.com'},
 ];
 
