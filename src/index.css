@@ -7,7 +7,7 @@
   font-style: normal;
 }
 
-/* Tailwind imports - MUST come before @layer directives that use @apply */
+/* Tailwind imports */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -49,11 +49,12 @@
 
     /* Status colors */
     --status-draft: 215 15% 60%;
-    --status-in-progress: 38 92% 50%;
+    --status-in-progress: 280 80% 60%;
     --status-review: 262 83% 58%;
     --status-approved: 142 71% 45%;
     --status-delivered: 173 58% 39%;
-  --status-done: 217 91% 60%;
+    --status-done: 217 91% 60%;
+    --status-accepted: 25 95% 53%;
 
     /* Service colors */
     --service-content: 262 83% 58%;
@@ -113,19 +114,30 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig"1, "calt"1;
-  }
-
-  p {
-    @apply text-white text-sm md:text-xl font-Mulish;
-  }
-
-  section {
-    @apply py-10 md:py-24 space-y-8 md:space-y-16;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer components {
+  p {
+    @apply text-white text-sm font-Mulish;
+  }
+
+  @media (min-width: 768px) {
+    p {
+      @apply text-xl;
+    }
+  }
+
+  section {
+    @apply py-10 space-y-8;
+  }
+
+  @media (min-width: 768px) {
+    section {
+      @apply py-24 space-y-16;
+    }
+  }
 
   /* Status badges */
   .status-badge {
@@ -155,10 +167,17 @@
     background-color: hsl(var(--status-delivered) / 0.15);
     color: hsl(var(--status-delivered));
   }
-.status-done {
-  background-color: hsl(var(--status-done) / 0.15);
-  color: hsl(var(--status-done));
-}
+
+  .status-done {
+    background-color: hsl(var(--status-done) / 0.15);
+    color: hsl(var(--status-done));
+  }
+
+  .status-accepted {
+    background-color: hsl(var(--status-accepted) / 0.15);
+    color: hsl(var(--status-accepted));
+  }
+
   /* Service badges */
   .service-badge {
     @apply inline-flex items-center rounded-md px-2 py-1 text-xs font-medium;
@@ -186,12 +205,17 @@
 
   /* Custom input style */
   .input-style {
-    @apply p-2 md:p-4 text-sm md:text-xl rounded-md bg-[#FFFFFF]/10 focus:outline-none focus:ring-2 focus:ring-primary placeholder-white placeholder:font-Mulish;
+    @apply p-2 text-sm rounded-md bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary placeholder-white placeholder:font-Mulish;
+  }
+
+  @media (min-width: 768px) {
+    .input-style {
+      @apply p-4 text-xl;
+    }
   }
 }
 
 @layer utilities {
-
   /* Fade in animation */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
@@ -202,7 +226,6 @@
       opacity: 0;
       transform: translateY(4px);
     }
-
     to {
       opacity: 1;
       transform: translateY(0);
@@ -214,33 +237,6 @@
     @apply bg-card/80 backdrop-blur-sm border border-border/50;
   }
 
-  /* Fix Sonner toast positioning */
-  [data-sonner-toaster] {
-    position: fixed !important;
-    z-index: 9999 !important;
-    top: 0 !important;
-    right: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    pointer-events: none !important;
-  }
-
-  [data-sonner-toaster]>* {
-    pointer-events: auto !important;
-  }
-
-  /* Fix Sonner toast positioning */
-  .toaster {
-    position: fixed !important;
-    z-index: 9999 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .toaster>* {
-    margin: 0 !important;
-  }
-
   /* Marquee animation */
   .animate-marquee {
     animation: marquee 25s linear infinite;
@@ -250,7 +246,6 @@
     0% {
       transform: translateX(0%);
     }
-
     100% {
       transform: translateX(-100%);
     }
@@ -265,11 +260,9 @@
     0% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
-
     50% {
       transform: rotate(180deg) scale(1.5) translateX(10%);
     }
-
     100% {
       transform: rotate(360deg) scale(1) translateX(0%);
     }
@@ -284,15 +277,39 @@
     0% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
-
     50% {
       transform: rotate(180deg) scale(22);
     }
-
     100% {
       transform: rotate(0deg) scale(1) translateX(0%);
     }
   }
+}
+
+/* Fix Sonner toast positioning */
+[data-sonner-toaster] {
+  position: fixed !important;
+  z-index: 9999 !important;
+  top: 0 !important;
+  right: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
+[data-sonner-toaster] > * {
+  pointer-events: auto !important;
+}
+
+.toaster {
+  position: fixed !important;
+  z-index: 9999 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.toaster > * {
+  margin: 0 !important;
 }
 
 /* Table scroll container styles */

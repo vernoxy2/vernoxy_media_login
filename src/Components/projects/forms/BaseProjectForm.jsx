@@ -21,8 +21,7 @@ import {
   YEARS,
 } from "../../../types/project";
 import { useProjects } from "../../../context/ProjectContext";
-
-const statuses = ["Draft", "In Progress", "Review", "Approved", "Delivered"];
+const statuses = ["Draft", "Accepted", "In Progress", "Review", "Approved", "Delivered"];
 
 export function BaseProjectForm({
   form,
@@ -35,30 +34,24 @@ export function BaseProjectForm({
   countdownTimerComponent = null,
 }) {
   const { teamMembers } = useProjects();
-
   const getAvailableMonths = () => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
     return MONTHS.slice(currentMonth);
   };
-
   const availableMonths = getAvailableMonths();
   const hoursOptions = Array.from({ length: 24 }, (_, i) => i);
   const minutesOptions = Array.from({ length: 60 }, (_, i) => i);
-
   const filteredTeamMembers = (teamMembers || []).filter((member) => {
     if (isEditMode) {
       return true;
     }
-
     if (currentUser?.role === "admin") {
       return true;
     }
-
     // Filter out current user by name or email
     const matchByName = currentUser?.name && member.name === currentUser.name;
     const matchByEmail = currentUser?.email && member.email === currentUser.email;
-    
     return !matchByName && !matchByEmail;
   });
 
@@ -75,7 +68,6 @@ export function BaseProjectForm({
           </p>
         </div>
 
-        {/* Countdown Timer Display */}
         <div>
           {showServiceForm &&
             countdownTimerComponent &&
@@ -84,7 +76,6 @@ export function BaseProjectForm({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Client Name Field */}
         <FormField
           control={form.control}
           name="clientName"

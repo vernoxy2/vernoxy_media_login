@@ -6,17 +6,11 @@ import { Button } from "../Components/ui/button";
 import { Badge } from "../Components/ui/badge";
 import { Separator } from "../Components/ui/separator";
 import { Textarea } from "../Components/ui/textarea";
-import {
-  ArrowLeft,
-  Calendar,
-  User,
-  Globe,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Calendar, User, Globe, Briefcase, Activity, Users, Clock, Play } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
 export default function ProjectDetail() {
@@ -26,25 +20,60 @@ export default function ProjectDetail() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
-
+  
+  const [showEstimateTime, setShowEstimateTime] = useState(false);
+  const [estimatedHours, setEstimatedHours] = useState("0");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("0");
+  
   const project = getProjectById(id || "");
-
-  // Get current user's email from localStorage
   const currentUserEmail = localStorage.getItem("userEmail");
-
+  
   useEffect(() => {
-    if (project?.notes) {
+    if (!project) return;
+
+    if (project.notes) {
       setNotes(project.notes);
+    }
+    
+    if (project.estimatedHours) {
+      setEstimatedHours(project.estimatedHours);
+    } else {
+      setEstimatedHours("0");
+    }
+    
+    if (project.estimatedMinutes) {
+      setEstimatedMinutes(project.estimatedMinutes);
+    } else {
+      setEstimatedMinutes("0");
+    }
+    
+    if (project.status === "Accepted" || project.status === "In Progress") {
+      setShowEstimateTime(true);
+    }
+    
+    const timerData = localStorage.getItem('activeTimer');
+    if (timerData) {
+      try {
+        const { projectId, estimatedHours, estimatedMinutes } = JSON.parse(timerData);
+        if (projectId === project.projectId) {
+          setShowEstimateTime(true);
+          if (!project.estimatedHours) {
+            setEstimatedHours(estimatedHours);
+          }
+          if (!project.estimatedMinutes) {
+            setEstimatedMinutes(estimatedMinutes);
+          }
+        }
+      } catch (error) {
+        console.log("Error checking timer:", error);
+      }
     }
   }, [project]);
 
-  // Always show buttons if user is logged in
   useEffect(() => {
     if (currentUserEmail && project) {
-      console.log("✅ User logged in and project exists - Showing buttons");
       setShowButtons(true);
     } else {
-      console.log("❌ Missing user or project - Hiding buttons");
       setShowButtons(false);
     }
   }, [currentUserEmail, project]);
@@ -60,8 +89,8 @@ export default function ProjectDetail() {
     );
   }
 
-  const assignedMember = teamMembers.find((m) => m.id === project.assignedTo);
-
+  const assignedMember = teamMembers.find((m) => m.name === project.assignedTo);
+  
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "long",
@@ -75,11 +104,9 @@ export default function ProjectDetail() {
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const period = hours >= 12 ? "PM" : "AM";
-    
     hours = hours % 12;
     hours = hours ? hours : 12;
     const formattedHours = String(hours).padStart(2, "0");
-    
     return `${formattedHours}:${minutes} ${period}`;
   };
 
@@ -88,18 +115,19 @@ export default function ProjectDetail() {
     try {
       const currentTime = getCurrentTime();
       const updateData = {
-        status: "In Progress",
+        status: "Accepted",
         startTime: currentTime,
         isAccepted: true,
         acceptedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
       
-      toast.success("Project accepted and started!");
+      setShowEstimateTime(true);
+      
+      toast.success("Project accepted successfully! Please set estimated time and click Start.");
     } catch (error) {
       console.error("Error accepting project:", error);
       toast.error("Failed to accept project. Please try again.");
@@ -108,22 +136,90 @@ export default function ProjectDetail() {
     }
   };
 
+  // ✅ UPDATED: Start button - adds "Started at" to Activity
+  const handleStartClick = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const hours = parseInt(estimatedHours) || 0;
+    const minutes = parseInt(estimatedMinutes) || 0;
+
+    if (hours === 0 && minutes === 0) {
+      toast.error("Please set estimated time before starting!");
+      return;
+    }
+
+    if (hours > 12) {
+      toast.error("Hours should be between 0-12");
+      return;
+    }
+
+    if (minutes > 60) {
+      toast.error("Minutes should be between 0-60");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const currentTime = getCurrentTime();
+      
+      // ✅ UPDATE: Add startedAt timestamp for Activity section
+      const updateData = {
+        status: "In Progress",
+        startWorkTime: currentTime, // Shows in Activity as "Started at"
+        startedAt: new Date().toISOString(), // ISO timestamp for proper date formatting
+        estimatedHours: estimatedHours,
+        estimatedMinutes: estimatedMinutes,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, updateData);
+      await updateProject(id, updateData);
+
+      localStorage.setItem('activeTimer', JSON.stringify({
+        projectId: project.projectId,
+        estimatedHours,
+        estimatedMinutes,
+        startTime: new Date().toISOString()
+      }));
+
+      window.dispatchEvent(new CustomEvent('timerStart', {
+        detail: { estimatedHours, estimatedMinutes }
+      }));
+
+      toast.success("Timer started! Status: In Progress");
+    } catch (error) {
+      console.error("Error starting timer:", error);
+      toast.error("Failed to start timer. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ✅ UPDATED: Submit button - adds "Submitted at" to Activity
   const handleSubmitClick = async () => {
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
+      
+      // ✅ UPDATE: Add submittedAt timestamp for Activity section
       const updateData = {
-        status: "Done",
-        endTime: currentTime,
+        status: "Review",
+        endTime: currentTime, // Shows in Activity as "Submitted at"
+        submittedAt: new Date().toISOString(), // ISO timestamp for proper date formatting
         updatedAt: new Date().toISOString(),
       };
-
+      
+      localStorage.removeItem('activeTimer');
+      
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
       
       toast.success("Project submitted successfully!");
-      
       setTimeout(() => {
         navigate("/admin/projects");
       }, 1500);
@@ -137,8 +233,6 @@ export default function ProjectDetail() {
 
   return (
     <div className="p-8">
-
-
       {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -153,27 +247,82 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
-        
-        {/* Accept/Submit Buttons */}
-       {showButtons && project.serviceType === "GD" && (
-          <div>
-            {project.status === "Draft" && (
-              <Button 
-                onClick={handleAcceptClick}
+
+        {showButtons && project.serviceType === "GD" && (
+          <div className="flex gap-3 items-center">
+            
+            {showEstimateTime && project.status === "Accepted" && (
+              <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 px-4 py-2 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
+                      Hours (0-12)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      value={estimatedHours}
+                      onChange={(e) => setEstimatedHours(e.target.value)}
+                      className="w-16 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-center text-sm font-semibold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="HH"
+                    />
+                  </div>
+                  <span className="text-2xl font-bold text-gray-400 dark:text-gray-500 mt-5">:</span>
+                  <div className="flex flex-col">
+                    <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
+                      Min (0-60)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      value={estimatedMinutes}
+                      onChange={(e) => setEstimatedMinutes(e.target.value)}
+                      className="w-16 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-center text-sm font-semibold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="MM"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {project.status === "Accepted" && showEstimateTime && (
+              <Button
+                type="button"
+                onClick={handleStartClick}
                 disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
               >
-                {isSubmitting ? "Accepting..." : "Accept "}
+                {isSubmitting ? "Starting..." : (
+                  <>
+                    <Play className="mr-2 h-4 w-4" />
+                    Start
+                  </>
+                )}
               </Button>
             )}
-            
+
+            {project.status === "Draft" && (
+              <Button
+                type="button"
+                onClick={handleAcceptClick}
+                disabled={isSubmitting}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+              >
+                {isSubmitting ? "Accepting..." : "Accept"}
+              </Button>
+            )}
+
             {project.status === "In Progress" && (
-              <Button 
+              <Button
+                type="button"
                 onClick={handleSubmitClick}
                 disabled={isSubmitting}
-                className="bg-green-500 hover:bg-green-700 text-white"
+                className="bg-purple-600 hover:bg-purple-700 text-white shadow-md"
               >
-                {isSubmitting ? "Submitting..." : "Submit "}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </Button>
             )}
           </div>
@@ -181,9 +330,7 @@ export default function ProjectDetail() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Project Overview */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">
               Project Overview
@@ -191,7 +338,7 @@ export default function ProjectDetail() {
             <div className="grid gap-4 md:grid-cols-3 text-start">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Client Name</p>
@@ -203,7 +350,7 @@ export default function ProjectDetail() {
 
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Service Type</p>
@@ -217,14 +364,24 @@ export default function ProjectDetail() {
                   </Badge>
                 </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground text-start">Status</p>
-                <Badge
-                  className={cn("status-badge", getStatusColor(project.status))}
-                >
-                  {project.status}
-                </Badge>
+
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-muted p-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge
+                    className={cn(
+                      "status-badge",
+                      getStatusColor(project.status)
+                    )}
+                  >
+                    {project.status}
+                  </Badge>
+                </div>
               </div>
+
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
@@ -236,6 +393,7 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+              
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -250,15 +408,29 @@ export default function ProjectDetail() {
 
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Assigned To</p>
                   <p className="font-medium text-foreground">
-                    {assignedMember?.name || "Unassigned"}
+                    {assignedMember ? assignedMember.name : "Unassigned"}
                   </p>
                 </div>
               </div>
+
+              {project.estimatedHours && project.estimatedMinutes && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-2">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Estimated Time</p>
+                    <p className="font-medium text-foreground">
+                      {project.estimatedHours}h {project.estimatedMinutes}m
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {project.internalNotes && (
@@ -274,7 +446,6 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {/* Service-specific details */}
           {project.serviceType === "GD" && project.graphicDesign && (
             <div className="rounded-xl border border-service-graphic/20 bg-service-graphic/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -422,12 +593,13 @@ export default function ProjectDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Activity */}
+          {/* ✅ UPDATED: Activity Section with all timestamps */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="mb-4 text-sm font-semibold text-foreground">
               Activity
             </h3>
             <div className="space-y-4">
+              {/* Project Created */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
                 <div>
@@ -437,6 +609,8 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+
+              {/* Last Updated */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-muted-foreground" />
                 <div>
@@ -446,6 +620,8 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+
+              {/* Project Accepted */}
               {project.isAccepted && project.acceptedAt && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
@@ -457,22 +633,39 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
-              {project.status === "In Progress" && project.startTime && (
+
+              {/* Accepted At (Time) */}
+              {project.status === "Accepted" && project.startTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
                   <div>
-                    <p className="text-sm text-foreground">Started at</p>
+                    <p className="text-sm text-foreground">Accepted at</p>
                     <p className="text-xs text-muted-foreground">
                       {project.startTime}
                     </p>
                   </div>
                 </div>
               )}
-              {project.status === "Done" && project.endTime && (
+
+              {/* ✅ Started At - Shows when work begins */}
+              {project.startedAt && project.startWorkTime && (
                 <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
+                  <div className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
                   <div>
-                    <p className="text-sm text-foreground">Completed at</p>
+                    <p className="text-sm text-foreground">Started at</p>
+                    <p className="text-xs text-muted-foreground">
+                      {project.startWorkTime}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* ✅ Submitted At - Shows when work is submitted */}
+              {project.submittedAt && project.endTime && (
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-orange-500" />
+                  <div>
+                    <p className="text-sm text-foreground">Submitted at</p>
                     <p className="text-xs text-muted-foreground">
                       {project.endTime}
                     </p>
