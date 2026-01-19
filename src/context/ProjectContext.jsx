@@ -5,11 +5,9 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
-  getDocs,
-  getDoc,
+  onSnapshot,
   query,
-  orderBy,
-  serverTimestamp 
+  orderBy
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -22,38 +20,41 @@ export function ProjectProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [teamMembers] = useState([
-    { id: '1', name: 'Bhoomika Patel', role: 'Content Writer' },
-    { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer' },
-    { id: '3', name: 'Mayur Patel', role: 'Graphic Designer' },
-    { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer' },
-    { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer' },
-    { id: '6', name: 'Divya Patel', role: 'Front-End Developer' },
-    { id: '7', name: 'Jenil Dhimmar', role: 'Video Editor' },
+    { id: '1', name: 'Bhoomika Patel', role: 'Content Writer', email: 'bhoomika@example.com' },
+    { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer', email: 'nikhil@example.com' },
+    { id: '3', name: 'Mayur Patel', role: 'Graphic Designer', email: 'mayur@example.com' },
+    { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer', email: 'dhruv@example.com' },
+    { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer', email: 'vrunda@example.com' },
+    { id: '6', name: 'Divya Patel', role: 'Front-End Developer', email: 'divya@example.com' },
+    { id: '7', name: 'Jenil Dhimmar', role: 'Video Editor', email: 'jenil@example.com' },
   ]);
 
-  // ✅ Fetch current logged-in user data from Firestore
+  // Fetch current logged-in user data
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setCurrentUser({
-              id: user.uid,
-              email: user.email,
-              name: userData.name || '',
-              department: userData.department || '',
-              role: userData.role || 'user',
-            });
-            
-          } else {
-            console.warn('⚠️ User document not found in Firestore');
-            setCurrentUser(null);
-          }
+          const userEmail = localStorage.getItem('userEmail');
+          const userName = localStorage.getItem('userName');
+          const userRole = localStorage.getItem('userRole');
+          const userDepartment = localStorage.getItem('userDepartment');
+
+          setCurrentUser({
+            id: user.uid,
+            email: userEmail || user.email,
+            name: userName || user.displayName || '',
+            department: userDepartment || '',
+            role: userRole || 'user',
+          });
+          
+          console.log('✅ Current user loaded:', {
+            id: user.uid,
+            email: userEmail,
+            role: userRole,
+            department: userDepartment
+          });
         } catch (error) {
-          console.error('❌ Error fetching user data:', error);
+          console.error('❌ Error loading user data:', error);
           setCurrentUser(null);
         }
       } else {
@@ -64,34 +65,52 @@ export function ProjectProvider({ children }) {
     return () => unsubscribe();
   }, []);
 
+  // FIXED: Use onSnapshot for real-time updates instead of getDocs
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    console.log('🔥 Setting up real-time listener for projects...');
+    
+    const projectsRef = collection(db, 'projects');
+    const q = query(projectsRef, orderBy('createdAt', 'desc'));
 
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-      const projectsRef = collection(db, 'projects');
-      const q = query(projectsRef, orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
-      const projectsData = [];
-      querySnapshot.forEach((doc) => {
-        projectsData.push({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          updatedAt: doc.data().updatedAt?.toDate() || new Date(),
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        console.log('📦 Projects snapshot received:', snapshot.size, 'documents');
+        
+        const projectsData = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // Handle Firestore Timestamp conversion
+          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : 
+                           (data.createdAt ? new Date(data.createdAt) : new Date());
+          const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate() : 
+                           (data.updatedAt ? new Date(data.updatedAt) : new Date());
+          
+          projectsData.push({
+            id: doc.id,
+            ...data,
+            createdAt,
+            updatedAt
+          });
         });
-      });
-      
-      setProjects(projectsData);
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      toast.error('Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
+        
+        console.log('✅ Projects loaded:', projectsData.length);
+        setProjects(projectsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('❌ Error fetching projects:', error);
+        toast.error('Failed to load projects');
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      console.log('🔌 Unsubscribing from projects listener');
+      unsubscribe();
+    };
+  }, []);
 
   const addProject = async (projectData) => {
     try {
@@ -100,24 +119,32 @@ export function ProjectProvider({ children }) {
         toast.error('Please login to add projects');
         return;
       }
+
+      console.log('➕ Adding new project:', projectData.projectId);
+
+      // FIXED: Use ISO string instead of serverTimestamp for immediate local state update
+      const now = new Date().toISOString();
+      
       const newProject = {
         ...projectData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: now,
+        updatedAt: now,
         createdBy: localStorage.getItem('userEmail') || 'unknown',
       };
+
       const docRef = await addDoc(collection(db, 'projects'), newProject);
-      const addedProject = {
-        ...newProject,
+      
+      console.log('✅ Project added to Firebase:', docRef.id);
+
+      // Return the project with Firebase ID
+      return {
         id: docRef.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        ...newProject,
+        createdAt: new Date(now),
+        updatedAt: new Date(now)
       };
-      setProjects((prev) => [addedProject, ...prev]);
-      toast.success('Project created successfully!');
-      return addedProject;
     } catch (error) {
-      console.error('Error adding project:', error);
+      console.error('❌ Error adding project:', error);
       toast.error('Failed to create project');
       throw error;
     }
@@ -130,13 +157,22 @@ export function ProjectProvider({ children }) {
         toast.error('Please login to update projects');
         return;
       }
+
+      console.log('✏️ Updating project:', projectId);
+
       const projectRef = doc(db, 'projects', projectId);
       const updateData = {
         ...updates,
-        updatedAt: serverTimestamp(),
+        updatedAt: new Date().toISOString(),
         updatedBy: localStorage.getItem('userEmail') || 'unknown',
       };
+
       await updateDoc(projectRef, updateData);
+      
+      console.log('✅ Project updated successfully');
+      
+      // Note: onSnapshot will automatically update the local state
+      // But we can also update it manually for immediate feedback
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
@@ -144,9 +180,10 @@ export function ProjectProvider({ children }) {
             : p
         )
       );
-      toast.success('Project updated successfully!');
+
+      // Don't show toast here since it will be shown by the calling component
     } catch (error) {
-      console.error('Error updating project:', error);
+      console.error('❌ Error updating project:', error);
       toast.error('Failed to update project');
       throw error;
     }
@@ -154,7 +191,6 @@ export function ProjectProvider({ children }) {
 
   const deleteProject = async (projectId) => {
     try {
-      // Check if user is admin
       const userRole = localStorage.getItem('userRole');
       const userEmail = localStorage.getItem('userEmail');
       
@@ -162,8 +198,7 @@ export function ProjectProvider({ children }) {
         projectId,
         userRole,
         userEmail,
-        isAdmin: userRole === 'admin',
-        currentUser: currentUser
+        isAdmin: userRole === 'admin'
       });
       
       if (userRole !== 'admin') {
@@ -171,15 +206,19 @@ export function ProjectProvider({ children }) {
         toast.error('Only admins can delete projects');
         throw new Error('Unauthorized: Only admins can delete projects');
       }
-      // Delete from Firebase
+
       const projectRef = doc(db, 'projects', projectId);
       await deleteDoc(projectRef);
+      
+      console.log('✅ Project deleted from Firebase');
+      
+      // onSnapshot will automatically update the state, but we can do it manually too
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
-      toast.success('Project deleted successfully!');
+      
       return true;
     } catch (error) {
       console.error('❌ Error deleting project:', error);
-      // More specific error messages
+      
       if (error.message.includes('Unauthorized')) {
         toast.error('Only admins can delete projects');
       } else if (error.code === 'permission-denied') {
@@ -198,6 +237,12 @@ export function ProjectProvider({ children }) {
     return projects.find((p) => p.id === id);
   };
 
+  const refreshProjects = () => {
+    // Not needed anymore since we're using onSnapshot
+    // But keeping it for backwards compatibility
+    console.log('🔄 Manual refresh requested (using real-time listener, so this is a no-op)');
+  };
+
   const value = {
     projects,
     loading,
@@ -207,7 +252,7 @@ export function ProjectProvider({ children }) {
     updateProject,
     deleteProject,
     getProjectById,
-    refreshProjects: fetchProjects,
+    refreshProjects,
   };
 
   return (

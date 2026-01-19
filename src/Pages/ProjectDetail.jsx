@@ -12,11 +12,12 @@ import {
   User,
   Globe,
   FileText,
+  Clock,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { doc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { toast } from "sonner";
 
 export default function ProjectDetail() {
@@ -29,8 +30,8 @@ export default function ProjectDetail() {
 
   const project = getProjectById(id || "");
 
-  // Get current user's email from localStorage
   const currentUserEmail = localStorage.getItem("userEmail");
+  const currentUserId = localStorage.getItem("userId");
 
   useEffect(() => {
     if (project?.notes) {
@@ -38,16 +39,26 @@ export default function ProjectDetail() {
     }
   }, [project]);
 
-  // Always show buttons if user is logged in
   useEffect(() => {
     if (currentUserEmail && project) {
-      console.log("✅ User logged in and project exists - Showing buttons");
       setShowButtons(true);
     } else {
-      console.log("❌ Missing user or project - Hiding buttons");
       setShowButtons(false);
     }
   }, [currentUserEmail, project]);
+
+  // Check if current user has an active task
+  const hasActiveTask = () => {
+    if (!project?.userTasks || !currentUserId) return false;
+    const userTask = project.userTasks.find(task => task.userId === currentUserId);
+    return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+  };
+
+  // Get current user's task
+  const getCurrentUserTask = () => {
+    if (!project?.userTasks || !currentUserId) return null;
+    return project.userTasks.find(task => task.userId === currentUserId);
+  };
 
   if (!project) {
     return (
@@ -75,31 +86,63 @@ export default function ProjectDetail() {
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const period = hours >= 12 ? "PM" : "AM";
-    
+
     hours = hours % 12;
     hours = hours ? hours : 12;
     const formattedHours = String(hours).padStart(2, "0");
-    
+
     return `${formattedHours}:${minutes} ${period}`;
   };
 
   const handleAcceptClick = async () => {
+    // If user has active task, redirect to edit mode
+    if (hasActiveTask()) {
+      navigate(`/admin/projects/edit/${id}`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
-      const updateData = {
-        status: "In Progress",
+      const currentDateTime = new Date().toISOString();
+
+      // Get existing user tasks or initialize empty array
+      const existingUserTasks = project.userTasks || [];
+
+      // Create new user task entry
+      const newUserTask = {
+        userId: currentUserId,
+        userEmail: currentUserEmail,
+        userName: localStorage.getItem("userName") || currentUserEmail,
+        taskStatus: 'in_progress',
         startTime: currentTime,
+        endTime: null,
+        timeLog: [
+          {
+            type: 'start',
+            dateTime: currentDateTime,
+            timestamp: currentTime
+          }
+        ]
+      };
+
+      const updateData = {
+        status: "In Progress", // Project status
         isAccepted: true,
-        acceptedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        acceptedAt: currentDateTime,
+        updatedAt: currentDateTime,
+        userTasks: [...existingUserTasks, newUserTask] // Add new user task
       };
 
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-      
-      toast.success("Project accepted and started!");
+
+      toast.success("Project accepted! Redirecting to edit mode...");
+
+      setTimeout(() => {
+        navigate(`/admin/projects/edit/${id}`);
+      }, 1000);
     } catch (error) {
       console.error("Error accepting project:", error);
       toast.error("Failed to accept project. Please try again.");
@@ -112,18 +155,43 @@ export default function ProjectDetail() {
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
+      const currentDateTime = new Date().toISOString();
+
+      // Get existing user tasks
+      const existingUserTasks = project.userTasks || [];
+
+      // Find and update current user's task
+      const updatedUserTasks = existingUserTasks.map(task => {
+        if (task.userId === currentUserId) {
+          return {
+            ...task,
+            taskStatus: 'completed',
+            endTime: currentTime,
+            timeLog: [
+              ...(task.timeLog || []),
+              {
+                type: 'end',
+                dateTime: currentDateTime,
+                timestamp: currentTime
+              }
+            ]
+          };
+        }
+        return task;
+      });
+
       const updateData = {
-        status: "Done",
-        endTime: currentTime,
-        updatedAt: new Date().toISOString(),
+        status: "Done", // Project status
+        updatedAt: currentDateTime,
+        userTasks: updatedUserTasks
       };
 
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-      
+
       toast.success("Project submitted successfully!");
-      
+
       setTimeout(() => {
         navigate("/admin/projects");
       }, 1500);
@@ -134,12 +202,10 @@ export default function ProjectDetail() {
       setIsSubmitting(false);
     }
   };
+  const userTask = getCurrentUserTask();
 
   return (
     <div className="p-8">
-
-
-      {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -150,30 +216,40 @@ export default function ProjectDetail() {
               <h1 className="font-mono text-2xl font-bold text-foreground">
                 {project.projectId}
               </h1>
+              {userTask && (
+                <div className="mt-2">
+                  <Badge className={cn(
+                    userTask.taskStatus === 'in_progress' && 'bg-blue-500',
+                    userTask.taskStatus === 'paused' && 'bg-yellow-500',
+                    userTask.taskStatus === 'completed' && 'bg-green-500'
+                  )}>
+                    Your Task: {userTask.taskStatus === 'in_progress' ? 'In Progress' :
+                      userTask.taskStatus === 'paused' ? 'Paused' : 'Completed'}
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        
-        {/* Accept/Submit Buttons */}
-       {showButtons && project.serviceType === "GD" && (
+
+        {showButtons && project.serviceType === "GD" && (
           <div>
-            {project.status === "Draft" && (
-              <Button 
+            {!hasActiveTask() && project.status === "Draft" && (
+              <Button
                 onClick={handleAcceptClick}
                 disabled={isSubmitting}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {isSubmitting ? "Accepting..." : "Accept "}
+                {isSubmitting ? "Accepting..." : "Accept & Start"}
               </Button>
             )}
-            
-            {project.status === "In Progress" && (
-              <Button 
-                onClick={handleSubmitClick}
-                disabled={isSubmitting}
-                className="bg-green-500 hover:bg-green-700 text-white"
+
+            {hasActiveTask() && (
+              <Button
+                onClick={() => navigate(`/admin/projects/edit/${id}`)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {isSubmitting ? "Submitting..." : "Submit "}
+                Continue Working
               </Button>
             )}
           </div>
@@ -181,9 +257,7 @@ export default function ProjectDetail() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Project Overview */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold text-foreground">
               Project Overview
@@ -274,7 +348,6 @@ export default function ProjectDetail() {
             )}
           </div>
 
-          {/* Service-specific details */}
           {project.serviceType === "GD" && project.graphicDesign && (
             <div className="rounded-xl border border-service-graphic/20 bg-service-graphic/5 p-6">
               <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
@@ -420,9 +493,7 @@ export default function ProjectDetail() {
           )}
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Activity */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="mb-4 text-sm font-semibold text-foreground">
               Activity
@@ -457,24 +528,24 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
-              {project.status === "In Progress" && project.startTime && (
+              {userTask && userTask.startTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
                   <div>
-                    <p className="text-sm text-foreground">Started at</p>
+                    <p className="text-sm text-foreground">You started at</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.startTime}
+                      {userTask.startTime}
                     </p>
                   </div>
                 </div>
               )}
-              {project.status === "Done" && project.endTime && (
+              {userTask && userTask.endTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
                   <div>
-                    <p className="text-sm text-foreground">Completed at</p>
+                    <p className="text-sm text-foreground">You completed at</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.endTime}
+                      {userTask.endTime}
                     </p>
                   </div>
                 </div>
@@ -482,7 +553,28 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Team */}
+          {userTask && userTask.timeLog && userTask.timeLog.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Your Time Log
+              </h3>
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {userTask.timeLog.map((log, index) => (
+                  <div key={index} className="flex items-start gap-3 text-xs">
+                    <Clock className="h-3 w-3 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium capitalize">{log.type}</p>
+                      <p className="text-muted-foreground">{log.dateTime}</p>
+                      {log.reason && (
+                        <p className="text-muted-foreground italic">Reason: {log.reason}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {assignedMember && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
@@ -507,7 +599,6 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          {/* Notes Section */}
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground">Notes</h3>
