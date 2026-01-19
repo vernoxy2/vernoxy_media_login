@@ -28,21 +28,21 @@ const allServiceLinks = [
     icon: FileText,
     code: "CW",
   },
-  { 
-    name: "Graphic Design", 
-    href: "/admin/projects?service=GD", 
+  {
+    name: "Graphic Design",
+    href: "/admin/projects?service=GD",
     icon: Palette,
     code: "GD",
   },
-  { 
-    name: "Website Design", 
-    href: "/admin/projects?service=WD", 
+  {
+    name: "Website Design",
+    href: "/admin/projects?service=WD",
     icon: Globe,
     code: "WD",
   },
-  { 
-    name: "ERP Development", 
-    href: "/admin/projects?service=ERP", 
+  {
+    name: "ERP Development",
+    href: "/admin/projects?service=ERP",
     icon: Code,
     code: "ERP",
   },
@@ -55,10 +55,11 @@ const bottomNavigation = [
 
 // Department access rules
 const departmentAccess = {
-  "Content Writing": ["CW", "GD", "WD", "ERP"], 
-  "Graphic Design": ["GD", "WD", "ERP"], 
-  "Front-End Developer": ["WD", "GD", "ERP"], 
-  "ERP": ["ERP", "GD", "WD"], 
+  Admin: ["CW", "GD", "WD", "ERP"],
+  "Content Writing": ["CW", "GD", "WD", "ERP"],
+  "Graphic Design": ["GD", "WD", "ERP"],
+  "Front-End Developer": ["WD", "GD", "ERP"],
+  ERP: ["ERP", "GD", "WD"],
 };
 
 export function SideBar() {
@@ -75,16 +76,20 @@ export function SideBar() {
         try {
           // Get user document from Firestore
           const userDoc = await getDoc(doc(db, "users", user.uid));
-          
           if (userDoc.exists()) {
             const userData = userDoc.data();
             const department = userData.department;
+            const role = userData.role;
             setUserDepartment(department);
-            const allowedServices = departmentAccess[department] || [];
-            const filtered = allServiceLinks.filter((service) =>
-              allowedServices.includes(service.code)
-            );
-            setFilteredServices(filtered);
+            if (role === "admin") {
+              setFilteredServices(allServiceLinks);
+            } else {
+              const allowedServices = departmentAccess[department] || [];
+              const filtered = allServiceLinks.filter((service) =>
+                allowedServices.includes(service.code),
+              );
+              setFilteredServices(filtered);
+            }
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
@@ -94,19 +99,17 @@ export function SideBar() {
         setFilteredServices(allServiceLinks);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
   const isActive = (href) => {
     const [hrefPath, hrefQuery] = href.split("?");
     const currentPath = location.pathname;
-    const currentQuery = location.search.substring(1); 
+    const currentQuery = location.search.substring(1);
 
     if (hrefPath === "/admin") {
       return (
-        (currentPath === "/admin" || currentPath === "/admin/") &&
-        !currentQuery
+        (currentPath === "/admin" || currentPath === "/admin/") && !currentQuery
       );
     }
     if (hrefQuery) {
@@ -141,7 +144,7 @@ export function SideBar() {
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive(item.href)
                     ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                 )}
               >
                 <item.icon className="h-4 w-4" />
@@ -165,7 +168,7 @@ export function SideBar() {
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                       isActive(item.href)
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -189,7 +192,7 @@ export function SideBar() {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive(item.href)
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
               )}
             >
               <item.icon className="h-4 w-4" />
