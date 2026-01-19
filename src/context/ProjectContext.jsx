@@ -1,19 +1,19 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
+import { createContext, useContext, useState, useEffect } from 'react';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
   getDocs,
   getDoc,
   query,
   orderBy,
   serverTimestamp,
-} from "firebase/firestore";
-import { auth, db } from "../firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { toast } from "sonner";
+} from 'firebase/firestore';
+import { auth, db } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { toast } from 'sonner';
 
 const ProjectContext = createContext();
 
@@ -24,26 +24,34 @@ export function ProjectProvider({ children }) {
   const [teamMembers, setTeamMembers] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // ✅ Authentication check
+  // Authentication check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
+          
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            setCurrentUser({
+            
+            const userInfo = {
               id: user.uid,
               email: user.email,
               name: userData.name || "",
               department: userData.department || "",
               role: userData.role || "user",
-            });
+            };
             
-            // 🆕 localStorage માં પણ save કરો
+            setCurrentUser(userInfo);
+            
+            // Save to localStorage
+            localStorage.setItem("userId", user.uid);
             localStorage.setItem("userRole", userData.role || "user");
             localStorage.setItem("userEmail", user.email);
+            localStorage.setItem("userName", userData.name || "");
+            localStorage.setItem("userDepartment", userData.department || "");
+            
           } else {
             setCurrentUser(null);
           }
@@ -53,32 +61,37 @@ export function ProjectProvider({ children }) {
         }
       } else {
         setCurrentUser(null);
+        localStorage.removeItem("userId");
         localStorage.removeItem("userRole");
         localStorage.removeItem("userEmail");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("userDepartment");
       }
-      setAuthLoading(false); 
+      setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Team members fetch
+  // Fetch team members
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
         const usersRef = collection(db, "users");
         const querySnapshot = await getDocs(usersRef);
         const membersData = [];
+        
         querySnapshot.forEach((doc) => {
           const userData = doc.data();
           membersData.push({
             id: doc.id,
-            email: userData.email,
+            email: userData.email || "",
             name: userData.name || "Unknown",
             role: userData.department || userData.role || "User",
             department: userData.department || "",
           });
         });
+        
         setTeamMembers(membersData);
       } catch (error) {
         console.error("❌ Error fetching team members:", error);
@@ -88,6 +101,7 @@ export function ProjectProvider({ children }) {
     fetchTeamMembers();
   }, []);
 
+  // Fetch projects after auth is loaded
   useEffect(() => {
     if (!authLoading) {
       fetchProjects();
@@ -97,6 +111,7 @@ export function ProjectProvider({ children }) {
   const fetchProjects = async () => {
     try {
       setLoading(true);
+      
       if (!auth.currentUser) {
         console.warn("⚠️ No authenticated user");
         setProjects([]);
@@ -112,6 +127,7 @@ export function ProjectProvider({ children }) {
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
 
+        // Handle timestamp conversion
         let createdAtDate = new Date();
         let updatedAtDate = new Date();
 
@@ -139,14 +155,12 @@ export function ProjectProvider({ children }) {
         });
       });
 
-      console.log("✅ Loaded projects:", projectsData.length);
       setProjects(projectsData);
     } catch (error) {
       console.error("❌ Error fetching projects:", error);
       console.error("Error code:", error.code);
       console.error("Error message:", error.message);
       
-      // 🆕 Better errors
       if (error.code === "permission-denied") {
         toast.error("Permission denied. Please check your access rights.");
       } else if (error.code === "unavailable") {
@@ -166,6 +180,7 @@ export function ProjectProvider({ children }) {
         return;
       }
 
+
       const newProject = {
         ...projectData,
         createdAt: serverTimestamp(),
@@ -175,18 +190,22 @@ export function ProjectProvider({ children }) {
 
       const docRef = await addDoc(collection(db, "projects"), newProject);
       
+      // Return project with Firebase ID and current dates for immediate use
       const addedProject = {
-        ...newProject,
+        ...projectData,
         id: docRef.id,
         createdAt: new Date(),
         updatedAt: new Date(),
+        createdBy: currentUser.email,
       };
 
+      // Update local state
       setProjects((prev) => [addedProject, ...prev]);
+      
       toast.success("Project created successfully!");
       return addedProject;
     } catch (error) {
-      console.error("Error adding project:", error);
+      console.error("❌ Error adding project:", error);
       toast.error("Failed to create project");
       throw error;
     }
@@ -198,7 +217,6 @@ export function ProjectProvider({ children }) {
         toast.error("Please login to update projects");
         return;
       }
-
       const projectRef = doc(db, "projects", projectId);
       const updateData = {
         ...updates,
@@ -208,17 +226,18 @@ export function ProjectProvider({ children }) {
 
       await updateDoc(projectRef, updateData);
       
+      // Update local state with current date for immediate feedback
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
-            ? { ...p, ...updateData, updatedAt: new Date() }
+            ? { ...p, ...updates, updatedAt: new Date(), updatedBy: currentUser.email }
             : p
         )
       );
 
       toast.success("Project updated successfully!");
     } catch (error) {
-      console.error("Error updating project:", error);
+      console.error("❌ Error updating project:", error);
       toast.error("Failed to update project");
       throw error;
     }
@@ -226,6 +245,7 @@ export function ProjectProvider({ children }) {
 
   const deleteProject = async (projectId) => {
     try {
+      
       if (!currentUser || currentUser.role !== "admin") {
         toast.error("Only admins can delete projects");
         throw new Error("Unauthorized: Only admins can delete projects");
@@ -233,7 +253,6 @@ export function ProjectProvider({ children }) {
 
       const projectRef = doc(db, "projects", projectId);
       await deleteDoc(projectRef);
-      
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
       toast.success("Project deleted successfully!");
       return true;
@@ -261,12 +280,17 @@ export function ProjectProvider({ children }) {
   const getTeamMemberName = (assignedToValue) => {
     if (!assignedToValue) return "Unassigned";
     
-    let member = teamMembers.find((m) => m.id === assignedToValue);
+    // Try to find by name first (since form uses names)
+    let member = teamMembers.find((m) => m.name === assignedToValue);
+    
+    // Fallback to ID
+    if (!member) {
+      member = teamMembers.find((m) => m.id === assignedToValue);
+    }
+    
+    // Fallback to email
     if (!member) {
       member = teamMembers.find((m) => m.email === assignedToValue);
-    }
-    if (!member) {
-      member = teamMembers.find((m) => m.name === assignedToValue);
     }
     
     return member?.name || assignedToValue || "Unassigned";
@@ -274,7 +298,7 @@ export function ProjectProvider({ children }) {
 
   const value = {
     projects,
-    loading: loading || authLoading, 
+    loading: loading || authLoading,
     teamMembers,
     currentUser,
     addProject,
@@ -286,7 +310,9 @@ export function ProjectProvider({ children }) {
   };
 
   return (
-    <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
+    <ProjectContext.Provider value={value}>
+      {children}
+    </ProjectContext.Provider>
   );
 }
 

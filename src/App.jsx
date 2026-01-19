@@ -45,6 +45,7 @@ import Welcome from "./Pages/Admin/Welcome";
 import ERP_Requirement from "./Components/ERP_Requirement";
 import CityDisplay from "./Components/CityDisplay";
 import CityPage from "./Pages/GlobalPresence/Sections/CityPage";
+import { TimerProvider } from "./context/TimerContext";
 
 // Layout wrapper to conditionally show Navbar/Footer
 const Layout = ({ children }) => {
@@ -75,6 +76,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ProjectProvider>
+           <TimerProvider> 
           <Toaster />
           <Sonner />
           <Router>
@@ -140,6 +142,7 @@ const App = () => {
               </Routes>
             </Layout>
           </Router>
+        </TimerProvider>
         </ProjectProvider>
       </TooltipProvider>
     </QueryClientProvider>

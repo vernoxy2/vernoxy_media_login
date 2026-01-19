@@ -45,22 +45,29 @@ export function ProjectList({ projects }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [userRole, setUserRole] = useState(() => localStorage.getItem("userRole"));
   const [userDepartment, setUserDepartment] = useState(() => localStorage.getItem("userDepartment"));
+  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem("userId"));
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
+
+
   
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
+    const userId = localStorage.getItem("userId");
     setUserRole(role);
     setUserDepartment(dept);
+    setCurrentUserId(userId);
   }, []);
 
   useEffect(() => {
     const handleStorageChange = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
+      const userId = localStorage.getItem("userId");
       setUserRole(role);
       setUserDepartment(dept);
+      setCurrentUserId(userId);
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
@@ -85,10 +92,10 @@ export function ProjectList({ projects }) {
     if (userDepartment === "ERP") {
       return projects.filter((p) => p.serviceType === "ERP");
     }
-    
+
     return projects;
   }, [projects, userRole, userDepartment, serviceFilter, location.pathname]);
-  
+
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -99,8 +106,15 @@ export function ProjectList({ projects }) {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
 
-  // ✅ REMOVED: This function is now in ProjectContext
-  // const getTeamMemberName = (id) => { ... }
+  // const getTeamMemberName = (id) => {
+  //   debugger;
+  //   if (!id) return "Unassigned";
+  //   let member = teamMembers.find((m) => m.id === id);
+  //   if (!member) {
+  //     member = teamMembers.find((m) => m.email === id);
+  //   }
+  //   return member?.name || "Unassigned";
+  // };
 
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -108,6 +122,27 @@ export function ProjectList({ projects }) {
       day: "numeric",
       year: "numeric",
     }).format(new Date(date));
+  };
+
+  // Check if user has an active task for this project
+  const hasActiveTask = (project) => {
+    if (!project.userTasks || !currentUserId) return false;
+    const userTask = project.userTasks.find(task => task.userId === currentUserId);
+    // Check if user has an active task (in_progress or paused)
+    return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+  };
+
+  const handleProjectClick = (e, project) => {
+    e.preventDefault();
+
+    // Check if user has an active task
+    if (hasActiveTask(project)) {
+      // Navigate to edit mode if user has active task
+      navigate(`/admin/projects/edit/${project.id}`);
+    } else {
+      // Navigate to detail view if no active task
+      navigate(`/admin/projects/${project.id}`);
+    }
   };
 
   const handleEdit = (e, projectId) => {
@@ -128,6 +163,7 @@ export function ProjectList({ projects }) {
       ...projectToDuplicate,
       projectId: projectToDuplicate.projectId + "-COPY",
       status: "Draft",
+      userTasks: [], // Reset user tasks for duplicated project
     };
     delete duplicatedProject.id;
     delete duplicatedProject.createdAt;
@@ -135,7 +171,7 @@ export function ProjectList({ projects }) {
     addProject(duplicatedProject);
     toast.success("Project duplicated successfully!");
   };
-  
+
   const handleDeleteClick = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -183,6 +219,34 @@ export function ProjectList({ projects }) {
     }
   };
 
+  // Get user's task status badge
+  const getUserTaskStatus = (project) => {
+    if (!project.userTasks || !currentUserId) return null;
+    const userTask = project.userTasks.find(task => task.userId === currentUserId);
+    if (!userTask) return null;
+
+    const statusColors = {
+      'in_progress': 'bg-blue-100 text-blue-800 border-blue-300',
+      'paused': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'completed': 'bg-green-100 text-green-800 border-green-300'
+    };
+
+    const statusLabels = {
+      'in_progress': 'In Progress',
+      'paused': 'Paused',
+      'completed': 'Completed'
+    };
+
+    return (
+      <span className={cn(
+        "px-2 py-1 rounded-full text-xs font-medium border",
+        statusColors[userTask.taskStatus] || 'bg-gray-100 text-gray-800 border-gray-300'
+      )}>
+        {statusLabels[userTask.taskStatus] || userTask.taskStatus}
+      </span>
+    );
+  };
+
   if (filteredProjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 px-8">
@@ -200,11 +264,9 @@ export function ProjectList({ projects }) {
 
   return (
     <>
-      {/* Table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto table-scroll-container">
           <div className="min-w-[1400px]">
-            {/* Header */}
             <div className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
               <div>Project</div>
               <div>Start Time</div>
@@ -217,21 +279,30 @@ export function ProjectList({ projects }) {
               <div className="text-end">More</div>
             </div>
 
-            {/* Body */}
             <div className="divide-y divide-border">
               {paginatedProjects.map((project) => (
-                <Link
+                <div
                   key={project.id}
-                  to={`/admin/projects/${project.id}`}
-                  className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start"
+                  onClick={(e) => handleProjectClick(e, project)}
+                  className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
                 >
                   <div className="space-y-1">
-                    <div className="font-mono text-sm font-medium">
+                    <div className="font-mono text-sm font-medium flex items-center gap-2">
                       {project.projectId}
+                      {hasActiveTask(project) && (
+                        <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] rounded-full">
+                          Active
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {project.clientName} • {COUNTRY_NAMES[project.country]}
                     </div>
+                    {getUserTaskStatus(project) && (
+                      <div className="mt-1">
+                        {getUserTaskStatus(project)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -295,7 +366,7 @@ export function ProjectList({ projects }) {
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         asChild
-                        onClick={(e) => e.preventDefault()}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreHorizontal className="h-4 w-4" />
@@ -331,14 +402,13 @@ export function ProjectList({ projects }) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-start justify-between mt-4">
         <p className="text-sm text-muted-foreground">
           Page {currentPage} of {totalPages}
@@ -365,7 +435,6 @@ export function ProjectList({ projects }) {
         </div>
       </div>
 
-      {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -26,8 +26,10 @@ export default function ProjectDetail() {
   const [estimatedMinutes, setEstimatedMinutes] = useState("0");
   
   const project = getProjectById(id || "");
+
   const currentUserEmail = localStorage.getItem("userEmail");
-  
+  const currentUserId = localStorage.getItem("userId");
+
   useEffect(() => {
     if (!project) return;
 
@@ -78,6 +80,19 @@ export default function ProjectDetail() {
     }
   }, [currentUserEmail, project]);
 
+  // Check if current user has an active task
+  const hasActiveTask = () => {
+    if (!project?.userTasks || !currentUserId) return false;
+    const userTask = project.userTasks.find(task => task.userId === currentUserId);
+    return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+  };
+
+  // Get current user's task
+  const getCurrentUserTask = () => {
+    if (!project?.userTasks || !currentUserId) return null;
+    return project.userTasks.find(task => task.userId === currentUserId);
+  };
+
   if (!project) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
@@ -104,31 +119,64 @@ export default function ProjectDetail() {
     let hours = now.getHours();
     const minutes = String(now.getMinutes()).padStart(2, "0");
     const period = hours >= 12 ? "PM" : "AM";
+
     hours = hours % 12;
     hours = hours ? hours : 12;
     const formattedHours = String(hours).padStart(2, "0");
+
     return `${formattedHours}:${minutes} ${period}`;
   };
 
   const handleAcceptClick = async () => {
+    // If user has active task, redirect to edit mode
+    if (hasActiveTask()) {
+      navigate(`/admin/projects/edit/${id}`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
-      const updateData = {
-        status: "Accepted",
+      const currentDateTime = new Date().toISOString();
+
+      // Get existing user tasks or initialize empty array
+      const existingUserTasks = project.userTasks || [];
+
+      // Create new user task entry
+      const newUserTask = {
+        userId: currentUserId,
+        userEmail: currentUserEmail,
+        userName: localStorage.getItem("userName") || currentUserEmail,
+        taskStatus: 'in_progress',
         startTime: currentTime,
+        endTime: null,
+        timeLog: [
+          {
+            type: 'start',
+            dateTime: currentDateTime,
+            timestamp: currentTime
+          }
+        ]
+      };
+
+      const updateData = {
+        status: "In Progress", // Project status
         isAccepted: true,
-        acceptedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        acceptedAt: currentDateTime,
+        updatedAt: currentDateTime,
+        userTasks: [...existingUserTasks, newUserTask] // Add new user task
       };
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-      
+
+      toast.success("Project accepted! Redirecting to edit mode...");
+
+      setTimeout(() => {
+        navigate(`/admin/projects/edit/${id}`);
+      }, 1000);
       setShowEstimateTime(true);
-      
-      toast.success("Project accepted successfully! Please set estimated time and click Start.");
-    } catch (error) {
+        } catch (error) {
       console.error("Error accepting project:", error);
       toast.error("Failed to accept project. Please try again.");
     } finally {
@@ -204,13 +252,35 @@ export default function ProjectDetail() {
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
-      
-      // ✅ UPDATE: Add submittedAt timestamp for Activity section
+      const currentDateTime = new Date().toISOString();
+
+      // Get existing user tasks
+      const existingUserTasks = project.userTasks || [];
+
+      // Find and update current user's task
+      const updatedUserTasks = existingUserTasks.map(task => {
+        if (task.userId === currentUserId) {
+          return {
+            ...task,
+            taskStatus: 'completed',
+            endTime: currentTime,
+            timeLog: [
+              ...(task.timeLog || []),
+              {
+                type: 'end',
+                dateTime: currentDateTime,
+                timestamp: currentTime
+              }
+            ]
+          };
+        }
+        return task;
+      });
+
       const updateData = {
-        status: "Review",
-        endTime: currentTime, // Shows in Activity as "Submitted at"
-        submittedAt: new Date().toISOString(), // ISO timestamp for proper date formatting
-        updatedAt: new Date().toISOString(),
+        status: "Done", // Project status
+        updatedAt: currentDateTime,
+        userTasks: updatedUserTasks
       };
       
       localStorage.removeItem('activeTimer');
@@ -218,8 +288,9 @@ export default function ProjectDetail() {
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-      
+
       toast.success("Project submitted successfully!");
+
       setTimeout(() => {
         navigate("/admin/projects");
       }, 1500);
@@ -230,6 +301,7 @@ export default function ProjectDetail() {
       setIsSubmitting(false);
     }
   };
+  const userTask = getCurrentUserTask();
 
   return (
     <div className="p-8">
@@ -244,85 +316,40 @@ export default function ProjectDetail() {
               <h1 className="font-mono text-2xl font-bold text-foreground">
                 {project.projectId}
               </h1>
+              {userTask && (
+                <div className="mt-2">
+                  <Badge className={cn(
+                    userTask.taskStatus === 'in_progress' && 'bg-blue-500',
+                    userTask.taskStatus === 'paused' && 'bg-yellow-500',
+                    userTask.taskStatus === 'completed' && 'bg-green-500'
+                  )}>
+                    Your Task: {userTask.taskStatus === 'in_progress' ? 'In Progress' :
+                      userTask.taskStatus === 'paused' ? 'Paused' : 'Completed'}
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {showButtons && project.serviceType === "GD" && (
-          <div className="flex gap-3 items-center">
-            
-            {showEstimateTime && project.status === "Accepted" && (
-              <div className="flex items-center gap-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 px-4 py-2 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
-                <Clock className="h-5 w-5 text-blue-600" />
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col">
-                    <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
-                      Hours (0-12)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="12"
-                      value={estimatedHours}
-                      onChange={(e) => setEstimatedHours(e.target.value)}
-                      className="w-16 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-center text-sm font-semibold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="HH"
-                    />
-                  </div>
-                  <span className="text-2xl font-bold text-gray-400 dark:text-gray-500 mt-5">:</span>
-                  <div className="flex flex-col">
-                    <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 font-medium">
-                      Min (0-60)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="60"
-                      value={estimatedMinutes}
-                      onChange={(e) => setEstimatedMinutes(e.target.value)}
-                      className="w-16 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-center text-sm font-semibold bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="MM"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {project.status === "Accepted" && showEstimateTime && (
+          <div>
+            {!hasActiveTask() && project.status === "Draft" && (
               <Button
-                type="button"
-                onClick={handleStartClick}
+                onClick={handleAcceptClick}
                 disabled={isSubmitting}
                 className="bg-green-600 hover:bg-green-700 text-white shadow-md"
               >
-                {isSubmitting ? "Starting..." : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Start
-                  </>
-                )}
+                {isSubmitting ? "Accepting..." : "Accept & Start"}
               </Button>
             )}
 
-            {project.status === "Draft" && (
+            {hasActiveTask() && (
               <Button
-                type="button"
-                onClick={handleAcceptClick}
-                disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                onClick={() => navigate(`/admin/projects/edit/${id}`)}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {isSubmitting ? "Accepting..." : "Accept"}
-              </Button>
-            )}
-
-            {project.status === "In Progress" && (
-              <Button
-                type="button"
-                onClick={handleSubmitClick}
-                disabled={isSubmitting}
-                className="bg-purple-600 hover:bg-purple-700 text-white shadow-md"
-              >
-                {isSubmitting ? "Submitting..." : "Submit"}
+                Continue Working
               </Button>
             )}
           </div>
@@ -591,9 +618,7 @@ export default function ProjectDetail() {
           )}
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* ✅ UPDATED: Activity Section with all timestamps */}
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="mb-4 text-sm font-semibold text-foreground">
               Activity
@@ -633,41 +658,24 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
-
-              {/* Accepted At (Time) */}
-              {project.status === "Accepted" && project.startTime && (
+              {userTask && userTask.startTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
                   <div>
-                    <p className="text-sm text-foreground">Accepted at</p>
+                    <p className="text-sm text-foreground">You started at</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.startTime}
+                      {userTask.startTime}
                     </p>
                   </div>
                 </div>
               )}
-
-              {/* ✅ Started At - Shows when work begins */}
-              {project.startedAt && project.startWorkTime && (
+              {userTask && userTask.endTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
                   <div>
-                    <p className="text-sm text-foreground">Started at</p>
+                    <p className="text-sm text-foreground">You completed at</p>
                     <p className="text-xs text-muted-foreground">
-                      {project.startWorkTime}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ✅ Submitted At - Shows when work is submitted */}
-              {project.submittedAt && project.endTime && (
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-orange-500" />
-                  <div>
-                    <p className="text-sm text-foreground">Submitted at</p>
-                    <p className="text-xs text-muted-foreground">
-                      {project.endTime}
+                      {userTask.endTime}
                     </p>
                   </div>
                 </div>
@@ -675,7 +683,28 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Team */}
+          {userTask && userTask.timeLog && userTask.timeLog.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h3 className="mb-4 text-sm font-semibold text-foreground">
+                Your Time Log
+              </h3>
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {userTask.timeLog.map((log, index) => (
+                  <div key={index} className="flex items-start gap-3 text-xs">
+                    <Clock className="h-3 w-3 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium capitalize">{log.type}</p>
+                      <p className="text-muted-foreground">{log.dateTime}</p>
+                      {log.reason && (
+                        <p className="text-muted-foreground italic">Reason: {log.reason}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {assignedMember && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
@@ -700,7 +729,6 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          {/* Notes Section */}
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-foreground">Notes</h3>
