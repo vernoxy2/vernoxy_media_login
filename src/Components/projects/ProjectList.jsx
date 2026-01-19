@@ -32,10 +32,10 @@ import {
 } from "../ui/alert-dialog";
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
+
 const ITEMS_PER_PAGE = 10;
 
 export function ProjectList({ projects }) {
-  // ✅ CHANGED: Now using getTeamMemberName from context
   const { deleteProject, addProject, getTeamMemberName } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,8 +49,6 @@ export function ProjectList({ projects }) {
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
 
-
-  
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
@@ -106,16 +104,6 @@ export function ProjectList({ projects }) {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
 
-  // const getTeamMemberName = (id) => {
-  //   debugger;
-  //   if (!id) return "Unassigned";
-  //   let member = teamMembers.find((m) => m.id === id);
-  //   if (!member) {
-  //     member = teamMembers.find((m) => m.email === id);
-  //   }
-  //   return member?.name || "Unassigned";
-  // };
-
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
@@ -124,23 +112,133 @@ export function ProjectList({ projects }) {
     }).format(new Date(date));
   };
 
+  // Get user's task matching the project's service type
+  const getUserTaskForService = (project) => {
+    if (!project.userTasks || !currentUserId || !project.serviceType) return null;
+    
+    // Find the user's task that matches the project's service type
+    const userTask = project.userTasks.find(
+      task => task.userId === currentUserId && task.serviceType === project.serviceType
+    );
+    
+    return userTask;
+  };
+
   // Check if user has an active task for this project
   const hasActiveTask = (project) => {
-    if (!project.userTasks || !currentUserId) return false;
-    const userTask = project.userTasks.find(task => task.userId === currentUserId);
-    // Check if user has an active task (in_progress or paused)
+    const userTask = getUserTaskForService(project);
     return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+  };
+
+  // Calculate total time including breaks
+  const calculateTotalTimeWithBreaks = (userTask) => {
+    if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+      return { display: "--:--", hours: 0, minutes: 0 };
+    }
+
+    try {
+      const timeLog = userTask.timeLog;
+      let totalWorkingMs = 0;
+      let lastStartTime = null;
+
+      for (const log of timeLog) {
+        const logTime = new Date(log.dateTime);
+
+        if (log.type === 'start') {
+          lastStartTime = logTime;
+        } else if (log.type === 'pause' && lastStartTime) {
+          // Add working time before pause
+          totalWorkingMs += logTime - lastStartTime;
+          lastStartTime = null;
+        } else if (log.type === 'resume') {
+          // Start counting again after resume
+          lastStartTime = logTime;
+        } else if (log.type === 'end' && lastStartTime) {
+          // Add final working time
+          totalWorkingMs += logTime - lastStartTime;
+          lastStartTime = null;
+        }
+      }
+
+      // If still working (no end time yet), calculate up to now
+      if (lastStartTime && userTask.taskStatus === 'in_progress') {
+        totalWorkingMs += new Date() - lastStartTime;
+      }
+
+      // Convert milliseconds to hours and minutes
+      const totalMinutes = Math.floor(totalWorkingMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+
+      return {
+        display: `${hours}h ${minutes}m`,
+        hours,
+        minutes
+      };
+    } catch (error) {
+      console.error("Error calculating total time:", error);
+      return { display: "--:--", hours: 0, minutes: 0 };
+    }
+  };
+
+  // Get start time from user task
+  const getStartTime = (userTask) => {
+    if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+      return { time: "--:--", date: "" };
+    }
+
+    const startLog = userTask.timeLog.find(log => log.type === 'start');
+    if (!startLog || !startLog.dateTime) return { time: "--:--", date: "" };
+
+    try {
+      const date = new Date(startLog.dateTime);
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = String(date.getFullYear()).slice(-2);
+      
+      return {
+        time: `${hours}:${minutes}`,
+        date: `${day}/${month}/${year}`
+      };
+    } catch (error) {
+      return { time: "--:--", date: "" };
+    }
+  };
+
+  // Get end time from user task
+  const getEndTime = (userTask) => {
+    if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+      return { time: "--:--", date: "" };
+    }
+
+    const endLog = userTask.timeLog.find(log => log.type === 'end');
+    if (!endLog || !endLog.dateTime) return { time: "--:--", date: "" };
+
+    try {
+      const date = new Date(endLog.dateTime);
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = String(date.getFullYear()).slice(-2);
+      
+      return {
+        time: `${hours}:${minutes}`,
+        date: `${day}/${month}/${year}`
+      };
+    } catch (error) {
+      return { time: "--:--", date: "" };
+    }
   };
 
   const handleProjectClick = (e, project) => {
     e.preventDefault();
 
-    // Check if user has an active task
     if (hasActiveTask(project)) {
-      // Navigate to edit mode if user has active task
       navigate(`/admin/projects/edit/${project.id}`);
     } else {
-      // Navigate to detail view if no active task
       navigate(`/admin/projects/${project.id}`);
     }
   };
@@ -163,7 +261,7 @@ export function ProjectList({ projects }) {
       ...projectToDuplicate,
       projectId: projectToDuplicate.projectId + "-COPY",
       status: "Draft",
-      userTasks: [], // Reset user tasks for duplicated project
+      userTasks: [],
     };
     delete duplicatedProject.id;
     delete duplicatedProject.createdAt;
@@ -197,32 +295,9 @@ export function ProjectList({ projects }) {
     }
   };
 
-  const calculateTotalTime = (startTime, endTime) => {
-    if (!startTime || !endTime) return "--:--";
-    try {
-      const parseTime = (timeStr) => {
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-      };
-      const startMinutes = parseTime(startTime);
-      const endMinutes = parseTime(endTime);
-      let diffMinutes = endMinutes - startMinutes;
-      if (diffMinutes < 0) diffMinutes += 24 * 60;
-      const hours = Math.floor(diffMinutes / 60);
-      const minutes = diffMinutes % 60;
-      return `${hours}h ${minutes}m`;
-    } catch (error) {
-      return "--:--";
-    }
-  };
-
   // Get user's task status badge
   const getUserTaskStatus = (project) => {
-    if (!project.userTasks || !currentUserId) return null;
-    const userTask = project.userTasks.find(task => task.userId === currentUserId);
+    const userTask = getUserTaskForService(project);
     if (!userTask) return null;
 
     const statusColors = {
@@ -280,130 +355,151 @@ export function ProjectList({ projects }) {
             </div>
 
             <div className="divide-y divide-border">
-              {paginatedProjects.map((project) => (
-                <div
-                  key={project.id}
-                  onClick={(e) => handleProjectClick(e, project)}
-                  className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
-                >
-                  <div className="space-y-1">
-                    <div className="font-mono text-sm font-medium flex items-center gap-2">
-                      {project.projectId}
-                      {hasActiveTask(project) && (
-                        <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] rounded-full">
-                          Active
+              {paginatedProjects.map((project) => {
+                const userTask = getUserTaskForService(project);
+                const startTime = getStartTime(userTask);
+                const endTime = getEndTime(userTask);
+                const totalTime = calculateTotalTimeWithBreaks(userTask);
+
+                return (
+                  <div
+                    key={project.id}
+                    onClick={(e) => handleProjectClick(e, project)}
+                    className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
+                  >
+                    <div className="space-y-1">
+                      <div className="font-mono text-sm font-medium flex items-center gap-2">
+                        {project.projectId}
+                        {hasActiveTask(project) && (
+                          <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {project.clientName} • {COUNTRY_NAMES[project.country]}
+                      </div>
+                      {getUserTaskStatus(project) && (
+                        <div className="mt-1">
+                          {getUserTaskStatus(project)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs font-medium text-foreground">
+                          {startTime.time}
+                        </span>
+                      </div>
+                      {startTime.date && (
+                        <span className="text-[10px] text-muted-foreground pl-4">
+                          {startTime.date}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {project.clientName} • {COUNTRY_NAMES[project.country]}
-                    </div>
-                    {getUserTaskStatus(project) && (
-                      <div className="mt-1">
-                        {getUserTaskStatus(project)}
+
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs font-medium text-foreground">
+                          {endTime.time}
+                        </span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {project.startTime || "--:--"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {project.endTime || "--:--"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs font-medium text-foreground">
-                      {calculateTotalTime(project.startTime, project.endTime)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span
-                      className={cn(
-                        "service-badge",
-                        getServiceColor(project.serviceType)
+                      {endTime.date && (
+                        <span className="text-[10px] text-muted-foreground pl-4">
+                          {endTime.date}
+                        </span>
                       )}
-                    >
-                      {SERVICE_NAMES[project.serviceType]}
-                    </span>
-                  </div>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground truncate">
-                      {getTeamMemberName(project.assignedTo)}
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground">
+                        {totalTime.display}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(project.updatedAt)}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span
-                      className={cn(
-                        "status-badge",
-                        getStatusColor(project.status)
-                      )}
-                    >
-                      {project.status}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        asChild
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => handleEdit(e, project.id)}
-                        >
-                          <Edit2 className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={(e) => handleDuplicate(e, project.id)}
-                        >
-                          <Copy className="mr-2 h-4 w-4" />
-                          Duplicate
-                        </DropdownMenuItem>
-
-                        {isAdmin && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={(e) => handleDeleteClick(e, project)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </>
+                    <div>
+                      <span
+                        className={cn(
+                          "service-badge",
+                          getServiceColor(project.serviceType)
                         )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      >
+                        {SERVICE_NAMES[project.serviceType]}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground truncate">
+                        {getTeamMemberName(project.assignedTo)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        {formatDate(project.updatedAt)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span
+                        className={cn(
+                          "status-badge",
+                          getStatusColor(project.status)
+                        )}
+                      >
+                        {project.status}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          asChild
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => handleEdit(e, project.id)}
+                          >
+                            <Edit2 className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={(e) => handleDuplicate(e, project.id)}
+                          >
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicate
+                          </DropdownMenuItem>
+
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => handleDeleteClick(e, project)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
