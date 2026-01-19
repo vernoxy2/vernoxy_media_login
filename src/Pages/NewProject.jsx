@@ -319,6 +319,7 @@ export default function NewProject() {
         userName: currentUser?.name || currentUser?.email || "",
         taskStatus: 'in_progress', // User-specific task status
         startTime: currentTime,
+        serviceType:watchedServiceType,
         endTime: null,
         timeLog: [
           {
