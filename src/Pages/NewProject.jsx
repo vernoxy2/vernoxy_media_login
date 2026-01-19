@@ -435,7 +435,7 @@ export default function NewProject() {
       };
 
       const updatedProject = {
-        status: isContentWriter ? "Done" : data.status, // Update project status
+       status: "Draft", // Update project status
         internalNotes: data.internalNotes || "",
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
@@ -479,8 +479,7 @@ export default function NewProject() {
       }
 
       toast.success("Project submitted successfully!");
-      navigate(`/admin/projects/${projectIdToUpdate}`);
-
+      navigate(`/admin/projects`);
     } catch (error) {
       console.error("❌ Error saving project:", error);
       toast.error(`Error saving project: ${error.message}. Please try again.`);
