@@ -135,7 +135,11 @@ export default function NewProject() {
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
   const isContentWriter = currentUser?.department === "Content Writing";
+  const isAdmin = currentUser?.role === "admin"; // Check if user is admin
   const currentUserId = localStorage.getItem("userId");
+  
+  // Filter out admin from assignedTo options
+  const hideAdminFromDropdown = true;
 
   const form = useForm({
     resolver: zodResolver(projectSchema),
@@ -317,9 +321,9 @@ export default function NewProject() {
         userId: currentUserId,
         userEmail: currentUser?.email || "",
         userName: currentUser?.name || currentUser?.email || "",
-        taskStatus: 'in_progress', // User-specific task status
+        taskStatus: 'in_progress',
         startTime: currentTime,
-        serviceType:watchedServiceType,
+        serviceType: watchedServiceType,
         endTime: null,
         timeLog: [
           {
@@ -338,12 +342,12 @@ export default function NewProject() {
         serviceType: watchedServiceType,
         month: watchedMonth,
         year: watchedYear,
-        status: "Draft", // Project status remains Draft
+        status: "Draft",
         assignedTo: watchedAssignedTo || currentUser?.email || "",
         internalNotes: "",
         estimatedHours: watchedEstimatedHours,
         estimatedMinutes: watchedEstimatedMinutes,
-        userTasks: [initialUserTask], // Add initial user task
+        userTasks: [initialUserTask],
         isAccepted: true,
         acceptedAt: currentDateTime,
         createdAt: currentDateTime,
@@ -384,6 +388,7 @@ export default function NewProject() {
 
     return `${formattedHours}:${minutes} ${period}`;
   };
+
   const onSubmit = async (data) => {
     setIsSubmitting(true);
 
@@ -436,11 +441,11 @@ export default function NewProject() {
       };
 
       const updatedProject = {
-       status: "Draft", // Update project status
+        status: "Draft",
         internalNotes: data.internalNotes || "",
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
-        userTasks: updatedUserTasks, // Update user tasks array
+        userTasks: updatedUserTasks,
         updatedAt: currentDateTime
       };
 
@@ -585,6 +590,8 @@ export default function NewProject() {
               projectId={generatedProjectId}
               isEditMode={isEditMode}
               isContentWriter={isContentWriter}
+              isAdmin={isAdmin}
+              hideAdminFromDropdown={hideAdminFromDropdown}
               currentUser={currentUser}
               showServiceForm={showServiceForm}
               onTimerStart={handleStartTimer}
