@@ -21,7 +21,6 @@ import {
   YEARS,
 } from "../../../types/project";
 import { useProjects } from "../../../context/ProjectContext";
-const statuses = ["Draft", "Accepted", "In Progress", "Review", "Approved", "Delivered"];
 
 export function BaseProjectForm({
   form,
@@ -31,9 +30,19 @@ export function BaseProjectForm({
   currentUser = null,
   onTimerStart = null,
   showServiceForm = false,
+  isAdmin = false,
+  hideAdminFromDropdown = false,
   countdownTimerComponent = null,
 }) {
   const { teamMembers } = useProjects();
+  const statuses = [
+    "Draft",
+    "Accepted",
+    "In Progress",
+    "Review",
+    "Approved",
+    "Delivered",
+  ];
   const getAvailableMonths = () => {
     const currentDate = new Date();
     const currentMonth = currentDate.getMonth();
@@ -46,15 +55,17 @@ export function BaseProjectForm({
     if (isEditMode) {
       return true;
     }
-    if (currentUser?.role === "admin") {
-      return true;
+    if (hideAdminFromDropdown && member.role === "admin") {
+      return false;
     }
-    // Filter out current user by name or email
+    if (currentUser?.role === "admin") {
+      return member.role !== "admin";
+    }
     const matchByName = currentUser?.name && member.name === currentUser.name;
-    const matchByEmail = currentUser?.email && member.email === currentUser.email;
+    const matchByEmail =
+      currentUser?.email && member.email === currentUser.email;
     return !matchByName && !matchByEmail;
   });
-
   return (
     <div className="space-y-6">
       {/* Project ID Display with Timer/User Info */}
@@ -304,7 +315,7 @@ export function BaseProjectForm({
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                   {(() => {
                     const member = (teamMembers || []).find(
-                      (m) => m.name === field.value
+                      (m) => m.name === field.value,
                     );
                     return member?.name || field.value || "Not Assigned";
                   })()}
