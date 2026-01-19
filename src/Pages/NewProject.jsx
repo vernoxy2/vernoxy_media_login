@@ -11,10 +11,12 @@ import { WebsiteDesignForm } from "../Components/projects/forms/WebsiteDesignFor
 import { ContentWritingForm } from "../Components/projects/forms/ContentWritingForm";
 import { ERPForm } from "../Components/projects/forms/ERPForm";
 import { useProjects } from "../context/ProjectContext";
+import { useTimer } from "../context/TimerContext";
 import { generateProjectId, generateClientCode } from "../lib/projectUtils";
-import { ArrowLeft, Save, Eye, EyeOff, Loader2, Clock, Play, Pause } from "lucide-react";
+import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-// User Info Component (for top-right corner)
+// User Info Component
 const UserInfoDisplay = ({ currentUser }) => {
   if (!currentUser) {
     return (
@@ -24,7 +26,6 @@ const UserInfoDisplay = ({ currentUser }) => {
     );
   }
 
-  // Get display text based on role and department
   const getDisplayRole = () => {
     if (currentUser.role === "admin") {
       return "Admin";
@@ -42,118 +43,11 @@ const UserInfoDisplay = ({ currentUser }) => {
           {currentUser.name || 'User'}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {getDisplayRole()} 
+          {getDisplayRole()}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">
           {currentUser.email || 'Email'}
         </span>
-      </div>
-    </div>
-  );
-};
-
-// Countdown Timer Component (Fixed - No form submission)
-const CountdownTimer = ({ estimatedHours, estimatedMinutes, isActive, timerActive, onTimerStop }) => {
-  const [totalSeconds, setTotalSeconds] = useState(0);
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-
-  useEffect(() => {
-    if (timerActive) {
-      const hours = parseInt(estimatedHours) || 0;
-      const minutes = parseInt(estimatedMinutes) || 0;
-      const total = (hours * 3600) + (minutes * 60);
-      setTotalSeconds(total);
-      setRemainingSeconds(total);
-      setIsRunning(true);
-    }
-  }, [timerActive, estimatedHours, estimatedMinutes]);
-
-  useEffect(() => {
-    let interval;
-    if (isRunning && remainingSeconds > 0) {
-      interval = setInterval(() => {
-        setRemainingSeconds(prev => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            if (onTimerStop) onTimerStop();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning, remainingSeconds, onTimerStop]);
-
-  const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
-  const getProgressPercentage = () => {
-    if (totalSeconds === 0) return 0;
-    return ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
-  };
-
-  const handleToggle = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (isRunning) {
-      setIsRunning(false);
-    } else if (remainingSeconds > 0) {
-      setIsRunning(true);
-    }
-  };
-
-  if (!isActive || !timerActive || totalSeconds === 0) {
-    return null;
-  }
-
-  return (
-    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-3 shadow-md">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-white" />
-          <div>
-            <div className="text-white text-xl font-bold font-mono">
-              {formatTime(remainingSeconds)}
-            </div>
-            <div className="text-indigo-100 text-xs">
-              {remainingSeconds === 0 ? "Time's up!" : isRunning ? "Running" : "Paused"}
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="flex-1 max-w-[120px]">
-          <div className="w-full h-1.5 bg-white/30 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white transition-all duration-1000 ease-linear"
-              style={{ width: `${getProgressPercentage()}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex gap-1.5">
-          <button
-            type="button"
-            onClick={handleToggle}
-            disabled={remainingSeconds === 0}
-            className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title={isRunning ? "Pause Timer" : "Resume Timer"}
-          >
-            {isRunning ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -168,8 +62,6 @@ const projectSchema = z.object({
   status: z.string().default("Draft"),
   assignedTo: z.string().optional(),
   internalNotes: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
   estimatedHours: z.string().optional(),
   estimatedMinutes: z.string().optional(),
   graphicDesign: z
@@ -230,29 +122,20 @@ const projectSchema = z.object({
     .optional(),
 });
 
-const getCurrentTime = () => {
-  const now = new Date();
-  let hours = now.getHours();
-  let minutes = now.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  minutes = minutes < 10 ? '0' + minutes : minutes;
-  return `${hours}:${minutes} ${ampm}`;
-};
-
 export default function NewProject() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { projects, addProject, updateProject, getProjectById, loading, currentUser } = useProjects();
+  const { startTimer, activeTimer, stopTimer } = useTimer();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
-  const [timerActive, setTimerActive] = useState(false);
-  
+  const [createdProjectId, setCreatedProjectId] = useState(null);
+
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
   const isContentWriter = currentUser?.department === "Content Writing";
+  const currentUserId = localStorage.getItem("userId");
 
   const form = useForm({
     resolver: zodResolver(projectSchema),
@@ -265,8 +148,6 @@ export default function NewProject() {
       status: "Draft",
       assignedTo: "",
       internalNotes: "",
-      startTime: "",
-      endTime: "",
       estimatedHours: "0",
       estimatedMinutes: "0",
       graphicDesign: {
@@ -331,8 +212,6 @@ export default function NewProject() {
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
-        startTime: existingProject.startTime || "",
-        endTime: existingProject.endTime || "",
         estimatedHours: existingProject.estimatedHours || "0",
         estimatedMinutes: existingProject.estimatedMinutes || "0",
         graphicDesign: graphicDesignData,
@@ -374,20 +253,20 @@ export default function NewProject() {
   const watchedYear = form.watch("year");
   const watchedEstimatedHours = form.watch("estimatedHours");
   const watchedEstimatedMinutes = form.watch("estimatedMinutes");
-
+  const watchedAssignedTo = form.watch("assignedTo");
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
     }
-    
+
     if (loading) {
       return "";
     }
-    
+
     if (!watchedCountry || !watchedServiceType || !watchedClientName || !watchedMonth || !watchedYear) {
       return "";
     }
-    
+
     const clientCode = generateClientCode(watchedClientName);
     const newId = generateProjectId(
       watchedCountry,
@@ -410,130 +289,218 @@ export default function NewProject() {
     projects,
   ]);
 
-  const handleCreateProject = () => {
+  const handleStartTimer = async () => {
     if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
-      alert("Please fill all required fields before creating project!");
+      toast.error("Please fill all required fields before starting timer!");
       return;
     }
 
     const hours = parseInt(watchedEstimatedHours) || 0;
     const minutes = parseInt(watchedEstimatedMinutes) || 0;
-    
+
     if (hours === 0 && minutes === 0) {
-      alert("Please set estimated time before creating project!");
+      toast.error("Please set estimated time before starting timer!");
       return;
     }
 
     if (!generatedProjectId) {
-      alert("Project ID generation failed. Please try again.");
+      toast.error("Project ID generation failed. Please try again.");
       return;
     }
-    const currentTime = getCurrentTime();
-    form.setValue("startTime", currentTime);
-    setShowServiceForm(true);
-    setTimerActive(true);
+
+    try {
+      const currentTime = getCurrentTime();
+      const currentDateTime = new Date().toISOString();
+
+      // Create initial user task entry
+      const initialUserTask = {
+        userId: currentUserId,
+        userEmail: currentUser?.email || "",
+        userName: currentUser?.name || currentUser?.email || "",
+        taskStatus: 'in_progress', // User-specific task status
+        startTime: currentTime,
+        serviceType:watchedServiceType,
+        endTime: null,
+        timeLog: [
+          {
+            type: 'start',
+            dateTime: currentDateTime,
+            timestamp: currentTime
+          }
+        ]
+      };
+
+      // Create project in Firebase with user task
+      const newProject = {
+        projectId: generatedProjectId,
+        clientName: watchedClientName,
+        country: watchedCountry,
+        serviceType: watchedServiceType,
+        month: watchedMonth,
+        year: watchedYear,
+        status: "Draft", // Project status remains Draft
+        assignedTo: watchedAssignedTo || currentUser?.email || "",
+        internalNotes: "",
+        estimatedHours: watchedEstimatedHours,
+        estimatedMinutes: watchedEstimatedMinutes,
+        userTasks: [initialUserTask], // Add initial user task
+        isAccepted: true,
+        acceptedAt: currentDateTime,
+        createdAt: currentDateTime,
+        updatedAt: currentDateTime
+      };
+
+      const createdProject = await addProject(newProject);
+      setCreatedProjectId(createdProject.id);
+
+      // Start the timer with Firebase ID
+      await startTimer({
+        projectId: generatedProjectId,
+        firebaseId: createdProject.id,
+        clientName: watchedClientName,
+        serviceType: watchedServiceType,
+        estimatedHours: watchedEstimatedHours,
+        estimatedMinutes: watchedEstimatedMinutes,
+        userId: currentUserId
+      });
+
+      setShowServiceForm(true);
+      toast.success("Project created and timer started!");
+    } catch (error) {
+      console.error("Error creating project:", error);
+      toast.error("Failed to create project. Please try again.");
+    }
   };
 
+  const getCurrentTime = () => {
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const period = hours >= 12 ? "PM" : "AM";
+
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const formattedHours = String(hours).padStart(2, "0");
+
+    return `${formattedHours}:${minutes} ${period}`;
+  };
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-    const endTime = getCurrentTime();
-    
+
     try {
-      if (isEditMode) {
-        const updatedProject = {
-          ...existingProject,
-          status: isContentWriter ? "Draft" : data.status,
-          internalNotes: data.internalNotes || "",
-          startTime: data.startTime,
-          endTime: endTime,
-          estimatedHours: data.estimatedHours,
-          estimatedMinutes: data.estimatedMinutes,
-        };
+      const projectIdToUpdate = isEditMode ? id : createdProjectId;
 
-        if (data.graphicDesign || existingProject.graphicDesign) {
-          updatedProject.graphicDesign = {
-            ...existingProject.graphicDesign,
-            ...data.graphicDesign
-          };
-        }
-
-        if (data.websiteDesign) {
-          updatedProject.websiteDesign = data.websiteDesign;
-        }
-
-        if (data.contentWriting) {
-          updatedProject.contentWriting = data.contentWriting;
-        }
-
-        if (data.erp) {
-          updatedProject.erp = data.erp;
-        }
-        
-        await updateProject(id, updatedProject);
-        navigate(`/admin/projects/${id}`);
-        
-      } else {
-        if (!generatedProjectId) {
-          throw new Error("Project ID generation failed. Please refresh and try again.");
-        }
-        const getTextUpdates = (graphicDesignData) => {
-          const updates = {};
-          if (graphicDesignData) {
-            Object.keys(graphicDesignData).forEach(key => {
-              if (key.startsWith('mainText') || key.startsWith('subText')) {
-                updates[key] = graphicDesignData[key];
-              }
-            });
-          }
-          return updates;
-        };
-
-        const newProject = {
-          projectId: generatedProjectId,
-          clientName: data.clientName,
-          country: data.country,
-          serviceType: data.serviceType,
-          month: data.month,
-          year: data.year,
-          status: isContentWriter ? "Draft" : data.status,
-          assignedTo: data.assignedTo || "",
-          internalNotes: data.internalNotes || "",
-          startTime: data.startTime,
-          endTime: endTime,
-          estimatedHours: data.estimatedHours,
-          estimatedMinutes: data.estimatedMinutes,
-          graphicDesign: data.serviceType === "GD" ? {
-            postType: data.graphicDesign?.postType || "",
-            platform: data.graphicDesign?.platform || "",
-            size: data.graphicDesign?.size || "",
-            mainText: data.graphicDesign?.mainText || "",
-            subText: data.graphicDesign?.subText || "",
-            ctaText: data.graphicDesign?.ctaText || "",
-            hashtags: data.graphicDesign?.hashtags || "",
-            caption: data.graphicDesign?.caption || "",
-            designerNotes: data.graphicDesign?.designerNotes || "",
-            ...getTextUpdates(data.graphicDesign)
-          } : null,
-          websiteDesign: data.serviceType === "WD" ? data.websiteDesign : null,
-          contentWriting: data.serviceType === "CW" ? data.contentWriting : null,
-          erp: data.serviceType === "ERP" ? data.erp : null,
-        };
-        await addProject(newProject);
-        navigate("/admin/projects");
+      if (!projectIdToUpdate) {
+        throw new Error("No project ID found. Please start the timer first.");
       }
+
+      const currentTime = getCurrentTime();
+      const currentDateTime = new Date().toISOString();
+
+      // Get existing project to update user tasks
+      const existingProject = getProjectById(projectIdToUpdate);
+      let updatedUserTasks = existingProject?.userTasks || [];
+
+      // Find and update current user's task
+      const userTaskIndex = updatedUserTasks.findIndex(
+        task => task.userId === currentUserId
+      );
+
+      if (userTaskIndex !== -1) {
+        // Update existing user task
+        updatedUserTasks[userTaskIndex] = {
+          ...updatedUserTasks[userTaskIndex],
+          taskStatus: 'completed',
+          endTime: currentTime,
+          timeLog: [
+            ...(updatedUserTasks[userTaskIndex].timeLog || []),
+            {
+              type: 'end',
+              dateTime: currentDateTime,
+              timestamp: currentTime
+            }
+          ]
+        };
+      }
+
+      const getTextUpdates = (graphicDesignData) => {
+        const updates = {};
+        if (graphicDesignData) {
+          Object.keys(graphicDesignData).forEach(key => {
+            if (key.startsWith('mainText') || key.startsWith('subText')) {
+              updates[key] = graphicDesignData[key];
+            }
+          });
+        }
+        return updates;
+      };
+
+      const updatedProject = {
+       status: "Draft", // Update project status
+        internalNotes: data.internalNotes || "",
+        estimatedHours: data.estimatedHours,
+        estimatedMinutes: data.estimatedMinutes,
+        userTasks: updatedUserTasks, // Update user tasks array
+        updatedAt: currentDateTime
+      };
+
+      // Add service-specific data
+      if (data.serviceType === "GD" && data.graphicDesign) {
+        updatedProject.graphicDesign = {
+          postType: data.graphicDesign?.postType || "",
+          platform: data.graphicDesign?.platform || "",
+          size: data.graphicDesign?.size || "",
+          mainText: data.graphicDesign?.mainText || "",
+          subText: data.graphicDesign?.subText || "",
+          ctaText: data.graphicDesign?.ctaText || "",
+          hashtags: data.graphicDesign?.hashtags || "",
+          caption: data.graphicDesign?.caption || "",
+          designerNotes: data.graphicDesign?.designerNotes || "",
+          ...getTextUpdates(data.graphicDesign)
+        };
+      }
+
+      if (data.serviceType === "WD" && data.websiteDesign) {
+        updatedProject.websiteDesign = data.websiteDesign;
+      }
+
+      if (data.serviceType === "CW" && data.contentWriting) {
+        updatedProject.contentWriting = data.contentWriting;
+      }
+
+      if (data.serviceType === "ERP" && data.erp) {
+        updatedProject.erp = data.erp;
+      }
+
+      await updateProject(projectIdToUpdate, updatedProject);
+
+      // Stop timer if it's running
+      if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
+        await stopTimer();
+      }
+
+      toast.success("Project submitted successfully!");
+      navigate(`/admin/projects`);
     } catch (error) {
       console.error("❌ Error saving project:", error);
-      alert(`Error saving project: ${error.message}. Please try again.`);
+      toast.error(`Error saving project: ${error.message}. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCancelServiceForm = () => {
-    setShowServiceForm(false);
-    setTimerActive(false);
-    form.setValue("startTime", "");
-    form.setValue("endTime", "");
+  const handleCancelServiceForm = async () => {
+    if (window.confirm('Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.')) {
+      setShowServiceForm(false);
+
+      // Stop timer if running
+      if (activeTimer) {
+        await stopTimer();
+      }
+
+      // Navigate back to projects list
+      navigate("/admin/projects");
+    }
   };
 
   if (loading) {
@@ -564,11 +531,11 @@ export default function NewProject() {
           </h1>
           <p className="text-muted-foreground text-md">
             {isEditMode
-              ? `Update project status and notes for ${existingProject?.projectId}`
+              ? `Update project details for ${existingProject?.projectId}`
               : "Create a new project with all required details"}
           </p>
         </div>
-        
+
         <UserInfoDisplay currentUser={currentUser} />
 
         {isEditMode && (
@@ -602,14 +569,6 @@ export default function NewProject() {
                 <span className="font-medium text-blue-900 dark:text-blue-200">Client Name:</span>
                 <p className="text-blue-800 dark:text-blue-300">{existingProject.clientName}</p>
               </div>
-              <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">Start Time:</span>
-                <p className="text-blue-800 dark:text-blue-300">{existingProject.startTime || 'Not set'}</p>
-              </div>
-              <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">End Time:</span>
-                <p className="text-blue-800 dark:text-blue-300">{existingProject.endTime || 'Not set'}</p>
-              </div>
             </div>
           </div>
         </div>
@@ -628,39 +587,7 @@ export default function NewProject() {
               isContentWriter={isContentWriter}
               currentUser={currentUser}
               showServiceForm={showServiceForm}
-              onTimerStart={() => {
-                const hours = parseInt(watchedEstimatedHours) || 0;
-                const minutes = parseInt(watchedEstimatedMinutes) || 0;
-                
-                if (hours === 0 && minutes === 0) {
-                  alert("Please set estimated time before starting timer!");
-                  return;
-                }
-                
-                if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
-                  alert("Please fill all required fields before starting timer!");
-                  return;
-                }
-
-                if (!generatedProjectId) {
-                  alert("Project ID generation failed. Please try again.");
-                  return;
-                }
-                
-                const currentTime = getCurrentTime();
-                form.setValue("startTime", currentTime);
-                setShowServiceForm(true);
-                setTimerActive(true);
-              }}
-              countdownTimerComponent={
-                <CountdownTimer
-                  estimatedHours={watchedEstimatedHours}
-                  estimatedMinutes={watchedEstimatedMinutes}
-                  isActive={showServiceForm}
-                  timerActive={timerActive}
-                  onTimerStop={() => setTimerActive(false)}
-                />
-              }
+              onTimerStart={handleStartTimer}
             />
           </div>
 
