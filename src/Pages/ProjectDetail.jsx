@@ -6,14 +6,7 @@ import { Button } from "../Components/ui/button";
 import { Badge } from "../Components/ui/badge";
 import { Separator } from "../Components/ui/separator";
 import { Textarea } from "../Components/ui/textarea";
-import {
-  ArrowLeft,
-  Calendar,
-  User,
-  Globe,
-  FileText,
-  Clock,
-} from "lucide-react";
+import { ArrowLeft, Calendar, User, Globe, Briefcase, Activity, Users, Clock, Play } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
@@ -27,15 +20,55 @@ export default function ProjectDetail() {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
-
+  
+  const [showEstimateTime, setShowEstimateTime] = useState(false);
+  const [estimatedHours, setEstimatedHours] = useState("0");
+  const [estimatedMinutes, setEstimatedMinutes] = useState("0");
+  
   const project = getProjectById(id || "");
 
   const currentUserEmail = localStorage.getItem("userEmail");
   const currentUserId = localStorage.getItem("userId");
 
   useEffect(() => {
-    if (project?.notes) {
+    if (!project) return;
+
+    if (project.notes) {
       setNotes(project.notes);
+    }
+    
+    if (project.estimatedHours) {
+      setEstimatedHours(project.estimatedHours);
+    } else {
+      setEstimatedHours("0");
+    }
+    
+    if (project.estimatedMinutes) {
+      setEstimatedMinutes(project.estimatedMinutes);
+    } else {
+      setEstimatedMinutes("0");
+    }
+    
+    if (project.status === "Accepted" || project.status === "In Progress") {
+      setShowEstimateTime(true);
+    }
+    
+    const timerData = localStorage.getItem('activeTimer');
+    if (timerData) {
+      try {
+        const { projectId, estimatedHours, estimatedMinutes } = JSON.parse(timerData);
+        if (projectId === project.projectId) {
+          setShowEstimateTime(true);
+          if (!project.estimatedHours) {
+            setEstimatedHours(estimatedHours);
+          }
+          if (!project.estimatedMinutes) {
+            setEstimatedMinutes(estimatedMinutes);
+          }
+        }
+      } catch (error) {
+        console.log("Error checking timer:", error);
+      }
     }
   }, [project]);
 
@@ -71,8 +104,8 @@ export default function ProjectDetail() {
     );
   }
 
-  const assignedMember = teamMembers.find((m) => m.id === project.assignedTo);
-
+  const assignedMember = teamMembers.find((m) => m.name === project.assignedTo);
+  
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
       month: "long",
@@ -133,7 +166,6 @@ export default function ProjectDetail() {
         updatedAt: currentDateTime,
         userTasks: [...existingUserTasks, newUserTask] // Add new user task
       };
-
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
@@ -143,7 +175,8 @@ export default function ProjectDetail() {
       setTimeout(() => {
         navigate(`/admin/projects/edit/${id}`);
       }, 1000);
-    } catch (error) {
+      setShowEstimateTime(true);
+        } catch (error) {
       console.error("Error accepting project:", error);
       toast.error("Failed to accept project. Please try again.");
     } finally {
@@ -151,6 +184,70 @@ export default function ProjectDetail() {
     }
   };
 
+  // ✅ UPDATED: Start button - adds "Started at" to Activity
+  const handleStartClick = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    const hours = parseInt(estimatedHours) || 0;
+    const minutes = parseInt(estimatedMinutes) || 0;
+
+    if (hours === 0 && minutes === 0) {
+      toast.error("Please set estimated time before starting!");
+      return;
+    }
+
+    if (hours > 12) {
+      toast.error("Hours should be between 0-12");
+      return;
+    }
+
+    if (minutes > 60) {
+      toast.error("Minutes should be between 0-60");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const currentTime = getCurrentTime();
+      
+      // ✅ UPDATE: Add startedAt timestamp for Activity section
+      const updateData = {
+        status: "In Progress",
+        startWorkTime: currentTime, // Shows in Activity as "Started at"
+        startedAt: new Date().toISOString(), // ISO timestamp for proper date formatting
+        estimatedHours: estimatedHours,
+        estimatedMinutes: estimatedMinutes,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, updateData);
+      await updateProject(id, updateData);
+
+      localStorage.setItem('activeTimer', JSON.stringify({
+        projectId: project.projectId,
+        estimatedHours,
+        estimatedMinutes,
+        startTime: new Date().toISOString()
+      }));
+
+      window.dispatchEvent(new CustomEvent('timerStart', {
+        detail: { estimatedHours, estimatedMinutes }
+      }));
+
+      toast.success("Timer started! Status: In Progress");
+    } catch (error) {
+      console.error("Error starting timer:", error);
+      toast.error("Failed to start timer. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ✅ UPDATED: Submit button - adds "Submitted at" to Activity
   const handleSubmitClick = async () => {
     setIsSubmitting(true);
     try {
@@ -185,7 +282,9 @@ export default function ProjectDetail() {
         updatedAt: currentDateTime,
         userTasks: updatedUserTasks
       };
-
+      
+      localStorage.removeItem('activeTimer');
+      
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
@@ -206,6 +305,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="p-8">
+      {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -238,7 +338,7 @@ export default function ProjectDetail() {
               <Button
                 onClick={handleAcceptClick}
                 disabled={isSubmitting}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
               >
                 {isSubmitting ? "Accepting..." : "Accept & Start"}
               </Button>
@@ -265,7 +365,7 @@ export default function ProjectDetail() {
             <div className="grid gap-4 md:grid-cols-3 text-start">
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Client Name</p>
@@ -277,7 +377,7 @@ export default function ProjectDetail() {
 
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Service Type</p>
@@ -291,14 +391,24 @@ export default function ProjectDetail() {
                   </Badge>
                 </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground text-start">Status</p>
-                <Badge
-                  className={cn("status-badge", getStatusColor(project.status))}
-                >
-                  {project.status}
-                </Badge>
+
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-muted p-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge
+                    className={cn(
+                      "status-badge",
+                      getStatusColor(project.status)
+                    )}
+                  >
+                    {project.status}
+                  </Badge>
+                </div>
               </div>
+
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
@@ -310,6 +420,7 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+              
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -324,15 +435,29 @@ export default function ProjectDetail() {
 
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Assigned To</p>
                   <p className="font-medium text-foreground">
-                    {assignedMember?.name || "Unassigned"}
+                    {assignedMember ? assignedMember.name : "Unassigned"}
                   </p>
                 </div>
               </div>
+
+              {project.estimatedHours && project.estimatedMinutes && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-2">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Estimated Time</p>
+                    <p className="font-medium text-foreground">
+                      {project.estimatedHours}h {project.estimatedMinutes}m
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {project.internalNotes && (
@@ -499,6 +624,7 @@ export default function ProjectDetail() {
               Activity
             </h3>
             <div className="space-y-4">
+              {/* Project Created */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
                 <div>
@@ -508,6 +634,8 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+
+              {/* Last Updated */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-muted-foreground" />
                 <div>
@@ -517,6 +645,8 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+
+              {/* Project Accepted */}
               {project.isAccepted && project.acceptedAt && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
@@ -541,7 +671,7 @@ export default function ProjectDetail() {
               )}
               {userTask && userTask.endTime && (
                 <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
+                  <div className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
                   <div>
                     <p className="text-sm text-foreground">You completed at</p>
                     <p className="text-xs text-muted-foreground">

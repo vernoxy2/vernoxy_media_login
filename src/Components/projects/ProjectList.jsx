@@ -35,7 +35,8 @@ import { toast } from "sonner";
 const ITEMS_PER_PAGE = 10;
 
 export function ProjectList({ projects }) {
-  const { teamMembers, deleteProject, addProject, updateProject } = useProjects();
+  // ✅ CHANGED: Now using getTeamMemberName from context
+  const { deleteProject, addProject, getTeamMemberName } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -49,6 +50,7 @@ export function ProjectList({ projects }) {
   const serviceFilter = searchParams.get("service");
 
 
+  
   useEffect(() => {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
@@ -104,15 +106,15 @@ export function ProjectList({ projects }) {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
 
-  const getTeamMemberName = (id) => {
-    debugger;
-    if (!id) return "Unassigned";
-    let member = teamMembers.find((m) => m.id === id);
-    if (!member) {
-      member = teamMembers.find((m) => m.email === id);
-    }
-    return member?.name || "Unassigned";
-  };
+  // const getTeamMemberName = (id) => {
+  //   debugger;
+  //   if (!id) return "Unassigned";
+  //   let member = teamMembers.find((m) => m.id === id);
+  //   if (!member) {
+  //     member = teamMembers.find((m) => m.email === id);
+  //   }
+  //   return member?.name || "Unassigned";
+  // };
 
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {

@@ -2,14 +2,10 @@ import * as React from "react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
 import { Controller, FormProvider, useFormContext } from "react-hook-form";
-
 import { cn } from "../../lib/utils";
 import { Label } from "../../Components/ui/label";
-
 const Form = FormProvider;
-
 const FormFieldContext = React.createContext({});
-
 const FormField = ({
   ...props
 }) => {
@@ -24,13 +20,10 @@ const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext);
   const itemContext = React.useContext(FormItemContext);
   const { getFieldState, formState } = useFormContext();
-
   const fieldState = getFieldState(fieldContext.name, formState);
-
   if (!fieldContext) {
     throw new Error("useFormField should be used within <FormField>");
   }
-
   const { id } = itemContext;
 
   return {
@@ -44,7 +37,6 @@ const useFormField = () => {
 };
 
 const FormItemContext = React.createContext({});
-
 const FormItem = React.forwardRef(
   ({ className, ...props }, ref) => {
     const id = React.useId();
@@ -70,7 +62,6 @@ FormLabel.displayName = "FormLabel";
 const FormControl = React.forwardRef(
   ({ ...props }, ref) => {
     const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
-
     return (
       <Slot
         ref={ref}
@@ -87,7 +78,6 @@ FormControl.displayName = "FormControl";
 const FormDescription = React.forwardRef(
   ({ className, ...props }, ref) => {
     const { formDescriptionId } = useFormField();
-
     return <p ref={ref} id={formDescriptionId} className={cn("text-sm text-muted-foreground", className)} {...props} />;
   },
 );
@@ -97,11 +87,9 @@ const FormMessage = React.forwardRef(
   ({ className, children, ...props }, ref) => {
     const { error, formMessageId } = useFormField();
     const body = error ? String(error?.message) : children;
-
     if (!body) {
       return null;
     }
-
     return (
       <p ref={ref} id={formMessageId} className={cn("text-sm font-medium text-destructive", className)} {...props}>
         {body}

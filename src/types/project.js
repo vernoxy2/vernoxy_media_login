@@ -36,7 +36,7 @@ export const COUNTRIES = ['IN', 'US', 'CA', 'UAE'];
 
 export const SERVICE_TYPES = ['CW', 'GD', 'WD', 'ERP'];
 
-export const PROJECT_STATUSES = ['Draft', 'In Progress', 'Review', 'Approved', 'Delivered'];
+export const PROJECT_STATUSES = ['Draft', 'Accepted', 'In Progress', 'Review', 'Approved', 'Delivered'];
 
 export const POST_TYPES = ['Social Post', 'Banner', 'Ad', 'Poster', 'Thumbnail'];
 

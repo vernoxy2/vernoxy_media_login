@@ -7,7 +7,9 @@ import {
   doc, 
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+    getDocs,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -19,160 +21,205 @@ export function ProjectProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [teamMembers] = useState([
-    { id: '1', name: 'Bhoomika Patel', role: 'Content Writer', email: 'bhoomika@example.com' },
-    { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer', email: 'nikhil@example.com' },
-    { id: '3', name: 'Mayur Patel', role: 'Graphic Designer', email: 'mayur@example.com' },
-    { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer', email: 'dhruv@example.com' },
-    { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer', email: 'vrunda@example.com' },
-    { id: '6', name: 'Divya Patel', role: 'Front-End Developer', email: 'divya@example.com' },
-    { id: '7', name: 'Jenil Dhimmar', role: 'Video Editor', email: 'jenil@example.com' },
-  ]);
+  // const [teamMembers] = useState([
+  //   { id: '1', name: 'Bhoomika Patel', role: 'Content Writer', email: 'bhoomika@example.com' },
+  //   { id: '2', name: 'Nikhil Lad', role: 'Graphic Designer', email: 'nikhil@example.com' },
+  //   { id: '3', name: 'Mayur Patel', role: 'Graphic Designer', email: 'mayur@example.com' },
+  //   { id: '4', name: 'Dhruv Mistry', role: 'Front-End Developer', email: 'dhruv@example.com' },
+  //   { id: '5', name: 'Vrunda Patel', role: 'Front-End Developer', email: 'vrunda@example.com' },
+  //   { id: '6', name: 'Divya Patel', role: 'Front-End Developer', email: 'divya@example.com' },
+  //   { id: '7', name: 'Jenil Dhimmar', role: 'Video Editor', email: 'jenil@example.com' },
+  // ]);
 
   // Fetch current logged-in user data
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // ✅ Authentication check
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const userEmail = localStorage.getItem('userEmail');
-          const userName = localStorage.getItem('userName');
-          const userRole = localStorage.getItem('userRole');
-          const userDepartment = localStorage.getItem('userDepartment');
-
-          setCurrentUser({
-            id: user.uid,
-            email: userEmail || user.email,
-            name: userName || user.displayName || '',
-            department: userDepartment || '',
-            role: userRole || 'user',
-          });
-          
-          console.log('✅ Current user loaded:', {
-            id: user.uid,
-            email: userEmail,
-            role: userRole,
-            department: userDepartment
-          });
+          const userDocRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setCurrentUser({
+              id: user.uid,
+              email: user.email,
+              name: userData.name || "",
+              department: userData.department || "",
+              role: userData.role || "user",
+            });
+            
+            // 🆕 localStorage માં પણ save કરો
+            localStorage.setItem("userRole", userData.role || "user");
+            localStorage.setItem("userEmail", user.email);
+          } else {
+            setCurrentUser(null);
+          }
         } catch (error) {
-          console.error('❌ Error loading user data:', error);
+          console.error("❌ Error fetching user data:", error);
           setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userEmail");
       }
+      setAuthLoading(false); 
     });
 
     return () => unsubscribe();
   }, []);
 
-  // FIXED: Use onSnapshot for real-time updates instead of getDocs
+  // Team members fetch
   useEffect(() => {
-    console.log('🔥 Setting up real-time listener for projects...');
-    
-    const projectsRef = collection(db, 'projects');
-    const q = query(projectsRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        console.log('📦 Projects snapshot received:', snapshot.size, 'documents');
-        
-        const projectsData = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          // Handle Firestore Timestamp conversion
-          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : 
-                           (data.createdAt ? new Date(data.createdAt) : new Date());
-          const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate() : 
-                           (data.updatedAt ? new Date(data.updatedAt) : new Date());
-          
-          projectsData.push({
+    const fetchTeamMembers = async () => {
+      try {
+        const usersRef = collection(db, "users");
+        const querySnapshot = await getDocs(usersRef);
+        const membersData = [];
+        querySnapshot.forEach((doc) => {
+          const userData = doc.data();
+          membersData.push({
             id: doc.id,
-            ...data,
-            createdAt,
-            updatedAt
+            email: userData.email,
+            name: userData.name || "Unknown",
+            role: userData.department || userData.role || "User",
+            department: userData.department || "",
           });
         });
-        
-        console.log('✅ Projects loaded:', projectsData.length);
-        setProjects(projectsData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('❌ Error fetching projects:', error);
-        toast.error('Failed to load projects');
-        setLoading(false);
+        setTeamMembers(membersData);
+      } catch (error) {
+        console.error("❌ Error fetching team members:", error);
       }
-    );
-
-    return () => {
-      console.log('🔌 Unsubscribing from projects listener');
-      unsubscribe();
     };
+
+    fetchTeamMembers();
   }, []);
 
-  const addProject = async (projectData) => {
+  useEffect(() => {
+    if (!authLoading) {
+      fetchProjects();
+    }
+  }, [authLoading]);
+
+  const fetchProjects = async () => {
     try {
-      const userRole = localStorage.getItem('userRole');
-      if (!userRole) {
-        toast.error('Please login to add projects');
+      setLoading(true);
+      if (!auth.currentUser) {
+        console.warn("⚠️ No authenticated user");
+        setProjects([]);
+        setLoading(false);
         return;
       }
 
-      console.log('➕ Adding new project:', projectData.projectId);
+      const projectsRef = collection(db, "projects");
+      const q = query(projectsRef, orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(q);
 
-      // FIXED: Use ISO string instead of serverTimestamp for immediate local state update
-      const now = new Date().toISOString();
+      const projectsData = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+
+        let createdAtDate = new Date();
+        let updatedAtDate = new Date();
+
+        if (data.createdAt && typeof data.createdAt.toDate === "function") {
+          createdAtDate = data.createdAt.toDate();
+        } else if (data.createdAt instanceof Date) {
+          createdAtDate = data.createdAt;
+        } else if (data.createdAt) {
+          createdAtDate = new Date(data.createdAt);
+        }
+
+        if (data.updatedAt && typeof data.updatedAt.toDate === "function") {
+          updatedAtDate = data.updatedAt.toDate();
+        } else if (data.updatedAt instanceof Date) {
+          updatedAtDate = data.updatedAt;
+        } else if (data.updatedAt) {
+          updatedAtDate = new Date(data.updatedAt);
+        }
+
+        projectsData.push({
+          id: docSnap.id,
+          ...data,
+          createdAt: createdAtDate,
+          updatedAt: updatedAtDate,
+        });
+      });
+
+      console.log("✅ Loaded projects:", projectsData.length);
+      setProjects(projectsData);
+    } catch (error) {
+      console.error("❌ Error fetching projects:", error);
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
       
+      // 🆕 Better errors
+      if (error.code === "permission-denied") {
+        toast.error("Permission denied. Please check your access rights.");
+      } else if (error.code === "unavailable") {
+        toast.error("Firebase service unavailable. Please try again.");
+      } else {
+        toast.error("Failed to load projects. Check console for details.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addProject = async (projectData) => {
+    try {
+      if (!currentUser) {
+        toast.error("Please login to add projects");
+        return;
+      }
+
       const newProject = {
         ...projectData,
-        createdAt: now,
-        updatedAt: now,
-        createdBy: localStorage.getItem('userEmail') || 'unknown',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser.email,
       };
 
-      const docRef = await addDoc(collection(db, 'projects'), newProject);
+      const docRef = await addDoc(collection(db, "projects"), newProject);
       
-      console.log('✅ Project added to Firebase:', docRef.id);
-
-      // Return the project with Firebase ID
-      return {
+      const addedProject = {
+        ...newProject,
         id: docRef.id,
         ...newProject,
         createdAt: new Date(now),
         updatedAt: new Date(now)
       };
+
+      setProjects((prev) => [addedProject, ...prev]);
+      toast.success("Project created successfully!");
+      return addedProject;
     } catch (error) {
-      console.error('❌ Error adding project:', error);
-      toast.error('Failed to create project');
+      console.error("Error adding project:", error);
+      toast.error("Failed to create project");
       throw error;
     }
   };
 
   const updateProject = async (projectId, updates) => {
     try {
-      const userRole = localStorage.getItem('userRole');
-      if (!userRole) {
-        toast.error('Please login to update projects');
+      if (!currentUser) {
+        toast.error("Please login to update projects");
         return;
       }
 
-      console.log('✏️ Updating project:', projectId);
-
-      const projectRef = doc(db, 'projects', projectId);
+      const projectRef = doc(db, "projects", projectId);
       const updateData = {
         ...updates,
-        updatedAt: new Date().toISOString(),
-        updatedBy: localStorage.getItem('userEmail') || 'unknown',
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser.email,
       };
 
       await updateDoc(projectRef, updateData);
       
-      console.log('✅ Project updated successfully');
-      
-      // Note: onSnapshot will automatically update the local state
-      // But we can also update it manually for immediate feedback
       setProjects((prev) =>
         prev.map((p) =>
           p.id === projectId
@@ -181,54 +228,40 @@ export function ProjectProvider({ children }) {
         )
       );
 
-      // Don't show toast here since it will be shown by the calling component
+      toast.success("Project updated successfully!");
     } catch (error) {
-      console.error('❌ Error updating project:', error);
-      toast.error('Failed to update project');
+      console.error("Error updating project:", error);
+      toast.error("Failed to update project");
       throw error;
     }
   };
 
   const deleteProject = async (projectId) => {
     try {
-      const userRole = localStorage.getItem('userRole');
-      const userEmail = localStorage.getItem('userEmail');
-      
-      console.log('🗑️ Delete attempt:', {
-        projectId,
-        userRole,
-        userEmail,
-        isAdmin: userRole === 'admin'
-      });
-      
-      if (userRole !== 'admin') {
-        console.error('❌ Not authorized - user role:', userRole);
-        toast.error('Only admins can delete projects');
-        throw new Error('Unauthorized: Only admins can delete projects');
+      if (!currentUser || currentUser.role !== "admin") {
+        toast.error("Only admins can delete projects");
+        throw new Error("Unauthorized: Only admins can delete projects");
       }
 
-      const projectRef = doc(db, 'projects', projectId);
+      const projectRef = doc(db, "projects", projectId);
       await deleteDoc(projectRef);
       
-      console.log('✅ Project deleted from Firebase');
-      
-      // onSnapshot will automatically update the state, but we can do it manually too
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
-      
+      toast.success("Project deleted successfully!");
       return true;
     } catch (error) {
-      console.error('❌ Error deleting project:', error);
+      console.error("❌ Error deleting project:", error);
       
-      if (error.message.includes('Unauthorized')) {
-        toast.error('Only admins can delete projects');
-      } else if (error.code === 'permission-denied') {
-        toast.error('Permission denied. Check Firebase security rules.');
-      } else if (error.code === 'not-found') {
-        toast.error('Project not found');
+      if (error.message.includes("Unauthorized")) {
+        toast.error("Only admins can delete projects");
+      } else if (error.code === "permission-denied") {
+        toast.error("Permission denied. Check Firebase security rules.");
+      } else if (error.code === "not-found") {
+        toast.error("Project not found");
       } else {
-        toast.error('Failed to delete project. Please try again.');
+        toast.error("Failed to delete project. Please try again.");
       }
-      
+
       throw error;
     }
   };
@@ -237,35 +270,42 @@ export function ProjectProvider({ children }) {
     return projects.find((p) => p.id === id);
   };
 
-  const refreshProjects = () => {
-    // Not needed anymore since we're using onSnapshot
-    // But keeping it for backwards compatibility
-    console.log('🔄 Manual refresh requested (using real-time listener, so this is a no-op)');
+  const getTeamMemberName = (assignedToValue) => {
+    if (!assignedToValue) return "Unassigned";
+    
+    let member = teamMembers.find((m) => m.id === assignedToValue);
+    if (!member) {
+      member = teamMembers.find((m) => m.email === assignedToValue);
+    }
+    if (!member) {
+      member = teamMembers.find((m) => m.name === assignedToValue);
+    }
+    
+    return member?.name || assignedToValue || "Unassigned";
   };
 
   const value = {
     projects,
-    loading,
+    loading: loading || authLoading, 
     teamMembers,
     currentUser,
     addProject,
     updateProject,
     deleteProject,
     getProjectById,
-    refreshProjects,
+    getTeamMemberName,
+    refreshProjects: fetchProjects,
   };
 
   return (
-    <ProjectContext.Provider value={value}>
-      {children}
-    </ProjectContext.Provider>
+    <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
   );
 }
 
 export function useProjects() {
   const context = useContext(ProjectContext);
   if (!context) {
-    throw new Error('useProjects must be used within ProjectProvider');
+    throw new Error("useProjects must be used within ProjectProvider");
   }
   return context;
 }

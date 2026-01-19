@@ -55,6 +55,8 @@ export function getStatusColor(status) {
     'Review': 'status-review',
     'Approved': 'status-approved',
     'Delivered': 'status-delivered',
+    'Done': 'status-done',
+    'Accepted': 'status-accepted',
   };
   return statusMap[status] || 'status-draft';
 }
