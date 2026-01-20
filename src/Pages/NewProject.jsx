@@ -125,7 +125,7 @@ const projectSchema = z.object({
 export default function NewProject() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { projects, addProject, updateProject, getProjectById, loading, currentUser } = useProjects();
+  const { projects, addProject, updateProject, getProjectById, loading, currentUser, teamMembers } = useProjects();
   const { startTimer, activeTimer, stopTimer } = useTimer();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
@@ -135,10 +135,9 @@ export default function NewProject() {
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
   const isContentWriter = currentUser?.department === "Content Writing";
-  const isAdmin = currentUser?.role === "admin"; // Check if user is admin
+  const isAdmin = currentUser?.role === "admin";
   const currentUserId = localStorage.getItem("userId");
   
-  // Filter out admin from assignedTo options
   const hideAdminFromDropdown = true;
 
   const form = useForm({
@@ -214,7 +213,7 @@ export default function NewProject() {
         month: existingProject.month || "",
         year: existingProject.year || "",
         status: existingProject.status || "Draft",
-        assignedTo: existingProject.assignedTo || "",
+        assignedTo: existingProject.assignedTo || "", // This will be ID now
         internalNotes: existingProject.internalNotes || "",
         estimatedHours: existingProject.estimatedHours || "0",
         estimatedMinutes: existingProject.estimatedMinutes || "0",
@@ -258,6 +257,7 @@ export default function NewProject() {
   const watchedEstimatedHours = form.watch("estimatedHours");
   const watchedEstimatedMinutes = form.watch("estimatedMinutes");
   const watchedAssignedTo = form.watch("assignedTo");
+  
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
@@ -334,7 +334,7 @@ export default function NewProject() {
         ]
       };
 
-      // Create project in Firebase with user task
+      // NOW USING watchedAssignedTo which is ID
       const newProject = {
         projectId: generatedProjectId,
         clientName: watchedClientName,
@@ -343,7 +343,7 @@ export default function NewProject() {
         month: watchedMonth,
         year: watchedYear,
         status: "Draft",
-        assignedTo: watchedAssignedTo || currentUser?.email || "",
+        assignedTo: watchedAssignedTo || currentUserId, // Store ID, not name/email
         internalNotes: "",
         estimatedHours: watchedEstimatedHours,
         estimatedMinutes: watchedEstimatedMinutes,
@@ -357,7 +357,6 @@ export default function NewProject() {
       const createdProject = await addProject(newProject);
       setCreatedProjectId(createdProject.id);
 
-      // Start the timer with Firebase ID
       await startTimer({
         projectId: generatedProjectId,
         firebaseId: createdProject.id,
@@ -402,17 +401,14 @@ export default function NewProject() {
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
 
-      // Get existing project to update user tasks
       const existingProject = getProjectById(projectIdToUpdate);
       let updatedUserTasks = existingProject?.userTasks || [];
 
-      // Find and update current user's task
       const userTaskIndex = updatedUserTasks.findIndex(
         task => task.userId === currentUserId
       );
 
       if (userTaskIndex !== -1) {
-        // Update existing user task
         updatedUserTasks[userTaskIndex] = {
           ...updatedUserTasks[userTaskIndex],
           taskStatus: 'completed',
@@ -479,7 +475,6 @@ export default function NewProject() {
 
       await updateProject(projectIdToUpdate, updatedProject);
 
-      // Stop timer if it's running
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
@@ -498,12 +493,10 @@ export default function NewProject() {
     if (window.confirm('Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.')) {
       setShowServiceForm(false);
 
-      // Stop timer if running
       if (activeTimer) {
         await stopTimer();
       }
 
-      // Navigate back to projects list
       navigate("/admin/projects");
     }
   };
@@ -573,6 +566,10 @@ export default function NewProject() {
               <div>
                 <span className="font-medium text-blue-900 dark:text-blue-200">Client Name:</span>
                 <p className="text-blue-800 dark:text-blue-300">{existingProject.clientName}</p>
+              </div>
+              <div>
+                <span className="font-medium text-blue-900 dark:text-blue-200">Assigned To (ID):</span>
+                <p className="text-blue-800 dark:text-blue-300">{existingProject.assignedTo}</p>
               </div>
             </div>
           </div>
