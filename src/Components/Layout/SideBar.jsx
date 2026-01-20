@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
@@ -53,7 +53,6 @@ const bottomNavigation = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
-// Department access rules
 const departmentAccess = {
   Admin: ["CW", "GD", "WD", "ERP"],
   "Content Writing": ["CW", "GD", "WD", "ERP"],
@@ -64,6 +63,7 @@ const departmentAccess = {
 
 export function SideBar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [userDepartment, setUserDepartment] = useState(null);
   const [filteredServices, setFilteredServices] = useState(allServiceLinks);
 
@@ -74,7 +74,6 @@ export function SideBar() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // Get user document from Firestore
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
@@ -103,22 +102,37 @@ export function SideBar() {
   }, []);
 
   const isActive = (href) => {
-    const [hrefPath, hrefQuery] = href.split("?");
     const currentPath = location.pathname;
-    const currentQuery = location.search.substring(1);
-
+    const currentSearch = location.search;
+    const [hrefPath, hrefQuery] = href.split("?");
     if (hrefPath === "/admin") {
-      return (
-        (currentPath === "/admin" || currentPath === "/admin/") && !currentQuery
-      );
+      return (currentPath === "/admin" || currentPath === "/admin/") && !currentSearch;
     }
-    if (hrefQuery) {
-      return currentPath === hrefPath && currentQuery === hrefQuery;
+    if (hrefPath === "/admin/projects/new") {
+      return currentPath === "/admin/projects/new";
+    }
+    if (hrefQuery && hrefPath === "/admin/projects") {
+      return currentPath === "/admin/projects" && currentSearch === `?${hrefQuery}`;
     }
     if (hrefPath === "/admin/projects" && !hrefQuery) {
-      return currentPath === "/admin/projects" && !currentQuery;
+      return currentPath === "/admin/projects" && !currentSearch;
     }
     return currentPath.startsWith(hrefPath);
+  };
+
+  const handleAllProjectsClick = (e) => {
+    e.preventDefault();
+    navigate("/admin/projects");
+  };
+
+  const handleServiceClick = (e, href) => {
+    e.preventDefault();
+    navigate(href);
+  };
+
+  const handleNavClick = (e, href) => {
+    e.preventDefault();
+    navigate(href);
   };
 
   return (
@@ -132,25 +146,47 @@ export function SideBar() {
         </span>
       </div>
 
-      {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3">
           <div className="space-y-1">
-            {navigation.map((item) => (
-              <NavLink
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive(item.href)
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </NavLink>
-            ))}
+            {navigation.map((item) => {
+              // Special handling for "All Projects" to clear filters
+              if (item.name === "All Projects") {
+                return (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    onClick={handleAllProjectsClick}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                      isActive(item.href)
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </a>
+                );
+              }
+
+              return (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  onClick={(e) => handleNavClick(e, item.href)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
+                    isActive(item.href)
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.name}
+                </a>
+              );
+            })}
           </div>
 
           {/* Service Quick Links - FILTERED BY DEPARTMENT */}
@@ -161,11 +197,12 @@ export function SideBar() {
               </h3>
               <div className="space-y-1">
                 {filteredServices.map((item) => (
-                  <NavLink
+                  <a
                     key={item.name}
-                    to={item.href}
+                    href={item.href}
+                    onClick={(e) => handleServiceClick(e, item.href)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
                       isActive(item.href)
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
                         : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
@@ -173,7 +210,7 @@ export function SideBar() {
                   >
                     <item.icon className="h-4 w-4" />
                     {item.name}
-                  </NavLink>
+                  </a>
                 ))}
               </div>
             </div>

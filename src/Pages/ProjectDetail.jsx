@@ -127,7 +127,34 @@ export default function ProjectDetail() {
     return `${formattedHours}:${minutes} ${period}`;
   };
 
+  // Accept button handler - just accepts the project
   const handleAcceptClick = async () => {
+    setIsSubmitting(true);
+    try {
+      const currentDateTime = new Date().toISOString();
+
+      const updateData = {
+        status: "Accepted",
+        isAccepted: true,
+        acceptedAt: currentDateTime,
+        updatedAt: currentDateTime,
+      };
+      
+      const projectRef = doc(db, "projects", id);
+      await updateDoc(projectRef, updateData);
+      await updateProject(id, updateData);
+
+      toast.success("Project accepted!");
+    } catch (error) {
+      console.error("Error accepting project:", error);
+      toast.error("Failed to accept project. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Submit button handler - sends to Review status
+  const handleSubmitClick = async () => {
     // If user has active task, redirect to edit mode
     if (hasActiveTask()) {
       navigate(`/admin/projects/edit/${id}`);
@@ -147,44 +174,44 @@ export default function ProjectDetail() {
         userId: currentUserId,
         userEmail: currentUserEmail,
         userName: localStorage.getItem("userName") || currentUserEmail,
-        taskStatus: 'in_progress',
+        taskStatus: 'completed',
         startTime: currentTime,
-        endTime: null,
+        endTime: currentTime,
         timeLog: [
           {
             type: 'start',
+            dateTime: currentDateTime,
+            timestamp: currentTime
+          },
+          {
+            type: 'end',
             dateTime: currentDateTime,
             timestamp: currentTime
           }
         ]
       };
 
+      // Status set to "Review" when submit button clicked
       const updateData = {
-        status: "In Progress", // Project status
-        isAccepted: true,
-        acceptedAt: currentDateTime,
+        status: "Review",
         updatedAt: currentDateTime,
-        userTasks: [...existingUserTasks, newUserTask] // Add new user task
+        userTasks: [...existingUserTasks, newUserTask]
       };
+      
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
 
-      toast.success("Project accepted! Redirecting to edit mode...");
-
-      setTimeout(() => {
-        navigate(`/admin/projects/edit/${id}`);
-      }, 1000);
-      setShowEstimateTime(true);
-        } catch (error) {
-      console.error("Error accepting project:", error);
-      toast.error("Failed to accept project. Please try again.");
+      toast.success("Project submitted for review!");
+      // Stay on same page
+    } catch (error) {
+      console.error("Error submitting project:", error);
+      toast.error("Failed to submit project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ✅ UPDATED: Start button - adds "Started at" to Activity
   const handleStartClick = async (e) => {
     if (e) {
       e.preventDefault();
@@ -213,11 +240,10 @@ export default function ProjectDetail() {
     try {
       const currentTime = getCurrentTime();
       
-      // ✅ UPDATE: Add startedAt timestamp for Activity section
       const updateData = {
         status: "In Progress",
-        startWorkTime: currentTime, // Shows in Activity as "Started at"
-        startedAt: new Date().toISOString(), // ISO timestamp for proper date formatting
+        startWorkTime: currentTime,
+        startedAt: new Date().toISOString(),
         estimatedHours: estimatedHours,
         estimatedMinutes: estimatedMinutes,
         updatedAt: new Date().toISOString(),
@@ -247,17 +273,14 @@ export default function ProjectDetail() {
     }
   };
 
-  // ✅ UPDATED: Submit button - adds "Submitted at" to Activity
-  const handleSubmitClick = async () => {
+  const handleCompleteClick = async () => {
     setIsSubmitting(true);
     try {
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
 
-      // Get existing user tasks
       const existingUserTasks = project.userTasks || [];
 
-      // Find and update current user's task
       const updatedUserTasks = existingUserTasks.map(task => {
         if (task.userId === currentUserId) {
           return {
@@ -277,8 +300,9 @@ export default function ProjectDetail() {
         return task;
       });
 
+      // Status set to "Review" when completed
       const updateData = {
-        status: "Done", // Project status
+        status: "Review",
         updatedAt: currentDateTime,
         userTasks: updatedUserTasks
       };
@@ -289,18 +313,16 @@ export default function ProjectDetail() {
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
 
-      toast.success("Project submitted successfully!");
-
-      setTimeout(() => {
-        navigate("/admin/projects");
-      }, 1500);
+      // Navigate without toast
+      navigate("/admin/projects");
     } catch (error) {
-      console.error("Error submitting project:", error);
-      toast.error("Failed to submit project. Please try again.");
+      console.error("Error completing project:", error);
+      toast.error("Failed to complete project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
+  
   const userTask = getCurrentUserTask();
 
   return (
@@ -332,18 +354,32 @@ export default function ProjectDetail() {
           </div>
         </div>
 
+        {/* ONLY SHOW BUTTONS FOR GRAPHIC DESIGN (GD) PROJECTS */}
         {showButtons && project.serviceType === "GD" && (
-          <div>
-            {!hasActiveTask() && project.status === "Draft" && (
+          <div className="flex gap-2">
+            {/* Show Accept button when status is Draft and not accepted */}
+            {project.status === "Draft" && !project.isAccepted && (
               <Button
                 onClick={handleAcceptClick}
                 disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
               >
-                {isSubmitting ? "Accepting..." : "Accept & Start"}
+                {isSubmitting ? "Accepting..." : "Accept"}
               </Button>
             )}
 
+            {/* Show Submit button when project is accepted but no active task */}
+            {project.isAccepted && !hasActiveTask() && project.status !== "Review" && project.status !== "Completed" && (
+              <Button
+                onClick={handleSubmitClick}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
+              >
+                {isSubmitting ? "Submitting..." : "Submit"}
+              </Button>
+            )}
+
+            {/* Show Continue Working button when user has active task */}
             {hasActiveTask() && (
               <Button
                 onClick={() => navigate(`/admin/projects/edit/${id}`)}
@@ -624,7 +660,6 @@ export default function ProjectDetail() {
               Activity
             </h3>
             <div className="space-y-4">
-              {/* Project Created */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
                 <div>
@@ -635,7 +670,6 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              {/* Last Updated */}
               <div className="flex items-start gap-3">
                 <div className="mt-1 h-2 w-2 rounded-full bg-muted-foreground" />
                 <div>
@@ -646,7 +680,6 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              {/* Project Accepted */}
               {project.isAccepted && project.acceptedAt && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
@@ -658,6 +691,7 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
+              
               {userTask && userTask.startTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
@@ -669,6 +703,7 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
+              
               {userTask && userTask.endTime && (
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-purple-500" />

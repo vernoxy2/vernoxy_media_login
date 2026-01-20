@@ -1,4 +1,8 @@
-import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { SERVICE_NAMES, COUNTRY_NAMES } from "../../types/project";
 import { getStatusColor, getServiceColor } from "../../lib/projectUtils";
 import { useProjects } from "../../context/ProjectContext";
@@ -38,16 +42,26 @@ const ITEMS_PER_PAGE = 10;
 export function ProjectList({ projects }) {
   const { deleteProject, addProject, getTeamMemberName } = useProjects();
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [userRole, setUserRole] = useState(() => localStorage.getItem("userRole"));
-  const [userDepartment, setUserDepartment] = useState(() => localStorage.getItem("userDepartment"));
-  const [currentUserId, setCurrentUserId] = useState(() => localStorage.getItem("userId"));
+  const [userRole, setUserRole] = useState(() =>
+    localStorage.getItem("userRole"),
+  );
+  const [userDepartment, setUserDepartment] = useState(() =>
+    localStorage.getItem("userDepartment"),
+  );
+  const [currentUserId, setCurrentUserId] = useState(() =>
+    localStorage.getItem("userId"),
+  );
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
+
+  useEffect(() => {
+    console.log("Service Filter:", serviceFilter);
+    console.log("Total Projects:", projects.length);
+  }, [serviceFilter, projects]);
 
   useEffect(() => {
     const role = localStorage.getItem("userRole");
@@ -72,32 +86,40 @@ export function ProjectList({ projects }) {
   }, []);
 
   const filteredProjects = useMemo(() => {
+    let filtered = projects;
+
     if (serviceFilter) {
-      return projects.filter((p) => p.serviceType === serviceFilter);
+      filtered = filtered.filter((p) => p.serviceType === serviceFilter);
+      console.log(`Filtered by service ${serviceFilter}:`, filtered.length);
+      return filtered;
     }
-    if (location.pathname === "/admin/projects") {
-      return projects;
-    }
+
     if (userRole === "admin") {
       return projects;
     }
-    if (userDepartment === "Graphic Design" || userDepartment === "Content Writing") {
-      return projects.filter((p) => p.serviceType === "GD" || p.serviceType === "CW");
-    }
-    if (userDepartment === "Front-End Developer" || userDepartment === "Website") {
-      return projects.filter((p) => p.serviceType === "WD");
-    }
-    if (userDepartment === "ERP") {
-      return projects.filter((p) => p.serviceType === "ERP");
+    if (
+      userDepartment === "Graphic Design" ||
+      userDepartment === "Content Writing"
+    ) {
+      filtered = projects.filter(
+        (p) => p.serviceType === "GD" || p.serviceType === "CW",
+      );
+    } else if (
+      userDepartment === "Front-End Developer" ||
+      userDepartment === "Website"
+    ) {
+      filtered = projects.filter((p) => p.serviceType === "WD");
+    } else if (userDepartment === "ERP") {
+      filtered = projects.filter((p) => p.serviceType === "ERP");
     }
 
-    return projects;
-  }, [projects, userRole, userDepartment, serviceFilter, location.pathname]);
+    return filtered;
+  }, [projects, userRole, userDepartment, serviceFilter]);
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    currentPage * ITEMS_PER_PAGE,
   );
 
   useEffect(() => {
@@ -112,30 +134,33 @@ export function ProjectList({ projects }) {
     }).format(new Date(date));
   };
 
-  // Get user's task matching the project's service type
   const getUserTaskForService = (project) => {
-    if (!project.userTasks || !currentUserId || !project.serviceType) return null;
-    
-    // Find the user's task that matches the project's service type
+    if (!project.userTasks || !currentUserId || !project.serviceType)
+      return null;
+
     const userTask = project.userTasks.find(
-      task => task.userId === currentUserId && task.serviceType === project.serviceType
+      (task) =>
+        task.userId === currentUserId &&
+        task.serviceType === project.serviceType,
     );
-    
+
     return userTask;
   };
 
-  // Check if user has an active task for this project
   const hasActiveTask = (project) => {
     const userTask = getUserTaskForService(project);
-    return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+    return (
+      userTask &&
+      (userTask.taskStatus === "in_progress" ||
+        userTask.taskStatus === "paused")
+    );
   };
 
-  // Calculate total time including breaks
+
   const calculateTotalTimeWithBreaks = (userTask) => {
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { display: "--:--", hours: 0, minutes: 0 };
     }
-
     try {
       const timeLog = userTask.timeLog;
       let totalWorkingMs = 0;
@@ -143,29 +168,21 @@ export function ProjectList({ projects }) {
 
       for (const log of timeLog) {
         const logTime = new Date(log.dateTime);
-
-        if (log.type === 'start') {
+        if (log.type === "start") {
           lastStartTime = logTime;
-        } else if (log.type === 'pause' && lastStartTime) {
-          // Add working time before pause
+        } else if (log.type === "pause" && lastStartTime) {
           totalWorkingMs += logTime - lastStartTime;
           lastStartTime = null;
-        } else if (log.type === 'resume') {
-          // Start counting again after resume
+        } else if (log.type === "resume") {
           lastStartTime = logTime;
-        } else if (log.type === 'end' && lastStartTime) {
-          // Add final working time
+        } else if (log.type === "end" && lastStartTime) {
           totalWorkingMs += logTime - lastStartTime;
           lastStartTime = null;
         }
       }
-
-      // If still working (no end time yet), calculate up to now
-      if (lastStartTime && userTask.taskStatus === 'in_progress') {
+      if (lastStartTime && userTask.taskStatus === "in_progress") {
         totalWorkingMs += new Date() - lastStartTime;
       }
-
-      // Convert milliseconds to hours and minutes
       const totalMinutes = Math.floor(totalWorkingMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
@@ -173,7 +190,7 @@ export function ProjectList({ projects }) {
       return {
         display: `${hours}h ${minutes}m`,
         hours,
-        minutes
+        minutes,
       };
     } catch (error) {
       console.error("Error calculating total time:", error);
@@ -187,7 +204,7 @@ export function ProjectList({ projects }) {
       return { time: "--:--", date: "" };
     }
 
-    const startLog = userTask.timeLog.find(log => log.type === 'start');
+    const startLog = userTask.timeLog.find((log) => log.type === "start");
     if (!startLog || !startLog.dateTime) return { time: "--:--", date: "" };
 
     try {
@@ -197,25 +214,21 @@ export function ProjectList({ projects }) {
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
-      
       return {
         time: `${hours}:${minutes}`,
-        date: `${day}/${month}/${year}`
+        date: `${day}/${month}/${year}`,
       };
     } catch (error) {
       return { time: "--:--", date: "" };
     }
   };
 
-  // Get end time from user task
   const getEndTime = (userTask) => {
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { time: "--:--", date: "" };
     }
-
-    const endLog = userTask.timeLog.find(log => log.type === 'end');
+    const endLog = userTask.timeLog.find((log) => log.type === "end");
     if (!endLog || !endLog.dateTime) return { time: "--:--", date: "" };
-
     try {
       const date = new Date(endLog.dateTime);
       const hours = String(date.getHours()).padStart(2, "0");
@@ -223,10 +236,10 @@ export function ProjectList({ projects }) {
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
-      
+
       return {
         time: `${hours}:${minutes}`,
-        date: `${day}/${month}/${year}`
+        date: `${day}/${month}/${year}`,
       };
     } catch (error) {
       return { time: "--:--", date: "" };
@@ -285,7 +298,9 @@ export function ProjectList({ projects }) {
     if (projectToDelete) {
       try {
         await deleteProject(projectToDelete.id);
-        toast.success(`Project ${projectToDelete.projectId} deleted successfully!`);
+        toast.success(
+          `Project ${projectToDelete.projectId} deleted successfully!`,
+        );
         setProjectToDelete(null);
         setDeleteDialogOpen(false);
       } catch (error) {
@@ -295,28 +310,30 @@ export function ProjectList({ projects }) {
     }
   };
 
-  // Get user's task status badge
   const getUserTaskStatus = (project) => {
     const userTask = getUserTaskForService(project);
     if (!userTask) return null;
 
     const statusColors = {
-      'in_progress': 'bg-blue-100 text-blue-800 border-blue-300',
-      'paused': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      'completed': 'bg-green-100 text-green-800 border-green-300'
+      in_progress: "bg-blue-100 text-blue-800 border-blue-300",
+      paused: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      completed: "bg-green-100 text-green-800 border-green-300",
     };
 
     const statusLabels = {
-      'in_progress': 'In Progress',
-      'paused': 'Paused',
-      'completed': 'Completed'
+      in_progress: "In Progress",
+      paused: "Paused",
+      completed: "Completed",
     };
 
     return (
-      <span className={cn(
-        "px-2 py-1 rounded-full text-xs font-medium border",
-        statusColors[userTask.taskStatus] || 'bg-gray-100 text-gray-800 border-gray-300'
-      )}>
+      <span
+        className={cn(
+          "px-2 py-1 rounded-full text-xs font-medium border",
+          statusColors[userTask.taskStatus] ||
+            "bg-gray-100 text-gray-800 border-gray-300",
+        )}
+      >
         {statusLabels[userTask.taskStatus] || userTask.taskStatus}
       </span>
     );
@@ -325,7 +342,11 @@ export function ProjectList({ projects }) {
   if (filteredProjects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 px-8">
-        <p className="text-muted-foreground mb-4">No projects found</p>
+        <p className="text-muted-foreground mb-4">
+          {serviceFilter 
+            ? `No ${SERVICE_NAMES[serviceFilter]} projects found`
+            : "No projects found"}
+        </p>
         {isAdmin && (
           <Link to="/admin/projects/new">
             <Button className="mt-4" size="sm">
@@ -380,9 +401,7 @@ export function ProjectList({ projects }) {
                         {project.clientName} • {COUNTRY_NAMES[project.country]}
                       </div>
                       {getUserTaskStatus(project) && (
-                        <div className="mt-1">
-                          {getUserTaskStatus(project)}
-                        </div>
+                        <div className="mt-1">{getUserTaskStatus(project)}</div>
                       )}
                     </div>
 
@@ -425,7 +444,7 @@ export function ProjectList({ projects }) {
                       <span
                         className={cn(
                           "service-badge",
-                          getServiceColor(project.serviceType)
+                          getServiceColor(project.serviceType),
                         )}
                       >
                         {SERVICE_NAMES[project.serviceType]}
@@ -450,7 +469,7 @@ export function ProjectList({ projects }) {
                       <span
                         className={cn(
                           "status-badge",
-                          getStatusColor(project.status)
+                          getStatusColor(project.status),
                         )}
                       >
                         {project.status}
@@ -463,7 +482,11 @@ export function ProjectList({ projects }) {
                           asChild
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -507,7 +530,8 @@ export function ProjectList({ projects }) {
 
       <div className="flex items-start justify-between mt-4">
         <p className="text-sm text-muted-foreground">
-          Page {currentPage} of {totalPages}
+          Showing {filteredProjects.length} of {projects.length} projects
+          {serviceFilter && ` (filtered by ${SERVICE_NAMES[serviceFilter]})`}
         </p>
 
         <div className="flex gap-2">
@@ -536,8 +560,12 @@ export function ProjectList({ projects }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the project{" "}
-              <strong className="text-foreground">{projectToDelete?.projectId}</strong> and remove all its data from our servers.
+              This action cannot be undone. This will permanently delete the
+              project{" "}
+              <strong className="text-foreground">
+                {projectToDelete?.projectId}
+              </strong>{" "}
+              and remove all its data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
