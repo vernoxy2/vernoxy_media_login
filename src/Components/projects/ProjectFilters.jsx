@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Filter, X } from 'lucide-react';
 import { Input } from '../../Components/ui/input';
 import { Button } from '../../Components/ui/button';
@@ -17,10 +18,17 @@ import {
 } from '../../types/project';
 import { useProjects } from '../../context/ProjectContext';
 
-const statuses = ['Draft', 'In Progress', 'Review', 'Approved', 'Delivered'];
 export function ProjectFilters({ filters, onFiltersChange }) {
+  const statuses = ['Draft', 'In Progress', 'Review', 'Approved', 'Delivered'];
   const { teamMembers } = useProjects();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [searchParams] = useSearchParams();
+  const serviceFilter = searchParams.get('service');
+  useEffect(() => {
+    if (serviceFilter) {
+      resetFilters();
+    }
+  }, [serviceFilter]);
 
   const updateFilter = (key, value) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -48,7 +56,6 @@ export function ProjectFilters({ filters, onFiltersChange }) {
 
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-      {/* Search and Toggle */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -80,7 +87,6 @@ export function ProjectFilters({ filters, onFiltersChange }) {
         )}
       </div>
 
-      {/* Advanced Filters */}
       {showAdvanced && (
         <div className="grid grid-cols-2 gap-3 border-t border-border pt-4 md:grid-cols-3 lg:grid-cols-6">
           <Select
