@@ -17,14 +17,6 @@ export const TimerProvider = ({ children }) => {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [timeLog, setTimeLog] = useState([]);
-  const [userEmail, setUserEmail] = useState(localStorage.getItem('userEmail'));
-  const [userId, setUserId] = useState(localStorage.getItem('userId')); // ✅ Add userId to state
-
-  // ✅ Check if timeLog has an end entry
-  const hasEndTime = (timeLog) => {
-    if (!timeLog || timeLog.length === 0) return false;
-    return timeLog.some(entry => entry.type === 'end');
-  };
 
   // ✅ Calculate elapsed time from timeLog entries
   const calculateElapsedTime = (timeLog) => {
@@ -54,34 +46,28 @@ export const TimerProvider = ({ children }) => {
     return Math.floor(totalElapsed);
   };
 
-  // ✅ Watch for changes to userEmail AND userId in localStorage
+  // ✅ Track current user email in state
+  const [currentUserEmail, setCurrentUserEmail] = useState(
+    localStorage.getItem('userEmail')
+  );
+
+  // ✅ Monitor localStorage for user email changes
   useEffect(() => {
-    const checkUserInfo = setInterval(() => {
-      const currentEmail = localStorage.getItem('userEmail');
-      const currentUserId = localStorage.getItem('userId');
-      
-      if (currentEmail !== userEmail) {
-        console.log('👤 User email changed to:', currentEmail);
-        setUserEmail(currentEmail);
+    const checkUserEmail = setInterval(() => {
+      const email = localStorage.getItem('userEmail');
+      if (email !== currentUserEmail) {
+        console.log('👤 User changed:', currentUserEmail, '->', email);
+        setCurrentUserEmail(email);
       }
-      
-      if (currentUserId !== userId) {
-        console.log('👤 User ID changed to:', currentUserId);
-        setUserId(currentUserId);
-      }
-    }, 100);
+    }, 500);
 
-    return () => clearInterval(checkUserInfo);
-  }, [userEmail, userId]);
+    return () => clearInterval(checkUserEmail);
+  }, [currentUserEmail]);
 
-  // ✅ Listen to Firebase when user info is available
+  // ✅ Listen to Firebase for current user's timer
   useEffect(() => {
-    // ✅ Get fresh values from localStorage each time
-    const currentUserEmail = localStorage.getItem('userEmail');
-    const currentUserId = localStorage.getItem('userId');
-
-    if (!currentUserEmail || !currentUserId) {
-      console.log('❌ No user info - waiting for login');
+    if (!currentUserEmail) {
+      console.log('❌ No user logged in');
       setActiveTimer(null);
       setRemainingSeconds(0);
       setIsRunning(false);
@@ -89,81 +75,55 @@ export const TimerProvider = ({ children }) => {
       return;
     }
 
-    console.log('👤 Setting up Firebase listener for:', currentUserEmail, 'ID:', currentUserId);
+    console.log('👤 Setting up Firebase listener for:', currentUserEmail);
 
     const unsubscribe = onSnapshot(collection(db, 'projects'), (snapshot) => {
       let foundTimer = null;
 
-      // ✅ Get FRESH user info inside the snapshot listener
-      const freshUserEmail = localStorage.getItem('userEmail');
-      const freshUserId = localStorage.getItem('userId');
+      console.log('🔍 Searching for timer for user:', currentUserEmail);
 
-      console.log('🔄 Scanning projects for user:', freshUserEmail, 'ID:', freshUserId);
+      snapshot.forEach((docSnapshot) => {
+        // Skip if we already found a timer for current user
+        if (foundTimer) return;
 
-      snapshot.forEach((doc) => {
-        const project = doc.data();
+        const project = docSnapshot.data();
         const userTasks = project.userTasks || [];
 
-        // Find task that belongs to CURRENT USER ONLY
+        console.log('📋 Checking project:', project.clientName, 'Tasks:', userTasks.length);
+
+        // Find task for CURRENT USER only
         const userTask = userTasks.find(task => {
-          // ✅ STEP 1: Check userId FIRST (most reliable)
-          if (task.userId && freshUserId) {
-            if (task.userId !== freshUserId) {
-              return false; // Not this user's task
-            }
-          } else if (task.userEmail && freshUserEmail) {
-            // ✅ Fallback to email comparison if userId not available
-            const taskEmailLower = task.userEmail.toLowerCase().trim();
-            const currentEmailLower = freshUserEmail.toLowerCase().trim();
-            
-            if (taskEmailLower !== currentEmailLower) {
-              return false; // Not this user's task
-            }
-          } else {
-            console.log('⚠️ Task missing both userId and userEmail');
+          if (!task.userEmail) {
+            console.log('⚠️ Task has no email');
             return false;
           }
-
-          // ✅ STEP 2: Validate structure
-          if (!task.taskStatus) {
-            console.log('⚠️ Task missing status for current user:', freshUserEmail);
-            return false;
-          }
-
-          // ✅ STEP 3: Task must be in_progress or paused (not completed)
-          const isActiveStatus = task.taskStatus === 'in_progress' || task.taskStatus === 'paused';
           
-          if (!isActiveStatus) {
-            return false;
-          }
-
-          // ✅ STEP 4: Check timeLog for end entries (no completed tasks)
-          const hasNoEndInLog = !hasEndTime(task.timeLog);
+          const taskEmail = task.userEmail.toLowerCase().trim();
+          const currentEmail = currentUserEmail.toLowerCase().trim();
           
-          if (!hasNoEndInLog) {
-            return false;
-          }
-
-          // ✅ STEP 5: Check noEndTime flag
-          if (task.hasOwnProperty('noEndTime') && task.noEndTime === false) {
-            return false;
-          }
-
-          console.log('✅ Found valid active task:', {
-            projectId: project.projectId,
-            taskUserId: task.userId,
-            taskEmail: task.userEmail,
-            currentUserId: freshUserId,
-            currentEmail: freshUserEmail,
+          console.log('🔎 Comparing:', {
+            taskEmail,
+            currentEmail,
+            match: taskEmail === currentEmail,
             status: task.taskStatus
           });
-
-          return true;
+          
+          // MUST match current user's email
+          if (taskEmail !== currentEmail) {
+            return false;
+          }
+          
+          // Check if task is active (not completed)
+          const isActive = task.taskStatus && 
+                          task.taskStatus !== 'completed' &&
+                          (!task.timeLog || !task.timeLog.some(entry => entry.type === 'end'));
+          
+          console.log('✓ Email matches! Is active?', isActive);
+          
+          return isActive;
         });
 
         if (userTask) {
-          console.log('✅ Found active timer for:', freshUserEmail, '- Status:', userTask.taskStatus);
-
           const hours = parseInt(project.estimatedHours) || 0;
           const minutes = parseInt(project.estimatedMinutes) || 0;
           const totalSeconds = (hours * 3600) + (minutes * 60);
@@ -172,22 +132,23 @@ export const TimerProvider = ({ children }) => {
           const elapsedSeconds = calculateElapsedTime(userTask.timeLog || []);
           const remaining = Math.max(0, totalSeconds - elapsedSeconds);
 
-          console.log('📊 Timer stats:', {
+          console.log('✅ Found active timer:', {
+            project: project.clientName,
+            userEmail: userTask.userEmail,
+            status: userTask.taskStatus,
             total: totalSeconds,
             elapsed: elapsedSeconds,
-            remaining: remaining,
-            status: userTask.taskStatus
+            remaining: remaining
           });
 
           foundTimer = {
             projectId: project.projectId,
-            firebaseId: doc.id,
+            firebaseId: docSnapshot.id,
             clientName: project.clientName,
             serviceType: project.serviceType,
             estimatedHours: project.estimatedHours,
             estimatedMinutes: project.estimatedMinutes,
             userEmail: userTask.userEmail,
-            userId: userTask.userId,
             taskStatus: userTask.taskStatus
           };
 
@@ -199,7 +160,7 @@ export const TimerProvider = ({ children }) => {
       });
 
       if (!foundTimer) {
-        console.log('❌ No active timer found for:', freshUserEmail);
+        console.log('❌ No active timer found for:', currentUserEmail);
         setActiveTimer(null);
         setRemainingSeconds(0);
         setIsRunning(false);
@@ -208,7 +169,7 @@ export const TimerProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [userEmail, userId]); // ✅ Depend on both userEmail AND userId
+  }, [currentUserEmail]); // Re-run when user changes
 
   // ✅ Timer countdown - only when running
   useEffect(() => {
@@ -220,6 +181,21 @@ export const TimerProvider = ({ children }) => {
     }
     return () => clearInterval(interval);
   }, [isRunning, remainingSeconds]);
+
+  // ✅ Handle logout - pause timer automatically
+  useEffect(() => {
+    const handleBeforeUnload = async (e) => {
+      // Check if user is logging out (you can add a flag in localStorage)
+      const isLoggingOut = localStorage.getItem('isLoggingOut');
+      
+      if (isLoggingOut && activeTimer && isRunning) {
+        await pauseTimer('logout');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [activeTimer, isRunning]);
 
   const getCurrentUserInfo = () => {
     return {
@@ -248,9 +224,11 @@ export const TimerProvider = ({ children }) => {
       if (projectDoc.exists()) {
         const data = projectDoc.data();
         const userTasks = data.userTasks || [];
-        const { userId } = getCurrentUserInfo();
+        const { userEmail } = getCurrentUserInfo();
 
-        const userTaskIndex = userTasks.findIndex(task => task.userId === userId);
+        const userTaskIndex = userTasks.findIndex(
+          task => task.userEmail?.toLowerCase() === userEmail?.toLowerCase()
+        );
 
         if (userTaskIndex >= 0) {
           userTasks[userTaskIndex] = {
@@ -263,21 +241,74 @@ export const TimerProvider = ({ children }) => {
             userTasks,
             updatedAt: new Date().toISOString()
           });
-          console.log('✅ User task updated in Firebase');
+          console.log('✅ Firebase updated successfully');
           return true;
-        } else {
-          console.error('❌ User task not found for userId:', userId);
         }
       }
       return false;
     } catch (error) {
-      console.error('Error updating user task:', error);
+      console.error('❌ Error updating Firebase:', error);
       throw error;
     }
   };
 
   const startTimer = async (projectData) => {
-    console.log('⏱️ Timer will be picked up by Firebase listener');
+    const { userEmail } = getCurrentUserInfo();
+    
+    const startEntry = {
+      type: 'start',
+      timestamp: new Date().toISOString(),
+      dateTime: getCurrentTimestamp()
+    };
+
+    const newTimeLog = [startEntry];
+
+    try {
+      // Check if user task already exists
+      const projectRef = doc(db, 'projects', projectData.firebaseId);
+      const projectDoc = await getDoc(projectRef);
+      
+      if (projectDoc.exists()) {
+        const data = projectDoc.data();
+        const userTasks = data.userTasks || [];
+        
+        const existingTaskIndex = userTasks.findIndex(
+          task => task.userEmail?.toLowerCase() === userEmail?.toLowerCase()
+        );
+
+        if (existingTaskIndex >= 0) {
+          // Update existing task
+          userTasks[existingTaskIndex] = {
+            ...userTasks[existingTaskIndex],
+            startTime: startEntry.dateTime,
+            timeLog: newTimeLog,
+            taskStatus: 'in_progress',
+            updatedAt: new Date().toISOString()
+          };
+        } else {
+          // Add new task
+          userTasks.push({
+            userId: localStorage.getItem('userId'),
+            userEmail: userEmail,
+            userName: getCurrentUserInfo().userName,
+            startTime: startEntry.dateTime,
+            timeLog: newTimeLog,
+            taskStatus: 'in_progress',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        await updateDoc(projectRef, {
+          userTasks,
+          updatedAt: new Date().toISOString()
+        });
+
+        console.log('✅ Timer started in Firebase');
+      }
+    } catch (error) {
+      console.error('❌ Error starting timer:', error);
+    }
   };
 
   const pauseTimer = async (reason) => {
@@ -296,16 +327,15 @@ export const TimerProvider = ({ children }) => {
     const updatedLog = [...timeLog, pauseEntry];
 
     try {
-      console.log('⏸️ Pausing timer with reason:', reason);
       await updateUserTaskInFirebase(activeTimer.firebaseId, {
         timeLog: updatedLog,
         lastPauseReason: reason,
         taskStatus: 'paused',
         pausedAt: pauseEntry.dateTime
       });
-      console.log('✅ Timer paused successfully');
+      console.log('✅ Timer paused:', reason);
     } catch (error) {
-      console.error('❌ Error saving pause:', error);
+      console.error('❌ Error pausing timer:', error);
       throw error;
     }
   };
@@ -327,9 +357,9 @@ export const TimerProvider = ({ children }) => {
         taskStatus: 'in_progress',
         resumedAt: resumeEntry.dateTime
       });
-      console.log('▶️ Timer resumed');
+      console.log('✅ Timer resumed');
     } catch (error) {
-      console.error('Error saving resume:', error);
+      console.error('❌ Error resuming timer:', error);
     }
   };
 
@@ -352,9 +382,9 @@ export const TimerProvider = ({ children }) => {
         remainingTime: remainingSeconds,
         completedAt: new Date().toISOString()
       });
-      console.log('⏹️ Timer stopped');
+      console.log('✅ Timer stopped');
     } catch (error) {
-      console.error('Error saving end time:', error);
+      console.error('❌ Error stopping timer:', error);
     }
   };
 
