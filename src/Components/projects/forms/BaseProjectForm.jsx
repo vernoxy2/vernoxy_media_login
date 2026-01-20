@@ -66,6 +66,7 @@ export function BaseProjectForm({
       currentUser?.email && member.email === currentUser.email;
     return !matchByName && !matchByEmail;
   });
+
   return (
     <div className="space-y-6">
       {/* Project ID Display with Timer/User Info */}
@@ -301,7 +302,7 @@ export function BaseProjectForm({
 
       {/* Estimated Time - Hours and Minutes with Start Button */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Assigned To Field */}
+        {/* Assigned To Field - NOW STORES USER ID */}
         <FormField
           control={form.control}
           name="assignedTo"
@@ -314,8 +315,9 @@ export function BaseProjectForm({
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                   {(() => {
+                    // Find member by ID for display
                     const member = (teamMembers || []).find(
-                      (m) => m.name === field.value,
+                      (m) => m.id === field.value
                     );
                     return member?.name || field.value || "Not Assigned";
                   })()}
@@ -333,7 +335,8 @@ export function BaseProjectForm({
                   <SelectContent>
                     {filteredTeamMembers.length > 0 ? (
                       filteredTeamMembers.map((member) => (
-                        <SelectItem key={member.id} value={member.name}>
+                        // NOW USING member.id AS VALUE
+                        <SelectItem key={member.id} value={member.id}>
                           {member.name} ({member.role})
                         </SelectItem>
                       ))
