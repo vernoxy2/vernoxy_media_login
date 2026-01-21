@@ -50,7 +50,7 @@ export function ProjectProvider({ children }) {
             localStorage.setItem("userRole", userData.role || "user");
             localStorage.setItem("userEmail", user.email);
             localStorage.setItem("userName", userData.name || "");
-            localStorage.setItem("userDepartment", userData.department || "");
+            localStorage.setItem("userDepartment", userData.department );
             
           } else {
             setCurrentUser(null);

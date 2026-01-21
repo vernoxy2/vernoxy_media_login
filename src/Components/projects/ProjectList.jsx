@@ -59,11 +59,6 @@ export function ProjectList({ projects }) {
   const serviceFilter = searchParams.get("service");
 
   useEffect(() => {
-    console.log("Service Filter:", serviceFilter);
-    console.log("Total Projects:", projects.length);
-  }, [serviceFilter, projects]);
-
-  useEffect(() => {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
     const userId = localStorage.getItem("userId");
@@ -90,7 +85,6 @@ export function ProjectList({ projects }) {
 
     if (serviceFilter) {
       filtered = filtered.filter((p) => p.serviceType === serviceFilter);
-      console.log(`Filtered by service ${serviceFilter}:`, filtered.length);
       return filtered;
     }
 

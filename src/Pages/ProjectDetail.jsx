@@ -1,34 +1,53 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useProjects } from "../context/ProjectContext";
+import { useTimer } from "../context/TimerContext";
 import { SERVICE_NAMES, COUNTRY_NAMES } from "../types/project";
 import { getStatusColor, getServiceColor } from "../lib/projectUtils";
 import { Button } from "../Components/ui/button";
 import { Badge } from "../Components/ui/badge";
 import { Separator } from "../Components/ui/separator";
 import { Textarea } from "../Components/ui/textarea";
-import { ArrowLeft, Calendar, User, Globe, Briefcase, Activity, Users, Clock, Play } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  User,
+  Globe,
+  Briefcase,
+  Activity,
+  Users,
+  Clock,
+} from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getProjectById, teamMembers, updateProject } = useProjects();
+  const { getProjectById, teamMembers, updateProject, updateProjectSilent } =
+    useProjects();
+  const { startTimer, activeTimer } = useTimer();
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showButtons, setShowButtons] = useState(false);
-  
-  const [showEstimateTime, setShowEstimateTime] = useState(false);
   const [estimatedHours, setEstimatedHours] = useState("0");
   const [estimatedMinutes, setEstimatedMinutes] = useState("0");
-  
-  const project = getProjectById(id || "");
+  const [elapsedTime, setElapsedTime] = useState({
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+  const [hasTimerStarted, setHasTimerStarted] = useState(false);
 
+  const project = getProjectById(id || "");
   const currentUserEmail = localStorage.getItem("userEmail");
   const currentUserId = localStorage.getItem("userId");
+  const currentUserName = localStorage.getItem("userName") || currentUserEmail;
+  const currentUserDepartment = localStorage.getItem("userDepartment");
+  const [showSubmitButton, setShowSubmitButton] = useState(false);
+  const [timerInterval, setTimerInterval] = useState(null);
 
   useEffect(() => {
     if (!project) return;
@@ -36,98 +55,234 @@ export default function ProjectDetail() {
     if (project.notes) {
       setNotes(project.notes);
     }
-    
+
     if (project.estimatedHours) {
       setEstimatedHours(project.estimatedHours);
     } else {
       setEstimatedHours("0");
     }
-    
+
     if (project.estimatedMinutes) {
       setEstimatedMinutes(project.estimatedMinutes);
     } else {
       setEstimatedMinutes("0");
     }
-    
-    if (project.status === "Accepted" || project.status === "In Progress") {
-      setShowEstimateTime(true);
-    }
-    
-    const timerData = localStorage.getItem('activeTimer');
-    if (timerData) {
-      try {
-        const { projectId, estimatedHours, estimatedMinutes } = JSON.parse(timerData);
-        if (projectId === project.projectId) {
-          setShowEstimateTime(true);
-          if (!project.estimatedHours) {
-            setEstimatedHours(estimatedHours);
-          }
-          if (!project.estimatedMinutes) {
-            setEstimatedMinutes(estimatedMinutes);
-          }
-        }
-      } catch (error) {
-        console.log("Error checking timer:", error);
-      }
+
+    // Add this check
+    const userTask = project.userTasks?.find(
+      (task) => task.userId === currentUserId,
+    );
+    if (userTask && userTask.taskStatus === "in_progress") {
+      setHasTimerStarted(true);
+    } else {
+      setHasTimerStarted(false);
     }
   }, [project]);
 
   useEffect(() => {
-    if (currentUserEmail && project) {
+    if (!id) return;
+
+    console.log("🔥 Setting up real-time listener for project:", id);
+
+    const projectRef = doc(db, "projects", id);
+    const unsubscribe = onSnapshot(
+      projectRef,
+      (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const updatedProject = docSnapshot.data();
+
+          console.log("📡 Real-time update received:", {
+            projectId: updatedProject.projectId,
+            userTasks: updatedProject.userTasks?.length || 0,
+          });
+
+          const userTask = updatedProject.userTasks?.find(
+            (task) => task.userId === currentUserId,
+          );
+
+          if (userTask && userTask.timeLog) {
+            console.log(
+              "✅ TimeLog updated:",
+              userTask.timeLog.length,
+              "entries",
+            );
+
+            const elapsed = calculateElapsedTime(userTask.timeLog);
+            setElapsedTime(elapsed);
+
+            if (
+              userTask.taskStatus === "in_progress" ||
+              userTask.taskStatus === "paused"
+            ) {
+              setHasTimerStarted(true);
+            }
+          }
+
+          // 🔥 CHANGE THIS LINE - Use silent update instead
+          updateProjectSilent(id, updatedProject);
+        }
+      },
+      (error) => {
+        console.error("❌ Error listening to project updates:", error);
+      },
+    );
+
+    return () => {
+      console.log("🔴 Cleaning up listener for project:", id);
+      unsubscribe();
+    };
+  }, [id, currentUserId]);
+
+  useEffect(() => {
+    if (!project) {
+      setShowButtons(false);
+      return;
+    }
+    if (
+      currentUserEmail &&
+      currentUserDepartment === "Graphic Design" &&
+      project.serviceType === "GD"
+    ) {
       setShowButtons(true);
     } else {
       setShowButtons(false);
     }
-  }, [currentUserEmail, project]);
+  }, [currentUserEmail, currentUserDepartment, project]);
 
-  // Check if current user has an active task
   const hasActiveTask = () => {
     if (!project?.userTasks || !currentUserId) return false;
-    const userTask = project.userTasks.find(task => task.userId === currentUserId);
-    return userTask && (userTask.taskStatus === 'in_progress' || userTask.taskStatus === 'paused');
+    const userTask = project.userTasks.find(
+      (task) => task.userId === currentUserId,
+    );
+    return (
+      userTask &&
+      (userTask.taskStatus === "in_progress" ||
+        userTask.taskStatus === "paused")
+    );
   };
 
-  // Get current user's task
   const getCurrentUserTask = () => {
     if (!project?.userTasks || !currentUserId) return null;
-    return project.userTasks.find(task => task.userId === currentUserId);
+    return project.userTasks.find((task) => task.userId === currentUserId);
   };
+
+  const calculateElapsedTime = (timeLog) => {
+    if (!timeLog || timeLog.length === 0)
+      return { hours: 0, minutes: 0, seconds: 0 };
+
+    let totalSeconds = 0;
+    let lastStartTime = null;
+
+    for (const entry of timeLog) {
+      if (!entry.timestamp) continue;
+      const entryTime = new Date(entry.timestamp).getTime();
+      if (isNaN(entryTime)) continue;
+
+      if (entry.type === "start" || entry.type === "resume") {
+        lastStartTime = entryTime;
+      } else if (entry.type === "pause" || entry.type === "end") {
+        if (lastStartTime) {
+          totalSeconds += (entryTime - lastStartTime) / 1000;
+          lastStartTime = null;
+        }
+      }
+    }
+
+    // If timer is running, add current elapsed time
+    if (lastStartTime && userTask?.taskStatus === "in_progress") {
+      totalSeconds += (Date.now() - lastStartTime) / 1000;
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return { hours, minutes, seconds };
+  };
+
+  // The useEffect that uses it remains the same:
+  useEffect(() => {
+    const userTaskData = getCurrentUserTask();
+    if (userTaskData?.taskStatus === "in_progress" && userTaskData?.timeLog) {
+      const interval = setInterval(() => {
+        const elapsed = calculateElapsedTime(userTaskData.timeLog);
+        setElapsedTime(elapsed);
+      }, 1000);
+      setTimerInterval(interval);
+      return () => clearInterval(interval);
+    } else if (userTaskData?.timeLog) {
+      const elapsed = calculateElapsedTime(userTaskData.timeLog);
+      setElapsedTime(elapsed);
+    }
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [project?.userTasks, currentUserId]);
 
   if (!project) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
         <p className="mb-4 text-muted-foreground">Project not found</p>
-        <Link to="/projects">
+        <Link to="/admin/projects">
           <Button variant="outline">Back to Projects</Button>
         </Link>
       </div>
     );
   }
 
-  const assignedMember = teamMembers.find((m) => m.name === project.assignedTo);
-  
+  const assignedMember = teamMembers.find(
+    (m) => m.id === project.assignedTo || m.name === project.assignedTo,
+  );
+
+  // Replace your formatDate function with this:
   const formatDate = (date) => {
-    return new Intl.DateTimeFormat("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(date));
+    // Return early if no date provided
+    if (!date) return "Not set";
+
+    try {
+      // Handle Firebase Timestamp objects
+      const dateObj = date?.toDate ? date.toDate() : new Date(date);
+
+      // Check if the date is valid
+      if (isNaN(dateObj.getTime())) {
+        return "Invalid date";
+      }
+
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      }).format(dateObj);
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid date";
+    }
   };
 
-  const getCurrentTime = () => {
-    const now = new Date();
-    let hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    const period = hours >= 12 ? "PM" : "AM";
+  // Also update formatDateTime to be safer:
+  const formatDateTime = (dateTime) => {
+    // Return early if no dateTime provided
+    if (!dateTime) return "Not set";
 
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const formattedHours = String(hours).padStart(2, "0");
+    try {
+      // Handle Firebase Timestamp objects
+      const date = dateTime?.toDate ? dateTime.toDate() : new Date(dateTime);
 
-    return `${formattedHours}:${minutes} ${period}`;
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return String(dateTime); // Return original value if can't parse
+      }
+
+      return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      console.error("Error formatting dateTime:", error);
+      return String(dateTime);
+    }
   };
-
-  // Accept button handler - just accepts the project
   const handleAcceptClick = async () => {
     setIsSubmitting(true);
     try {
@@ -139,7 +294,7 @@ export default function ProjectDetail() {
         acceptedAt: currentDateTime,
         updatedAt: currentDateTime,
       };
-      
+
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
@@ -153,57 +308,54 @@ export default function ProjectDetail() {
     }
   };
 
-  // Submit button handler - sends to Review status
   const handleSubmitClick = async () => {
-    // If user has active task, redirect to edit mode
-    if (hasActiveTask()) {
-      navigate(`/admin/projects/edit/${id}`);
+    const userTask = getCurrentUserTask();
+
+    // Check if user has active task
+    if (!userTask || userTask.taskStatus !== "in_progress") {
+      toast.info("No active task to submit!");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
-
-      // Get existing user tasks or initialize empty array
       const existingUserTasks = project.userTasks || [];
 
-      // Create new user task entry
-      const newUserTask = {
-        userId: currentUserId,
-        userEmail: currentUserEmail,
-        userName: localStorage.getItem("userName") || currentUserEmail,
-        taskStatus: 'completed',
-        startTime: currentTime,
-        endTime: currentTime,
-        timeLog: [
-          {
-            type: 'start',
-            dateTime: currentDateTime,
-            timestamp: currentTime
-          },
-          {
-            type: 'end',
-            dateTime: currentDateTime,
-            timestamp: currentTime
-          }
-        ]
-      };
+      // Update the current user's task to completed
+      const updatedUserTasks = existingUserTasks.map((task) => {
+        if (task.userId === currentUserId) {
+          return {
+            ...task,
+            taskStatus: "completed",
+            endTime: formatDateTime(currentDateTime),
+            timeLog: [
+              ...task.timeLog,
+              {
+                type: "end",
+                timestamp: currentDateTime,
+                dateTime: formatDateTime(currentDateTime),
+              },
+            ],
+          };
+        }
+        return task;
+      });
 
-      // Status set to "Review" when submit button clicked
       const updateData = {
         status: "Review",
         updatedAt: currentDateTime,
-        userTasks: [...existingUserTasks, newUserTask]
+        userTasks: updatedUserTasks,
       };
-      
+
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
 
-      toast.success("Project submitted for review!");
-      // Stay on same page
+      toast.success("Project submitted successfully!");
+      setTimeout(() => {
+        navigate("/admin/projects");
+      }, 1000);
     } catch (error) {
       console.error("Error submitting project:", error);
       toast.error("Failed to submit project. Please try again.");
@@ -238,33 +390,52 @@ export default function ProjectDetail() {
 
     setIsSubmitting(true);
     try {
-      const currentTime = getCurrentTime();
-      
+      const currentDateTime = new Date().toISOString();
+      const existingUserTasks = project.userTasks || [];
+
+      const newUserTask = {
+        userId: currentUserId,
+        userEmail: currentUserEmail,
+        userName: currentUserName,
+        taskStatus: "in_progress",
+        startTime: formatDateTime(currentDateTime),
+        endTime: null,
+        timeLog: [
+          {
+            type: "start",
+            timestamp: currentDateTime,
+            dateTime: formatDateTime(currentDateTime),
+          },
+        ],
+      };
+
       const updateData = {
         status: "In Progress",
-        startWorkTime: currentTime,
-        startedAt: new Date().toISOString(),
+        startWorkTime: formatDateTime(currentDateTime),
+        startedAt: currentDateTime,
         estimatedHours: estimatedHours,
         estimatedMinutes: estimatedMinutes,
-        updatedAt: new Date().toISOString(),
+        updatedAt: currentDateTime,
+        userTasks: [...existingUserTasks, newUserTask],
       };
-      
+
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
 
-      localStorage.setItem('activeTimer', JSON.stringify({
+      await startTimer({
         projectId: project.projectId,
-        estimatedHours,
-        estimatedMinutes,
-        startTime: new Date().toISOString()
-      }));
-
-      window.dispatchEvent(new CustomEvent('timerStart', {
-        detail: { estimatedHours, estimatedMinutes }
-      }));
+        firebaseId: id,
+        clientName: project.clientName,
+        serviceType: project.serviceType,
+        estimatedHours: estimatedHours,
+        estimatedMinutes: estimatedMinutes,
+        userId: currentUserId,
+      });
 
       toast.success("Timer started! Status: In Progress");
+      setShowSubmitButton(true);
+      setHasTimerStarted(true);
     } catch (error) {
       console.error("Error starting timer:", error);
       toast.error("Failed to start timer. Please try again.");
@@ -273,61 +444,10 @@ export default function ProjectDetail() {
     }
   };
 
-  const handleCompleteClick = async () => {
-    setIsSubmitting(true);
-    try {
-      const currentTime = getCurrentTime();
-      const currentDateTime = new Date().toISOString();
-
-      const existingUserTasks = project.userTasks || [];
-
-      const updatedUserTasks = existingUserTasks.map(task => {
-        if (task.userId === currentUserId) {
-          return {
-            ...task,
-            taskStatus: 'completed',
-            endTime: currentTime,
-            timeLog: [
-              ...(task.timeLog || []),
-              {
-                type: 'end',
-                dateTime: currentDateTime,
-                timestamp: currentTime
-              }
-            ]
-          };
-        }
-        return task;
-      });
-
-      // Status set to "Review" when completed
-      const updateData = {
-        status: "Review",
-        updatedAt: currentDateTime,
-        userTasks: updatedUserTasks
-      };
-      
-      localStorage.removeItem('activeTimer');
-      
-      const projectRef = doc(db, "projects", id);
-      await updateDoc(projectRef, updateData);
-      await updateProject(id, updateData);
-
-      // Navigate without toast
-      navigate("/admin/projects");
-    } catch (error) {
-      console.error("Error completing project:", error);
-      toast.error("Failed to complete project. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
   const userTask = getCurrentUserTask();
 
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -340,13 +460,19 @@ export default function ProjectDetail() {
               </h1>
               {userTask && (
                 <div className="mt-2">
-                  <Badge className={cn(
-                    userTask.taskStatus === 'in_progress' && 'bg-blue-500',
-                    userTask.taskStatus === 'paused' && 'bg-yellow-500',
-                    userTask.taskStatus === 'completed' && 'bg-green-500'
-                  )}>
-                    Your Task: {userTask.taskStatus === 'in_progress' ? 'In Progress' :
-                      userTask.taskStatus === 'paused' ? 'Paused' : 'Completed'}
+                  <Badge
+                    className={cn(
+                      userTask.taskStatus === "in_progress" && "bg-blue-500",
+                      userTask.taskStatus === "paused" && "bg-yellow-500",
+                      userTask.taskStatus === "completed" && "bg-green-500",
+                    )}
+                  >
+                    Your Task:{" "}
+                    {userTask.taskStatus === "in_progress"
+                      ? "In Progress"
+                      : userTask.taskStatus === "paused"
+                        ? "Paused"
+                        : "Completed"}
                   </Badge>
                 </div>
               )}
@@ -354,11 +480,10 @@ export default function ProjectDetail() {
           </div>
         </div>
 
-        {/* ONLY SHOW BUTTONS FOR GRAPHIC DESIGN (GD) PROJECTS */}
-        {showButtons && project.serviceType === "GD" && (
-          <div className="flex gap-2">
-            {/* Show Accept button when status is Draft and not accepted */}
-            {project.status === "Draft" && !project.isAccepted && (
+        {showButtons && (
+          <div className="flex gap-2 items-center">
+            {/* 1. Accept Button - Only when Draft */}
+            {project.status === "Draft" && project.serviceType === "GD" && (
               <Button
                 onClick={handleAcceptClick}
                 disabled={isSubmitting}
@@ -368,26 +493,59 @@ export default function ProjectDetail() {
               </Button>
             )}
 
-            {/* Show Submit button when project is accepted but no active task */}
-            {project.isAccepted && !hasActiveTask() && project.status !== "Review" && project.status !== "Completed" && (
-              <Button
-                onClick={handleSubmitClick}
-                disabled={isSubmitting}
-                className="bg-green-600 hover:bg-green-700 text-white shadow-md"
-              >
-                {isSubmitting ? "Submitting..." : "Submit"}
-              </Button>
-            )}
+            {/* 2. Estimate Time Controls - When Accepted OR In Progress */}
+            {(project.status === "Accepted" ||
+              project.status === "In Progress") &&
+              project.serviceType === "GD" && (
+                <>
+                  <select
+                    value={estimatedHours}
+                    onChange={(e) => setEstimatedHours(e.target.value)}
+                    className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    disabled={project.status === "In Progress"}
+                  >
+                    {Array.from({ length: 13 }, (_, i) => (
+                      <option key={i} value={i.toString()}>
+                        {i}h
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={estimatedMinutes}
+                    onChange={(e) => setEstimatedMinutes(e.target.value)}
+                    className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    disabled={project.status === "In Progress"}
+                  >
+                    {Array.from({ length: 61 }, (_, i) => (
+                      <option key={i} value={i.toString()}>
+                        {i}m
+                      </option>
+                    ))}
+                  </select>
 
-            {/* Show Continue Working button when user has active task */}
-            {hasActiveTask() && (
-              <Button
-                onClick={() => navigate(`/admin/projects/edit/${id}`)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                Continue Working
-              </Button>
-            )}
+                  {/* Show "Estimate Time" button ONLY when Accepted */}
+                  {project.status === "Accepted" && (
+                    <Button
+                      onClick={handleStartClick}
+                      disabled={isSubmitting}
+                      className="bg-green-600 hover:bg-green-700 text-white shadow-md"
+                    >
+                      {isSubmitting ? "Starting..." : "Estimate Time"}
+                    </Button>
+                  )}
+
+                  {/* Show "Submit" button ONLY when In Progress */}
+                  {project.status === "In Progress" && (
+                    <Button
+                      onClick={handleSubmitClick}
+                      disabled={isSubmitting}
+                      className="bg-purple-600 hover:bg-purple-700 text-white shadow-md"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit"}
+                    </Button>
+                  )}
+                </>
+              )}
           </div>
         )}
       </div>
@@ -420,7 +578,7 @@ export default function ProjectDetail() {
                   <Badge
                     className={cn(
                       "service-badge",
-                      getServiceColor(project.serviceType)
+                      getServiceColor(project.serviceType),
                     )}
                   >
                     {SERVICE_NAMES[project.serviceType]}
@@ -437,7 +595,7 @@ export default function ProjectDetail() {
                   <Badge
                     className={cn(
                       "status-badge",
-                      getStatusColor(project.status)
+                      getStatusColor(project.status),
                     )}
                   >
                     {project.status}
@@ -456,7 +614,7 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-muted p-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -487,9 +645,28 @@ export default function ProjectDetail() {
                     <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Estimated Time</p>
+                    <p className="text-sm text-muted-foreground">
+                      Estimated Time
+                    </p>
                     <p className="font-medium text-foreground">
                       {project.estimatedHours}h {project.estimatedMinutes}m
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {userTask && userTask.timeLog && hasTimerStarted && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-2">
+                    <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Your Elapsed Time
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {elapsedTime.hours}h {elapsedTime.minutes}m{" "}
+                      {elapsedTime.seconds}s
                     </p>
                   </div>
                 </div>
@@ -681,7 +858,7 @@ export default function ProjectDetail() {
               </div>
 
               {project.isAccepted && project.acceptedAt && (
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 text-start">
                   <div className="mt-1 h-2 w-2 rounded-full bg-green-500" />
                   <div>
                     <p className="text-sm text-foreground">Project accepted</p>
@@ -691,9 +868,9 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
-              
+
               {userTask && userTask.startTime && (
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 text-start">
                   <div className="mt-1 h-2 w-2 rounded-full bg-blue-500" />
                   <div>
                     <p className="text-sm text-foreground">You started at</p>
@@ -703,9 +880,9 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
-              
+
               {userTask && userTask.endTime && (
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 text-start">
                   <div className="mt-1 h-2 w-2 rounded-full bg-purple-500" />
                   <div>
                     <p className="text-sm text-foreground">You completed at</p>
@@ -718,20 +895,41 @@ export default function ProjectDetail() {
             </div>
           </div>
 
+          {/* Time Log Section - Shows all pause/resume entries */}
           {userTask && userTask.timeLog && userTask.timeLog.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
                 Your Time Log
               </h3>
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-3 max-h-60 overflow-y-auto text-start">
                 {userTask.timeLog.map((log, index) => (
                   <div key={index} className="flex items-start gap-3 text-xs">
-                    <Clock className="h-3 w-3 text-muted-foreground mt-0.5" />
+                    <Clock
+                      className={cn(
+                        "h-3 w-3 mt-0.5",
+                        log.type === "start" && "text-green-500",
+                        log.type === "pause" && "text-yellow-500",
+                        log.type === "resume" && "text-blue-500",
+                        log.type === "end" && "text-red-500",
+                      )}
+                    />
                     <div>
-                      <p className="font-medium capitalize">{log.type}</p>
-                      <p className="text-muted-foreground">{log.dateTime}</p>
+                      <p className="text-sm text-foreground font-medium">
+                        {log.type === "start"
+                          ? "Started"
+                          : log.type === "pause"
+                            ? "Paused"
+                            : log.type === "resume"
+                              ? "Resumed"
+                              : "Ended"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {log.dateTime}
+                      </p>
                       {log.reason && (
-                        <p className="text-muted-foreground italic">Reason: {log.reason}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Reason: {log.reason}
+                        </p>
                       )}
                     </div>
                   </div>
