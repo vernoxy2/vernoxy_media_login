@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { doc, updateDoc, getDoc, collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
+
 const TimerContext = createContext();
 
 export const useTimer = () => {
@@ -56,7 +57,6 @@ export const TimerProvider = ({ children }) => {
     const checkUserEmail = setInterval(() => {
       const email = localStorage.getItem('userEmail');
       if (email !== currentUserEmail) {
-        console.log('👤 User changed:', currentUserEmail, '->', email);
         setCurrentUserEmail(email);
       }
     }, 500);
