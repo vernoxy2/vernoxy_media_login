@@ -24,9 +24,15 @@
 // export const db = getFirestore(app);
 
 // export default app;
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeApp
+} from "firebase/app";
+import {
+  getAuth
+} from "firebase/auth";
+import {
+  getFirestore
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDUJY3MJuYmDwriz_VtF4fkjcGhBQcX78M",
@@ -44,15 +50,11 @@ let auth;
 let db;
 
 try {
-  console.log("🔥 Initializing Firebase...");
   app = initializeApp(firebaseConfig);
-  console.log("✅ Firebase App initialized");
 
   auth = getAuth(app);
-  console.log("✅ Firebase Auth initialized");
 
   db = getFirestore(app);
-  console.log("✅ Firestore initialized");
 
 } catch (error) {
   console.error("❌ Firebase initialization error:", error);
@@ -62,10 +64,14 @@ try {
 
 // Test connection
 if (db) {
-  import("firebase/firestore").then(({ collection, getDocs, query, limit }) => {
+  import("firebase/firestore").then(({
+    collection,
+    getDocs,
+    query,
+    limit
+  }) => {
     const testConnection = async () => {
       try {
-        console.log("🔍 Testing Firestore connection...");
         const testRef = collection(db, "projects");
         const snapshot = await getDocs(query(testRef, limit(1)));
         console.log("✅ Firestore OK! Found", snapshot.size, "documents");
@@ -73,7 +79,7 @@ if (db) {
         console.error("❌ Firestore test failed:", error.code, error.message);
       }
     };
-    
+
     if (document.readyState === "complete") {
       testConnection();
     } else {
@@ -82,5 +88,8 @@ if (db) {
   });
 }
 
-export { auth, db };
+export {
+  auth,
+  db
+};
 export default app;

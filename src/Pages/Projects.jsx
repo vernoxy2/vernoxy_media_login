@@ -62,12 +62,6 @@ export default function Projects() {
     });
   }, [projects, filters]);
 
-  // Console logs for debugging
-  console.log('Service Filter:', filters.service);
-  console.log('Service Based Total:', serviceBasedTotal);
-  console.log('Filtered Projects:', filteredProjects.length);
-  console.log('Total Projects:', projects.length);
-
   return (
     <div className="p-8">
       {/* Header */}
