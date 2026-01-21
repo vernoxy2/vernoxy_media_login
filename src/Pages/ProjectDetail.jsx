@@ -48,6 +48,7 @@ export default function ProjectDetail() {
   const currentUserDepartment = localStorage.getItem("userDepartment");
   const [showSubmitButton, setShowSubmitButton] = useState(false);
   const [timerInterval, setTimerInterval] = useState(null);
+  const [liveUserTask, setLiveUserTask] = useState(null);
 
   useEffect(() => {
     if (!project) return;
@@ -96,29 +97,20 @@ export default function ProjectDetail() {
             userTasks: updatedProject.userTasks?.length || 0,
           });
 
+          // 🔥 CRITICAL: Update the live userTask state
           const userTask = updatedProject.userTasks?.find(
             (task) => task.userId === currentUserId,
           );
 
-          if (userTask && userTask.timeLog) {
+          if (userTask) {
             console.log(
-              "✅ TimeLog updated:",
-              userTask.timeLog.length,
-              "entries",
+              "✅ Found user task with timeLog:",
+              userTask.timeLog?.length || 0,
             );
-
-            const elapsed = calculateElapsedTime(userTask.timeLog);
-            setElapsedTime(elapsed);
-
-            if (
-              userTask.taskStatus === "in_progress" ||
-              userTask.taskStatus === "paused"
-            ) {
-              setHasTimerStarted(true);
-            }
+            setLiveUserTask(userTask); // 🔥 This triggers re-render!
           }
 
-          // 🔥 CHANGE THIS LINE - Use silent update instead
+          // Update context silently
           updateProjectSilent(id, updatedProject);
         }
       },
@@ -132,6 +124,24 @@ export default function ProjectDetail() {
       unsubscribe();
     };
   }, [id, currentUserId]);
+
+  useEffect(() => {
+    const userTaskData = liveUserTask || getCurrentUserTask();
+    if (userTaskData?.taskStatus === "in_progress" && userTaskData?.timeLog) {
+      const interval = setInterval(() => {
+        const elapsed = calculateElapsedTime(userTaskData.timeLog);
+        setElapsedTime(elapsed);
+      }, 1000);
+      setTimerInterval(interval);
+      return () => clearInterval(interval);
+    } else if (userTaskData?.timeLog) {
+      const elapsed = calculateElapsedTime(userTaskData.timeLog);
+      setElapsedTime(elapsed);
+    }
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [liveUserTask, project?.userTasks, currentUserId]);
 
   useEffect(() => {
     if (!project) {
@@ -309,10 +319,13 @@ export default function ProjectDetail() {
   };
 
   const handleSubmitClick = async () => {
-    const userTask = getCurrentUserTask();
+   const userTask = liveUserTask || getCurrentUserTask();
 
-    // Check if user has active task
-    if (!userTask || userTask.taskStatus !== "in_progress") {
+    if (
+      !userTask ||
+      (userTask.taskStatus !== "in_progress" &&
+        userTask.taskStatus !== "paused")
+    ) {
       toast.info("No active task to submit!");
       return;
     }
@@ -523,19 +536,23 @@ export default function ProjectDetail() {
                     ))}
                   </select>
 
-                  {/* Show "Estimate Time" button ONLY when Accepted */}
-                  {project.status === "Accepted" && (
+                  {/* Estimate Time button - Accepted & In Progress */}
+                  {(project.status === "Accepted" ||
+                    project.status === "In Progress") && (
                     <Button
                       onClick={handleStartClick}
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting || project.status === "In Progress"
+                      }
                       className="bg-green-600 hover:bg-green-700 text-white shadow-md"
                     >
-                      {isSubmitting ? "Starting..." : "Estimate Time"}
+                      Estimate Time
                     </Button>
                   )}
 
-                  {/* Show "Submit" button ONLY when In Progress */}
-                  {project.status === "In Progress" && (
+                  {/* Submit button - Accepted & In Progress */}
+                  {(project.status === "Accepted" ||
+                    project.status === "In Progress") && (
                     <Button
                       onClick={handleSubmitClick}
                       disabled={isSubmitting}
@@ -895,45 +912,44 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {/* Time Log Section - Shows all pause/resume entries */}
-          {userTask && userTask.timeLog && userTask.timeLog.length > 0 && (
+        {(liveUserTask || userTask)?.timeLog?.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
-                Your Time Log
+                Your Time Log ({userTask.timeLog.length} entries)
               </h3>
-              <div className="space-y-3 max-h-60 overflow-y-auto text-start">
-                {userTask.timeLog.map((log, index) => (
-                  <div key={index} className="flex items-start gap-3 text-xs">
-                    <Clock
-                      className={cn(
-                        "h-3 w-3 mt-0.5",
-                        log.type === "start" && "text-green-500",
-                        log.type === "pause" && "text-yellow-500",
-                        log.type === "resume" && "text-blue-500",
-                        log.type === "end" && "text-red-500",
-                      )}
-                    />
-                    <div>
-                      <p className="text-sm text-foreground font-medium">
-                        {log.type === "start"
-                          ? "Started"
-                          : log.type === "pause"
-                            ? "Paused"
-                            : log.type === "resume"
-                              ? "Resumed"
-                              : "Ended"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {log.dateTime}
-                      </p>
-                      {log.reason && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Reason: {log.reason}
+              <div className="space-y-3 max-h-96 overflow-y-auto text-start">
+                {userTask.timeLog.map((log, index) => {
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 text-sm  pb-2"
+                    >
+                      <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground font-medium">
+                          {log.type === "start"
+                            ? "Started"
+                            : log.type === "pause"
+                              ? "Paused"
+                              : log.type === "resume"
+                                ? "Resumed"
+                                : log.type === "end"
+                                  ? "Completed"
+                                  : log.type}
                         </p>
-                      )}
+                        <p className="text-xs text-muted-foreground">
+                          {log.dateTime ||
+                            new Date(log.timestamp).toLocaleString()}
+                        </p>
+                        {log.reason && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Reason: {log.reason}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
