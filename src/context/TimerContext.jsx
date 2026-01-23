@@ -1,14 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { doc, updateDoc, getDoc, collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
-
+import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  doc,
+  updateDoc,
+  getDoc,
+  collection,
+  onSnapshot,
+} from "firebase/firestore";
+import { db } from "../firebase";
 
 const TimerContext = createContext();
 
 export const useTimer = () => {
   const context = useContext(TimerContext);
   if (!context) {
-    throw new Error('useTimer must be used within TimerProvider');
+    throw new Error("useTimer must be used within TimerProvider");
   }
   return context;
 };
@@ -29,9 +34,9 @@ export const TimerProvider = ({ children }) => {
     for (const entry of timeLog) {
       const entryTime = new Date(entry.timestamp).getTime();
 
-      if (entry.type === 'start' || entry.type === 'resume') {
+      if (entry.type === "start" || entry.type === "resume") {
         lastStartTime = entryTime;
-      } else if (entry.type === 'pause' || entry.type === 'end') {
+      } else if (entry.type === "pause" || entry.type === "end") {
         if (lastStartTime) {
           totalElapsed += (entryTime - lastStartTime) / 1000;
           lastStartTime = null;
@@ -49,13 +54,13 @@ export const TimerProvider = ({ children }) => {
 
   // ✅ Track current user email in state
   const [currentUserEmail, setCurrentUserEmail] = useState(
-    localStorage.getItem('userEmail')
+    localStorage.getItem("userEmail"),
   );
 
   // ✅ Monitor localStorage for user email changes
   useEffect(() => {
     const checkUserEmail = setInterval(() => {
-      const email = localStorage.getItem('userEmail');
+      const email = localStorage.getItem("userEmail");
       if (email !== currentUserEmail) {
         setCurrentUserEmail(email);
       }
@@ -67,7 +72,7 @@ export const TimerProvider = ({ children }) => {
   // ✅ Listen to Firebase for current user's timer
   useEffect(() => {
     if (!currentUserEmail) {
-      console.log('❌ No user logged in');
+      console.log("❌ No user logged in");
       setActiveTimer(null);
       setRemainingSeconds(0);
       setIsRunning(false);
@@ -75,12 +80,10 @@ export const TimerProvider = ({ children }) => {
       return;
     }
 
-    console.log('👤 Setting up Firebase listener for:', currentUserEmail);
+    console.log("👤 Setting up Firebase listener for:", currentUserEmail);
 
-    const unsubscribe = onSnapshot(collection(db, 'projects'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "projects"), (snapshot) => {
       let foundTimer = null;
-
-      console.log('🔍 Searching for timer for user:', currentUserEmail);
 
       snapshot.forEach((docSnapshot) => {
         // Skip if we already found a timer for current user
@@ -89,57 +92,38 @@ export const TimerProvider = ({ children }) => {
         const project = docSnapshot.data();
         const userTasks = project.userTasks || [];
 
-        console.log('📋 Checking project:', project.clientName, 'Tasks:', userTasks.length);
-
         // Find task for CURRENT USER only
-        const userTask = userTasks.find(task => {
+        const userTask = userTasks.find((task) => {
           if (!task.userEmail) {
-            console.log('⚠️ Task has no email');
+            console.log("⚠️ Task has no email");
             return false;
           }
-          
+
           const taskEmail = task.userEmail.toLowerCase().trim();
           const currentEmail = currentUserEmail.toLowerCase().trim();
-          
-          console.log('🔎 Comparing:', {
-            taskEmail,
-            currentEmail,
-            match: taskEmail === currentEmail,
-            status: task.taskStatus
-          });
-          
           // MUST match current user's email
           if (taskEmail !== currentEmail) {
             return false;
           }
-          
+
           // Check if task is active (not completed)
-          const isActive = task.taskStatus && 
-                          task.taskStatus !== 'completed' &&
-                          (!task.timeLog || !task.timeLog.some(entry => entry.type === 'end'));
-          
-          console.log('✓ Email matches! Is active?', isActive);
-          
+          const isActive =
+            task.taskStatus &&
+            task.taskStatus !== "completed" &&
+            (!task.timeLog ||
+              !task.timeLog.some((entry) => entry.type === "end"));
+
           return isActive;
         });
 
         if (userTask) {
           const hours = parseInt(project.estimatedHours) || 0;
           const minutes = parseInt(project.estimatedMinutes) || 0;
-          const totalSeconds = (hours * 3600) + (minutes * 60);
+          const totalSeconds = hours * 3600 + minutes * 60;
 
           // Calculate elapsed time from timeLog
           const elapsedSeconds = calculateElapsedTime(userTask.timeLog || []);
           const remaining = Math.max(0, totalSeconds - elapsedSeconds);
-
-          console.log('✅ Found active timer:', {
-            project: project.clientName,
-            userEmail: userTask.userEmail,
-            status: userTask.taskStatus,
-            total: totalSeconds,
-            elapsed: elapsedSeconds,
-            remaining: remaining
-          });
 
           foundTimer = {
             projectId: project.projectId,
@@ -149,18 +133,18 @@ export const TimerProvider = ({ children }) => {
             estimatedHours: project.estimatedHours,
             estimatedMinutes: project.estimatedMinutes,
             userEmail: userTask.userEmail,
-            taskStatus: userTask.taskStatus
+            taskStatus: userTask.taskStatus,
           };
 
           setActiveTimer(foundTimer);
           setRemainingSeconds(remaining);
-          setIsRunning(userTask.taskStatus === 'in_progress');
+          setIsRunning(userTask.taskStatus === "in_progress");
           setTimeLog(userTask.timeLog || []);
         }
       });
 
       if (!foundTimer) {
-        console.log('❌ No active timer found for:', currentUserEmail);
+        console.log("❌ No active timer found for:", currentUserEmail);
         setActiveTimer(null);
         setRemainingSeconds(0);
         setIsRunning(false);
@@ -176,7 +160,7 @@ export const TimerProvider = ({ children }) => {
     let interval;
     if (isRunning && remainingSeconds > 0) {
       interval = setInterval(() => {
-        setRemainingSeconds(prev => Math.max(0, prev - 1));
+        setRemainingSeconds((prev) => Math.max(0, prev - 1));
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -186,39 +170,42 @@ export const TimerProvider = ({ children }) => {
   useEffect(() => {
     const handleBeforeUnload = async (e) => {
       // Check if user is logging out (you can add a flag in localStorage)
-      const isLoggingOut = localStorage.getItem('isLoggingOut');
-      
+      const isLoggingOut = localStorage.getItem("isLoggingOut");
+
       if (isLoggingOut && activeTimer && isRunning) {
-        await pauseTimer('logout');
+        await pauseTimer("logout");
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [activeTimer, isRunning]);
 
   const getCurrentUserInfo = () => {
     return {
-      userId: localStorage.getItem('userId') || 'unknown',
-      userEmail: localStorage.getItem('userEmail') || 'unknown@example.com',
-      userName: localStorage.getItem('userName') || localStorage.getItem('userEmail') || 'Unknown User'
+      userId: localStorage.getItem("userId") || "unknown",
+      userEmail: localStorage.getItem("userEmail") || "unknown@example.com",
+      userName:
+        localStorage.getItem("userName") ||
+        localStorage.getItem("userEmail") ||
+        "Unknown User",
     };
   };
 
   const getCurrentTimestamp = () => {
-    return new Date().toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+    return new Date().toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
   };
 
   const updateUserTaskInFirebase = async (firebaseId, taskUpdate) => {
     try {
-      const projectRef = doc(db, 'projects', firebaseId);
+      const projectRef = doc(db, "projects", firebaseId);
       const projectDoc = await getDoc(projectRef);
 
       if (projectDoc.exists()) {
@@ -227,53 +214,53 @@ export const TimerProvider = ({ children }) => {
         const { userEmail } = getCurrentUserInfo();
 
         const userTaskIndex = userTasks.findIndex(
-          task => task.userEmail?.toLowerCase() === userEmail?.toLowerCase()
+          (task) => task.userEmail?.toLowerCase() === userEmail?.toLowerCase(),
         );
 
         if (userTaskIndex >= 0) {
           userTasks[userTaskIndex] = {
             ...userTasks[userTaskIndex],
             ...taskUpdate,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           };
 
           await updateDoc(projectRef, {
             userTasks,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           });
-          console.log('✅ Firebase updated successfully');
+          console.log("✅ Firebase updated successfully");
           return true;
         }
       }
       return false;
     } catch (error) {
-      console.error('❌ Error updating Firebase:', error);
+      console.error("❌ Error updating Firebase:", error);
       throw error;
     }
   };
 
   const startTimer = async (projectData) => {
     const { userEmail } = getCurrentUserInfo();
-    
+
     const startEntry = {
-      type: 'start',
+      type: "start",
       timestamp: new Date().toISOString(),
-      dateTime: getCurrentTimestamp()
+      dateTime: getCurrentTimestamp(),
     };
 
     const newTimeLog = [startEntry];
 
     try {
       // Check if user task already exists
-      const projectRef = doc(db, 'projects', projectData.firebaseId);
+      const projectRef = doc(db, "projects", projectData.firebaseId);
       const projectDoc = await getDoc(projectRef);
-      
+
       if (projectDoc.exists()) {
         const data = projectDoc.data();
         const userTasks = data.userTasks || [];
-        
+
         const existingTaskIndex = userTasks.findIndex(
-          task => task.userEmail?.toLowerCase() === userEmail?.toLowerCase()
+          (task) => task.userEmail?.toLowerCase() === userEmail?.toLowerCase(),
         );
 
         if (existingTaskIndex >= 0) {
@@ -282,46 +269,46 @@ export const TimerProvider = ({ children }) => {
             ...userTasks[existingTaskIndex],
             startTime: startEntry.dateTime,
             timeLog: newTimeLog,
-            taskStatus: 'in_progress',
-            updatedAt: new Date().toISOString()
+            taskStatus: "in_progress",
+            updatedAt: new Date().toISOString(),
           };
         } else {
           // Add new task
           userTasks.push({
-            userId: localStorage.getItem('userId'),
+            userId: localStorage.getItem("userId"),
             userEmail: userEmail,
             userName: getCurrentUserInfo().userName,
             startTime: startEntry.dateTime,
             timeLog: newTimeLog,
-            taskStatus: 'in_progress',
+            taskStatus: "in_progress",
             createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           });
         }
 
         await updateDoc(projectRef, {
           userTasks,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         });
 
-        console.log('✅ Timer started in Firebase');
+        console.log("✅ Timer started in Firebase");
       }
     } catch (error) {
-      console.error('❌ Error starting timer:', error);
+      console.error("❌ Error starting timer:", error);
     }
   };
 
   const pauseTimer = async (reason) => {
     if (!activeTimer) {
-      console.log('❌ No active timer to pause');
+      console.log("❌ No active timer to pause");
       return;
     }
 
     const pauseEntry = {
-      type: 'pause',
+      type: "pause",
       timestamp: new Date().toISOString(),
       dateTime: getCurrentTimestamp(),
-      reason: reason || 'No reason provided'
+      reason: reason || "No reason provided",
     };
 
     const updatedLog = [...timeLog, pauseEntry];
@@ -330,12 +317,12 @@ export const TimerProvider = ({ children }) => {
       await updateUserTaskInFirebase(activeTimer.firebaseId, {
         timeLog: updatedLog,
         lastPauseReason: reason,
-        taskStatus: 'paused',
-        pausedAt: pauseEntry.dateTime
+        taskStatus: "paused",
+        pausedAt: pauseEntry.dateTime,
       });
-      console.log('✅ Timer paused:', reason);
+      console.log("✅ Timer paused:", reason);
     } catch (error) {
-      console.error('❌ Error pausing timer:', error);
+      console.error("❌ Error pausing timer:", error);
       throw error;
     }
   };
@@ -344,9 +331,9 @@ export const TimerProvider = ({ children }) => {
     if (!activeTimer || isRunning) return;
 
     const resumeEntry = {
-      type: 'resume',
+      type: "resume",
       timestamp: new Date().toISOString(),
-      dateTime: getCurrentTimestamp()
+      dateTime: getCurrentTimestamp(),
     };
 
     const updatedLog = [...timeLog, resumeEntry];
@@ -354,12 +341,12 @@ export const TimerProvider = ({ children }) => {
     try {
       await updateUserTaskInFirebase(activeTimer.firebaseId, {
         timeLog: updatedLog,
-        taskStatus: 'in_progress',
-        resumedAt: resumeEntry.dateTime
+        taskStatus: "in_progress",
+        resumedAt: resumeEntry.dateTime,
       });
-      console.log('✅ Timer resumed');
+      console.log("✅ Timer resumed");
     } catch (error) {
-      console.error('❌ Error resuming timer:', error);
+      console.error("❌ Error resuming timer:", error);
     }
   };
 
@@ -367,9 +354,9 @@ export const TimerProvider = ({ children }) => {
     if (!activeTimer) return;
 
     const endEntry = {
-      type: 'end',
+      type: "end",
       timestamp: new Date().toISOString(),
-      dateTime: getCurrentTimestamp()
+      dateTime: getCurrentTimestamp(),
     };
 
     const finalLog = [...timeLog, endEntry];
@@ -378,13 +365,13 @@ export const TimerProvider = ({ children }) => {
       await updateUserTaskInFirebase(activeTimer.firebaseId, {
         endTime: endEntry.dateTime,
         timeLog: finalLog,
-        taskStatus: 'completed',
+        taskStatus: "completed",
         remainingTime: remainingSeconds,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
       });
-      console.log('✅ Timer stopped');
+      console.log("✅ Timer stopped");
     } catch (error) {
-      console.error('❌ Error stopping timer:', error);
+      console.error("❌ Error stopping timer:", error);
     }
   };
 
@@ -392,14 +379,14 @@ export const TimerProvider = ({ children }) => {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
   const getProgressPercentage = () => {
     if (!activeTimer) return 0;
     const hours = parseInt(activeTimer.estimatedHours) || 0;
     const minutes = parseInt(activeTimer.estimatedMinutes) || 0;
-    const total = (hours * 3600) + (minutes * 60);
+    const total = hours * 3600 + minutes * 60;
     if (total === 0) return 0;
     return ((total - remainingSeconds) / total) * 100;
   };
@@ -414,12 +401,10 @@ export const TimerProvider = ({ children }) => {
     resumeTimer,
     stopTimer,
     formatTime,
-    getProgressPercentage
+    getProgressPercentage,
   };
 
   return (
-    <TimerContext.Provider value={value}>
-      {children}
-    </TimerContext.Provider>
+    <TimerContext.Provider value={value}>{children}</TimerContext.Provider>
   );
 };
