@@ -673,7 +673,7 @@ export default function ProjectDetail() {
                 </div>
               )}
 
-              {userTask && userTask.timeLog && hasTimerStarted && (
+              {/* {userTask && userTask.timeLog && hasTimerStarted && (
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-2">
                     <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -688,7 +688,7 @@ export default function ProjectDetail() {
                     </p>
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
 
             {project.internalNotes && (
