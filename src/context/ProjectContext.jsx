@@ -1,19 +1,19 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
+import { createContext, useContext, useState, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   getDocs,
   getDoc,
   query,
   orderBy,
   serverTimestamp,
-} from 'firebase/firestore';
-import { auth, db } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { toast } from 'sonner';
+} from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { toast } from "sonner";
 
 const ProjectContext = createContext();
 
@@ -31,10 +31,10 @@ export function ProjectProvider({ children }) {
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userDocRef);
-          
+
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            
+
             const userInfo = {
               id: user.uid,
               email: user.email,
@@ -42,16 +42,15 @@ export function ProjectProvider({ children }) {
               department: userData.department || "",
               role: userData.role || "user",
             };
-            
+
             setCurrentUser(userInfo);
-            
+
             // Save to localStorage
             localStorage.setItem("userId", user.uid);
             localStorage.setItem("userRole", userData.role || "user");
             localStorage.setItem("userEmail", user.email);
             localStorage.setItem("userName", userData.name || "");
-            localStorage.setItem("userDepartment", userData.department );
-            
+            localStorage.setItem("userDepartment", userData.department);
           } else {
             setCurrentUser(null);
           }
@@ -80,7 +79,7 @@ export function ProjectProvider({ children }) {
         const usersRef = collection(db, "users");
         const querySnapshot = await getDocs(usersRef);
         const membersData = [];
-        
+
         querySnapshot.forEach((doc) => {
           const userData = doc.data();
           membersData.push({
@@ -91,7 +90,7 @@ export function ProjectProvider({ children }) {
             department: userData.department || "",
           });
         });
-        
+
         setTeamMembers(membersData);
       } catch (error) {
         console.error("❌ Error fetching team members:", error);
@@ -111,7 +110,7 @@ export function ProjectProvider({ children }) {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      
+
       if (!auth.currentUser) {
         console.warn("⚠️ No authenticated user");
         setProjects([]);
@@ -160,7 +159,7 @@ export function ProjectProvider({ children }) {
       console.error("❌ Error fetching projects:", error);
       console.error("Error code:", error.code);
       console.error("Error message:", error.message);
-      
+
       if (error.code === "permission-denied") {
         toast.error("Permission denied. Please check your access rights.");
       } else if (error.code === "unavailable") {
@@ -180,7 +179,6 @@ export function ProjectProvider({ children }) {
         return;
       }
 
-
       const newProject = {
         ...projectData,
         createdAt: serverTimestamp(),
@@ -189,7 +187,7 @@ export function ProjectProvider({ children }) {
       };
 
       const docRef = await addDoc(collection(db, "projects"), newProject);
-      
+
       // Return project with Firebase ID and current dates for immediate use
       const addedProject = {
         ...projectData,
@@ -201,7 +199,7 @@ export function ProjectProvider({ children }) {
 
       // Update local state
       setProjects((prev) => [addedProject, ...prev]);
-      
+
       toast.success("Project created successfully!");
       return addedProject;
     } catch (error) {
@@ -210,7 +208,7 @@ export function ProjectProvider({ children }) {
       throw error;
     }
   };
-
+  
   const updateProject = async (projectId, updates) => {
     try {
       if (!currentUser) {
@@ -225,17 +223,28 @@ export function ProjectProvider({ children }) {
       };
 
       await updateDoc(projectRef, updateData);
-      
-      // Update local state with current date for immediate feedback
+
+      // ✅ FIX: Fetch fresh data from Firebase after update
+      const updatedDoc = await getDoc(projectRef);
+      const freshData = updatedDoc.data();
+
+      // ✅ FIX: Create a completely new object to trigger React re-renders
+      const updatedProject = {
+        id: projectId,
+        ...freshData,
+        updatedAt: freshData.updatedAt?.toDate() || new Date(),
+        createdAt: freshData.createdAt?.toDate() || new Date(),
+      };
+
+      // ✅ FIX: Replace the entire array to ensure reference change
       setProjects((prev) =>
         prev.map((p) =>
-          p.id === projectId
-            ? { ...p, ...updates, updatedAt: new Date(), updatedBy: currentUser.email }
-            : p
+          p.id === projectId ? updatedProject : p
         )
       );
 
       toast.success("Project updated successfully!");
+      return updatedProject;
     } catch (error) {
       console.error("❌ Error updating project:", error);
       toast.error("Failed to update project");
@@ -243,9 +252,24 @@ export function ProjectProvider({ children }) {
     }
   };
 
+  // ✅ NEW: Silent update for real-time listeners (no toast)
+  const updateProjectSilent = (projectId, freshData) => {
+    const updatedProject = {
+      id: projectId,
+      ...freshData,
+      updatedAt: freshData.updatedAt?.toDate?.() || new Date(freshData.updatedAt || Date.now()),
+      createdAt: freshData.createdAt?.toDate?.() || new Date(freshData.createdAt || Date.now()),
+    };
+
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId ? updatedProject : p
+      )
+    );
+  };
+
   const deleteProject = async (projectId) => {
     try {
-      
       if (!currentUser || currentUser.role !== "admin") {
         toast.error("Only admins can delete projects");
         throw new Error("Unauthorized: Only admins can delete projects");
@@ -258,7 +282,7 @@ export function ProjectProvider({ children }) {
       return true;
     } catch (error) {
       console.error("❌ Error deleting project:", error);
-      
+
       if (error.message.includes("Unauthorized")) {
         toast.error("Only admins can delete projects");
       } else if (error.code === "permission-denied") {
@@ -279,20 +303,20 @@ export function ProjectProvider({ children }) {
 
   const getTeamMemberName = (assignedToValue) => {
     if (!assignedToValue) return "Unassigned";
-    
+
     // Try to find by name first (since form uses names)
     let member = teamMembers.find((m) => m.name === assignedToValue);
-    
+
     // Fallback to ID
     if (!member) {
       member = teamMembers.find((m) => m.id === assignedToValue);
     }
-    
+
     // Fallback to email
     if (!member) {
       member = teamMembers.find((m) => m.email === assignedToValue);
     }
-    
+
     return member?.name || assignedToValue || "Unassigned";
   };
 
@@ -303,6 +327,7 @@ export function ProjectProvider({ children }) {
     currentUser,
     addProject,
     updateProject,
+    updateProjectSilent, // ⭐ Added for real-time updates
     deleteProject,
     getProjectById,
     getTeamMemberName,
@@ -310,9 +335,7 @@ export function ProjectProvider({ children }) {
   };
 
   return (
-    <ProjectContext.Provider value={value}>
-      {children}
-    </ProjectContext.Provider>
+    <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
   );
 }
 

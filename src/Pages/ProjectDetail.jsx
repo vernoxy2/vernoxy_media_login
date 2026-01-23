@@ -57,6 +57,7 @@ export default function ProjectDetail() {
       setNotes(project.notes);
     }
 
+    // Load estimated time from project (preserves the time even after refresh)
     if (project.estimatedHours) {
       setEstimatedHours(project.estimatedHours);
     } else {
@@ -69,16 +70,17 @@ export default function ProjectDetail() {
       setEstimatedMinutes("0");
     }
 
-    // Add this check
     const userTask = project.userTasks?.find(
       (task) => task.userId === currentUserId,
     );
-    if (userTask && userTask.taskStatus === "in_progress") {
+
+    // Check if user has any task (started, paused, or completed)
+    if (userTask && userTask.timeLog && userTask.timeLog.length > 0) {
       setHasTimerStarted(true);
     } else {
       setHasTimerStarted(false);
     }
-  }, [project]);
+  }, [project, currentUserId]);
 
   useEffect(() => {
     if (!id) return;
@@ -96,8 +98,6 @@ export default function ProjectDetail() {
             projectId: updatedProject.projectId,
             userTasks: updatedProject.userTasks?.length || 0,
           });
-
-          // 🔥 CRITICAL: Update the live userTask state
           const userTask = updatedProject.userTasks?.find(
             (task) => task.userId === currentUserId,
           );
@@ -107,7 +107,15 @@ export default function ProjectDetail() {
               "✅ Found user task with timeLog:",
               userTask.timeLog?.length || 0,
             );
-            setLiveUserTask(userTask); // 🔥 This triggers re-render!
+            setLiveUserTask(userTask);
+
+            // Update hasTimerStarted based on whether user has any time entries
+            if (userTask.timeLog && userTask.timeLog.length > 0) {
+              setHasTimerStarted(true);
+            }
+          } else {
+            setLiveUserTask(null);
+            setHasTimerStarted(false);
           }
 
           // Update context silently
@@ -179,15 +187,12 @@ export default function ProjectDetail() {
   const calculateElapsedTime = (timeLog) => {
     if (!timeLog || timeLog.length === 0)
       return { hours: 0, minutes: 0, seconds: 0 };
-
     let totalSeconds = 0;
     let lastStartTime = null;
-
     for (const entry of timeLog) {
       if (!entry.timestamp) continue;
       const entryTime = new Date(entry.timestamp).getTime();
       if (isNaN(entryTime)) continue;
-
       if (entry.type === "start" || entry.type === "resume") {
         lastStartTime = entryTime;
       } else if (entry.type === "pause" || entry.type === "end") {
@@ -197,36 +202,15 @@ export default function ProjectDetail() {
         }
       }
     }
-
-    // If timer is running, add current elapsed time
-    if (lastStartTime && userTask?.taskStatus === "in_progress") {
+    const userTaskData = liveUserTask || getCurrentUserTask();
+    if (lastStartTime && userTaskData?.taskStatus === "in_progress") {
       totalSeconds += (Date.now() - lastStartTime) / 1000;
     }
-
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = Math.floor(totalSeconds % 60);
     return { hours, minutes, seconds };
   };
-
-  // The useEffect that uses it remains the same:
-  useEffect(() => {
-    const userTaskData = getCurrentUserTask();
-    if (userTaskData?.taskStatus === "in_progress" && userTaskData?.timeLog) {
-      const interval = setInterval(() => {
-        const elapsed = calculateElapsedTime(userTaskData.timeLog);
-        setElapsedTime(elapsed);
-      }, 1000);
-      setTimerInterval(interval);
-      return () => clearInterval(interval);
-    } else if (userTaskData?.timeLog) {
-      const elapsed = calculateElapsedTime(userTaskData.timeLog);
-      setElapsedTime(elapsed);
-    }
-    return () => {
-      if (timerInterval) clearInterval(timerInterval);
-    };
-  }, [project?.userTasks, currentUserId]);
 
   if (!project) {
     return (
@@ -243,16 +227,12 @@ export default function ProjectDetail() {
     (m) => m.id === project.assignedTo || m.name === project.assignedTo,
   );
 
-  // Replace your formatDate function with this:
   const formatDate = (date) => {
-    // Return early if no date provided
     if (!date) return "Not set";
 
     try {
-      // Handle Firebase Timestamp objects
       const dateObj = date?.toDate ? date.toDate() : new Date(date);
 
-      // Check if the date is valid
       if (isNaN(dateObj.getTime())) {
         return "Invalid date";
       }
@@ -268,18 +248,14 @@ export default function ProjectDetail() {
     }
   };
 
-  // Also update formatDateTime to be safer:
   const formatDateTime = (dateTime) => {
-    // Return early if no dateTime provided
     if (!dateTime) return "Not set";
 
     try {
-      // Handle Firebase Timestamp objects
       const date = dateTime?.toDate ? dateTime.toDate() : new Date(dateTime);
 
-      // Check if the date is valid
       if (isNaN(date.getTime())) {
-        return String(dateTime); // Return original value if can't parse
+        return String(dateTime);
       }
 
       return date.toLocaleString("en-US", {
@@ -293,6 +269,7 @@ export default function ProjectDetail() {
       return String(dateTime);
     }
   };
+
   const handleAcceptClick = async () => {
     setIsSubmitting(true);
     try {
@@ -319,7 +296,15 @@ export default function ProjectDetail() {
   };
 
   const handleSubmitClick = async () => {
-   const userTask = liveUserTask || getCurrentUserTask();
+    // CRITICAL FIX: Use liveUserTask first, fallback to getCurrentUserTask
+    const userTask = liveUserTask || getCurrentUserTask();
+
+    console.log("🔍 handleSubmitClick - userTask:", userTask);
+    console.log("🔍 handleSubmitClick - liveUserTask:", liveUserTask);
+    console.log(
+      "🔍 handleSubmitClick - getCurrentUserTask():",
+      getCurrentUserTask(),
+    );
 
     if (
       !userTask ||
@@ -335,25 +320,49 @@ export default function ProjectDetail() {
       const currentDateTime = new Date().toISOString();
       const existingUserTasks = project.userTasks || [];
 
-      // Update the current user's task to completed
+      console.log("🔍 Before submit - userTask:", userTask);
+      console.log("🔍 Before submit - userTask.timeLog:", userTask.timeLog);
+      console.log(
+        "🔍 Before submit - timeLog length:",
+        userTask.timeLog?.length,
+      );
+
+      // CRITICAL FIX: Use the LIVE userTask's timeLog directly
       const updatedUserTasks = existingUserTasks.map((task) => {
         if (task.userId === currentUserId) {
+          // Get the most up-to-date timeLog from liveUserTask
+          const currentTimeLogs = Array.isArray(userTask.timeLog)
+            ? [...userTask.timeLog]
+            : [];
+
+          console.log("🔍 Using timeLog from live task:", currentTimeLogs);
+          console.log("🔍 Live timeLog length:", currentTimeLogs.length);
+
+          const endEntry = {
+            type: "end",
+            timestamp: currentDateTime,
+            dateTime: formatDateTime(currentDateTime),
+          };
+
+          const finalTimeLogs = [...currentTimeLogs, endEntry];
+
+          console.log("✅ Final timeLog being saved:", finalTimeLogs);
+          console.log("✅ Final timeLog count:", finalTimeLogs.length);
+
           return {
             ...task,
             taskStatus: "completed",
             endTime: formatDateTime(currentDateTime),
-            timeLog: [
-              ...task.timeLog,
-              {
-                type: "end",
-                timestamp: currentDateTime,
-                dateTime: formatDateTime(currentDateTime),
-              },
-            ],
+            timeLog: finalTimeLogs,
           };
         }
         return task;
       });
+
+      console.log(
+        "📤 Sending to Firebase - updatedUserTasks:",
+        updatedUserTasks,
+      );
 
       const updateData = {
         status: "Review",
@@ -361,9 +370,9 @@ export default function ProjectDetail() {
         userTasks: updatedUserTasks,
       };
 
+      // Update Firebase
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
-      await updateProject(id, updateData);
 
       toast.success("Project submitted successfully!");
       setTimeout(() => {
@@ -495,7 +504,6 @@ export default function ProjectDetail() {
 
         {showButtons && (
           <div className="flex gap-2 items-center">
-            {/* 1. Accept Button - Only when Draft */}
             {project.status === "Draft" && project.serviceType === "GD" && (
               <Button
                 onClick={handleAcceptClick}
@@ -506,7 +514,6 @@ export default function ProjectDetail() {
               </Button>
             )}
 
-            {/* 2. Estimate Time Controls - When Accepted OR In Progress */}
             {(project.status === "Accepted" ||
               project.status === "In Progress") &&
               project.serviceType === "GD" && (
@@ -515,7 +522,7 @@ export default function ProjectDetail() {
                     value={estimatedHours}
                     onChange={(e) => setEstimatedHours(e.target.value)}
                     className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    disabled={project.status === "In Progress"}
+                    disabled={hasTimerStarted}
                   >
                     {Array.from({ length: 13 }, (_, i) => (
                       <option key={i} value={i.toString()}>
@@ -527,7 +534,7 @@ export default function ProjectDetail() {
                     value={estimatedMinutes}
                     onChange={(e) => setEstimatedMinutes(e.target.value)}
                     className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    disabled={project.status === "In Progress"}
+                    disabled={hasTimerStarted}
                   >
                     {Array.from({ length: 61 }, (_, i) => (
                       <option key={i} value={i.toString()}>
@@ -536,23 +543,17 @@ export default function ProjectDetail() {
                     ))}
                   </select>
 
-                  {/* Estimate Time button - Accepted & In Progress */}
-                  {(project.status === "Accepted" ||
-                    project.status === "In Progress") && (
+                  {project.status === "Accepted" && !hasTimerStarted && (
                     <Button
                       onClick={handleStartClick}
-                      disabled={
-                        isSubmitting || project.status === "In Progress"
-                      }
+                      disabled={isSubmitting}
                       className="bg-green-600 hover:bg-green-700 text-white shadow-md"
                     >
-                      Estimate Time
+                      {isSubmitting ? "Starting..." : "Start Timer"}
                     </Button>
                   )}
 
-                  {/* Submit button - Accepted & In Progress */}
-                  {(project.status === "Accepted" ||
-                    project.status === "In Progress") && (
+                  {hasTimerStarted && (
                     <Button
                       onClick={handleSubmitClick}
                       disabled={isSubmitting}
@@ -786,7 +787,7 @@ export default function ProjectDetail() {
                 <div className="h-2 w-2 rounded-full bg-service-content" />
                 Content Writing Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-3 text-start">
                 <div>
                   <p className="text-sm text-muted-foreground">Content Type</p>
                   <p className="font-medium text-foreground">
@@ -912,17 +913,18 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-        {(liveUserTask || userTask)?.timeLog?.length > 0 && (
+          {(liveUserTask || userTask)?.timeLog?.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
-                Your Time Log ({userTask.timeLog.length} entries)
+                Your Time Log ({(liveUserTask || userTask).timeLog.length}{" "}
+                entries)
               </h3>
               <div className="space-y-3 max-h-96 overflow-y-auto text-start">
-                {userTask.timeLog.map((log, index) => {
+                {(liveUserTask || userTask).timeLog.map((log, index) => {
                   return (
                     <div
                       key={index}
-                      className="flex items-start gap-3 text-sm  pb-2"
+                      className="flex items-start gap-3 text-sm pb-2"
                     >
                       <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
                       <div className="flex-1">

@@ -1,8 +1,4 @@
-import {
-  Link,
-  useNavigate,
-  useSearchParams,
-} from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { SERVICE_NAMES, COUNTRY_NAMES } from "../../types/project";
 import { getStatusColor, getServiceColor } from "../../lib/projectUtils";
 import { useProjects } from "../../context/ProjectContext";
@@ -46,15 +42,12 @@ export function ProjectList({ projects }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [userRole, setUserRole] = useState(() =>
-    localStorage.getItem("userRole"),
-  );
-  const [userDepartment, setUserDepartment] = useState(() =>
-    localStorage.getItem("userDepartment"),
-  );
-  const [currentUserId, setCurrentUserId] = useState(() =>
-    localStorage.getItem("userId"),
-  );
+  
+  const [userRole, setUserRole] = useState(null);
+  const [userDepartment, setUserDepartment] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
 
@@ -62,9 +55,13 @@ export function ProjectList({ projects }) {
     const role = localStorage.getItem("userRole");
     const dept = localStorage.getItem("userDepartment");
     const userId = localStorage.getItem("userId");
+    
+    console.log("Loading user data:", { role, dept, userId });
+    
     setUserRole(role);
     setUserDepartment(dept);
     setCurrentUserId(userId);
+    setIsDataLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -116,9 +113,44 @@ export function ProjectList({ projects }) {
     currentPage * ITEMS_PER_PAGE,
   );
 
+  // ✅ FIX: Create a stable serialization key that changes when userTasks change
+  const projectTasksKey = useMemo(() => {
+    return paginatedProjects
+      .map(p => `${p.id}-${p.userTasks?.length || 0}-${JSON.stringify(p.userTasks?.find(t => t.userId === currentUserId)?.taskStatus || '')}`)
+      .join('|');
+  }, [paginatedProjects, currentUserId]);
+
+  // ✅ FIX: Add projectTasksKey as dependency to force recalculation
+  const projectUserTasks = useMemo(() => {
+    if (!currentUserId || !isDataLoaded) return new Map();
+    
+    console.log("🔄 Recalculating user tasks for userId:", currentUserId);
+    console.log("Total paginated projects:", paginatedProjects.length);
+    
+    const taskMap = new Map();
+    paginatedProjects.forEach((project) => {
+      if (project.userTasks) {
+        const userTask = project.userTasks.find(
+          (task) => task.userId === currentUserId
+        );
+        if (userTask) {
+          console.log(`✅ Found task for project ${project.projectId}:`, userTask);
+          taskMap.set(project.id, userTask);
+        }
+      }
+    });
+    
+    console.log("Total tasks found:", taskMap.size);
+    return taskMap;
+  }, [paginatedProjects, currentUserId, isDataLoaded, projectTasksKey]); // ⭐ Added projectTasksKey
+
   useEffect(() => {
     setCurrentPage(1);
   }, [serviceFilter, projects.length]);
+
+  useEffect(() => {
+    console.log("📊 Projects updated, total:", projects.length);
+  }, [projects]);
 
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -129,27 +161,23 @@ export function ProjectList({ projects }) {
   };
 
   const getUserTaskForService = (project) => {
-    if (!project.userTasks || !currentUserId || !project.serviceType)
-      return null;
+    if (!project.userTasks || !currentUserId) return null;
 
     const userTask = project.userTasks.find(
-      (task) =>
-        task.userId === currentUserId &&
-        task.serviceType === project.serviceType,
+      (task) => task.userId === currentUserId
     );
 
     return userTask;
   };
 
   const hasActiveTask = (project) => {
-    const userTask = getUserTaskForService(project);
+    const userTask = projectUserTasks.get(project.id);
     return (
       userTask &&
       (userTask.taskStatus === "in_progress" ||
         userTask.taskStatus === "paused")
     );
   };
-
 
   const calculateTotalTimeWithBreaks = (userTask) => {
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
@@ -161,7 +189,9 @@ export function ProjectList({ projects }) {
       let lastStartTime = null;
 
       for (const log of timeLog) {
-        const logTime = new Date(log.dateTime);
+        const logTime = new Date(log.timestamp || log.dateTime);
+        if (isNaN(logTime.getTime())) continue;
+        
         if (log.type === "start") {
           lastStartTime = logTime;
         } else if (log.type === "pause" && lastStartTime) {
@@ -192,27 +222,33 @@ export function ProjectList({ projects }) {
     }
   };
 
-  // Get start time from user task
   const getStartTime = (userTask) => {
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { time: "--:--", date: "" };
     }
 
     const startLog = userTask.timeLog.find((log) => log.type === "start");
-    if (!startLog || !startLog.dateTime) return { time: "--:--", date: "" };
+    if (!startLog) return { time: "--:--", date: "" };
 
     try {
-      const date = new Date(startLog.dateTime);
+      const dateString = startLog.timestamp || startLog.dateTime;
+      if (!dateString) return { time: "--:--", date: "" };
+
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return { time: "--:--", date: "" };
+
       const hours = String(date.getHours()).padStart(2, "0");
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
+
       return {
         time: `${hours}:${minutes}`,
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
+      console.error("Error parsing start time:", error);
       return { time: "--:--", date: "" };
     }
   };
@@ -222,9 +258,15 @@ export function ProjectList({ projects }) {
       return { time: "--:--", date: "" };
     }
     const endLog = userTask.timeLog.find((log) => log.type === "end");
-    if (!endLog || !endLog.dateTime) return { time: "--:--", date: "" };
+    if (!endLog) return { time: "--:--", date: "" };
+
     try {
-      const date = new Date(endLog.dateTime);
+      const dateString = endLog.timestamp || endLog.dateTime;
+      if (!dateString) return { time: "--:--", date: "" };
+
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return { time: "--:--", date: "" };
+
       const hours = String(date.getHours()).padStart(2, "0");
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
@@ -236,6 +278,7 @@ export function ProjectList({ projects }) {
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
+      console.error("Error parsing end time:", error);
       return { time: "--:--", date: "" };
     }
   };
@@ -305,7 +348,7 @@ export function ProjectList({ projects }) {
   };
 
   const getUserTaskStatus = (project) => {
-    const userTask = getUserTaskForService(project);
+    const userTask = projectUserTasks.get(project.id);
     if (!userTask) return null;
 
     const statusColors = {
@@ -337,11 +380,13 @@ export function ProjectList({ projects }) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 px-8">
         <p className="text-muted-foreground mb-4">
-          {serviceFilter 
+          {!isDataLoaded 
+            ? "Loading projects..." 
+            : serviceFilter
             ? `No ${SERVICE_NAMES[serviceFilter]} projects found`
             : "No projects found"}
         </p>
-        {isAdmin && (
+        {isAdmin && isDataLoaded && (
           <Link to="/admin/projects/new">
             <Button className="mt-4" size="sm">
               Create New Project
@@ -371,7 +416,7 @@ export function ProjectList({ projects }) {
 
             <div className="divide-y divide-border">
               {paginatedProjects.map((project) => {
-                const userTask = getUserTaskForService(project);
+                const userTask = projectUserTasks.get(project.id) || null;
                 const startTime = getStartTime(userTask);
                 const endTime = getEndTime(userTask);
                 const totalTime = calculateTotalTimeWithBreaks(userTask);
