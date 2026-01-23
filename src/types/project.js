@@ -7,7 +7,7 @@ export const COUNTRY_NAMES = {
 };
 
 export const SERVICE_NAMES = {
-  CW: 'Content Writing',
+  // CW: 'Content Writing',
   GD: 'Graphic Design',
   WD: 'Website Design',
   ERP: 'Custom ERP Development',
