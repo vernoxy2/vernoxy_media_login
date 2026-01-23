@@ -74,9 +74,9 @@ if (db) {
       try {
         const testRef = collection(db, "projects");
         const snapshot = await getDocs(query(testRef, limit(1)));
-        console.log("✅ Firestore OK! Found", snapshot.size, "documents");
+        console.log("Firestore OK! Found", snapshot.size, "documents");
       } catch (error) {
-        console.error("❌ Firestore test failed:", error.code, error.message);
+        console.error("Firestore test failed:", error.code, error.message);
       }
     };
 
