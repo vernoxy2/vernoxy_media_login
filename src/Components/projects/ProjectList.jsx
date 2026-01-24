@@ -113,14 +113,12 @@ export function ProjectList({ projects }) {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  // ✅ FIX: Create a stable serialization key that changes when userTasks change
   const projectTasksKey = useMemo(() => {
     return paginatedProjects
       .map(p => `${p.id}-${p.userTasks?.length || 0}-${JSON.stringify(p.userTasks?.find(t => t.userId === currentUserId)?.taskStatus || '')}`)
       .join('|');
   }, [paginatedProjects, currentUserId]);
 
-  // ✅ FIX: Add projectTasksKey as dependency to force recalculation
   const projectUserTasks = useMemo(() => {
     if (!currentUserId || !isDataLoaded) return new Map();
     
@@ -142,7 +140,7 @@ export function ProjectList({ projects }) {
     
     console.log("Total tasks found:", taskMap.size);
     return taskMap;
-  }, [paginatedProjects, currentUserId, isDataLoaded, projectTasksKey]); // ⭐ Added projectTasksKey
+  }, [paginatedProjects, currentUserId, isDataLoaded, projectTasksKey]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -160,16 +158,6 @@ export function ProjectList({ projects }) {
     }).format(new Date(date));
   };
 
-  const getUserTaskForService = (project) => {
-    if (!project.userTasks || !currentUserId) return null;
-
-    const userTask = project.userTasks.find(
-      (task) => task.userId === currentUserId
-    );
-
-    return userTask;
-  };
-
   const hasActiveTask = (project) => {
     const userTask = projectUserTasks.get(project.id);
     return (
@@ -179,46 +167,107 @@ export function ProjectList({ projects }) {
     );
   };
 
-  const calculateTotalTimeWithBreaks = (userTask) => {
-    if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
-      return { display: "--:--", hours: 0, minutes: 0 };
+  // ✅ Get Estimated Time from project form
+  const getEstimatedTime = (project) => {
+    const hours = parseInt(project.estimatedHours) || 0;
+    const minutes = parseInt(project.estimatedMinutes) || 0;
+    
+    if (hours === 0 && minutes === 0) {
+      return "--:--";
     }
-    try {
-      const timeLog = userTask.timeLog;
-      let totalWorkingMs = 0;
-      let lastStartTime = null;
+    
+    // Add leading zeros
+    const formattedHours = String(hours).padStart(2, "0");
+    const formattedMinutes = String(minutes).padStart(2, "0");
+    
+    return `${formattedHours}h ${formattedMinutes}m`;
+  };
 
-      for (const log of timeLog) {
-        const logTime = new Date(log.timestamp || log.dateTime);
-        if (isNaN(logTime.getTime())) continue;
+  // ✅ Calculate Actual Time (Working Time ONLY - excludes pauses/breaks)
+  // const calculateActualTime = (userTask) => {
+  //   if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+  //     return { display: "--:--", hours: 0, minutes: 0 };
+  //   }
+    
+  //   try {
+  //     const timeLog = userTask.timeLog;
+  //     let totalWorkingMs = 0;
+  //     let lastStartTime = null;
+
+  //     for (const log of timeLog) {
+  //       const logTime = new Date(log.timestamp || log.dateTime);
+  //       if (isNaN(logTime.getTime())) continue;
         
-        if (log.type === "start") {
-          lastStartTime = logTime;
-        } else if (log.type === "pause" && lastStartTime) {
-          totalWorkingMs += logTime - lastStartTime;
-          lastStartTime = null;
-        } else if (log.type === "resume") {
-          lastStartTime = logTime;
-        } else if (log.type === "end" && lastStartTime) {
-          totalWorkingMs += logTime - lastStartTime;
-          lastStartTime = null;
-        }
+  //       if (log.type === "start" || log.type === "resume") {
+  //         // Start tracking working time
+  //         lastStartTime = logTime;
+  //       } else if (log.type === "pause" || log.type === "end") {
+  //         // Stop tracking and add only working duration
+  //         if (lastStartTime) {
+  //           totalWorkingMs += logTime - lastStartTime;
+  //           lastStartTime = null;
+  //         }
+  //       }
+  //     }
+      
+  //     // If task is still in progress, add current working time
+  //     if (lastStartTime && userTask.taskStatus === "in_progress") {
+  //       totalWorkingMs += new Date() - lastStartTime;
+  //     }
+      
+  //     const totalMinutes = Math.floor(totalWorkingMs / (1000 * 60));
+  //     const hours = Math.floor(totalMinutes / 60);
+  //     const minutes = totalMinutes % 60;
+
+  //     // Add leading zeros
+  //     const formattedHours = String(hours).padStart(2, "0");
+  //     const formattedMinutes = String(minutes).padStart(2, "0");
+
+  //     return {
+  //       display: `${formattedHours}h ${formattedMinutes}m`,
+  //       hours,
+  //       minutes,
+  //     };
+  //   } catch (error) {
+  //     console.error("Error calculating actual time:", error);
+  //     return { display: "--:--", hours: 0, minutes: 0 };
+  //   }
+  // };
+
+  // ✅ Calculate Total Time (Start to End - INCLUDES pauses/breaks)
+  const calculateTotalTime = (userTask) => {
+    if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+      return "--:--";
+    }
+
+    try {
+      const startLog = userTask.timeLog.find((log) => log.type === "start");
+      const endLog = userTask.timeLog.find((log) => log.type === "end");
+
+      if (!startLog) return "--:--";
+
+      const startTime = new Date(startLog.timestamp || startLog.dateTime);
+      const endTime = endLog 
+        ? new Date(endLog.timestamp || endLog.dateTime)
+        : new Date(); // If still in progress, use current time
+
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+        return "--:--";
       }
-      if (lastStartTime && userTask.taskStatus === "in_progress") {
-        totalWorkingMs += new Date() - lastStartTime;
-      }
-      const totalMinutes = Math.floor(totalWorkingMs / (1000 * 60));
+
+      const totalMs = endTime - startTime;
+      const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
 
-      return {
-        display: `${hours}h ${minutes}m`,
-        hours,
-        minutes,
-      };
+      // Add leading zeros
+      const formattedHours = String(hours).padStart(2, "0");
+      const formattedMinutes = String(minutes).padStart(2, "0");
+
+      return `${formattedHours}h ${formattedMinutes}m`;
     } catch (error) {
       console.error("Error calculating total time:", error);
-      return { display: "--:--", hours: 0, minutes: 0 };
+      return "--:--";
     }
   };
 
@@ -237,14 +286,22 @@ export function ProjectList({ projects }) {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return { time: "--:--", date: "" };
 
-      const hours = String(date.getHours()).padStart(2, "0");
+      // Convert to 12-hour format
+      let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
+      const period = hours >= 12 ? "PM" : "AM";
+      
+      // Convert 24-hour to 12-hour
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      const formattedHours = String(hours).padStart(2, "0");
+
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
 
       return {
-        time: `${hours}:${minutes}`,
+        time: `${formattedHours}:${minutes} ${period}`,
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
@@ -267,14 +324,22 @@ export function ProjectList({ projects }) {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return { time: "--:--", date: "" };
 
-      const hours = String(date.getHours()).padStart(2, "0");
+      // Convert to 12-hour format
+      let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
+      const period = hours >= 12 ? "PM" : "AM";
+      
+      // Convert 24-hour to 12-hour
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 should be 12
+      const formattedHours = String(hours).padStart(2, "0");
+
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
 
       return {
-        time: `${hours}:${minutes}`,
+        time: `${formattedHours}:${minutes} ${period}`,
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
@@ -401,12 +466,15 @@ export function ProjectList({ projects }) {
     <>
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto table-scroll-container">
-          <div className="min-w-[1400px]">
-            <div className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
+          <div className="min-w-[1600px]">
+            {/* Table Header */}
+            <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1fr_1fr_0.5fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
               <div>Project</div>
               <div>Start Time</div>
               <div>End Time</div>
+              <div>Estimate Time</div>
               <div>Total Time</div>
+              {/* <div>Actual Time</div> */}
               <div>Service</div>
               <div>Assigned To</div>
               <div>Updated</div>
@@ -414,19 +482,23 @@ export function ProjectList({ projects }) {
               <div className="text-end">More</div>
             </div>
 
+            {/* Table Body */}
             <div className="divide-y divide-border">
               {paginatedProjects.map((project) => {
                 const userTask = projectUserTasks.get(project.id) || null;
                 const startTime = getStartTime(userTask);
                 const endTime = getEndTime(userTask);
-                const totalTime = calculateTotalTimeWithBreaks(userTask);
+                const totalTime = calculateTotalTime(userTask);
+                const estimatedTime = getEstimatedTime(project);
+                // const actualTime = calculateActualTime(userTask);
 
                 return (
                   <div
                     key={project.id}
                     onClick={(e) => handleProjectClick(e, project)}
-                    className="grid grid-cols-[2fr_1fr_1fr_2fr_2fr_2fr_1fr_1fr_1fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
+                    className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1fr_1fr_0.5fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
                   >
+                    {/* Project Info */}
                     <div className="space-y-1">
                       <div className="font-mono text-sm font-medium flex items-center gap-2">
                         {project.projectId}
@@ -444,6 +516,7 @@ export function ProjectList({ projects }) {
                       )}
                     </div>
 
+                    {/* Start Time */}
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
@@ -458,6 +531,7 @@ export function ProjectList({ projects }) {
                       )}
                     </div>
 
+                    {/* End Time */}
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
@@ -471,14 +545,33 @@ export function ProjectList({ projects }) {
                         </span>
                       )}
                     </div>
-
+                      {/* Estimate Time (from form) */}
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-xs font-medium text-foreground">
-                        {totalTime.display}
+                      <Clock className="h-3 w-3 text-blue-500" />
+                      <span className="text-xs font-medium text-blue-600">
+                        {estimatedTime}
                       </span>
                     </div>
 
+
+                    {/* Total Time (Start to End - includes breaks) */}
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground">
+                        {totalTime}
+                      </span>
+                    </div>
+
+                  
+                    {/* Actual Time (Working Time - excludes breaks) */}
+                    {/* <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3 text-green-500" />
+                      <span className="text-xs font-medium text-green-600">
+                        {actualTime.display}
+                      </span>
+                    </div> */}
+
+                    {/* Service */}
                     <div>
                       <span
                         className={cn(
@@ -490,6 +583,7 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
+                    {/* Assigned To */}
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground truncate">
@@ -497,6 +591,7 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
+                    {/* Updated Date */}
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">
@@ -504,6 +599,7 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
+                    {/* Status */}
                     <div>
                       <span
                         className={cn(
@@ -515,6 +611,7 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
+                    {/* More Actions */}
                     <div className="flex items-center justify-end">
                       <DropdownMenu>
                         <DropdownMenuTrigger
@@ -567,6 +664,7 @@ export function ProjectList({ projects }) {
         </div>
       </div>
 
+      {/* Pagination */}
       <div className="flex items-start justify-between mt-4">
         <p className="text-sm text-muted-foreground">
           Showing {filteredProjects.length} of {projects.length} projects
@@ -594,6 +692,7 @@ export function ProjectList({ projects }) {
         </div>
       </div>
 
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

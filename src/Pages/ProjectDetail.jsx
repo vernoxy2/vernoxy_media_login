@@ -512,10 +512,12 @@ export default function ProjectDetail() {
                   >
                     {Array.from({ length: 13 }, (_, i) => (
                       <option key={i} value={i.toString()}>
-                        {i}h
+                        {String(i).padStart(2, "0")}h
                       </option>
                     ))}
                   </select>
+
+                  {/* Minutes Select - WITH LEADING ZEROS */}
                   <select
                     value={estimatedMinutes}
                     onChange={(e) => setEstimatedMinutes(e.target.value)}
@@ -524,7 +526,7 @@ export default function ProjectDetail() {
                   >
                     {Array.from({ length: 61 }, (_, i) => (
                       <option key={i} value={i.toString()}>
-                        {i}m
+                        {String(i).padStart(2, "0")}m
                       </option>
                     ))}
                   </select>
