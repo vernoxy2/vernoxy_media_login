@@ -98,6 +98,8 @@ export default function ProjectDetail() {
             projectId: updatedProject.projectId,
             userTasks: updatedProject.userTasks?.length || 0,
           });
+
+          // 🔥 CRITICAL: Update the live userTask state
           const userTask = updatedProject.userTasks?.find(
             (task) => task.userId === currentUserId,
           );
@@ -107,15 +109,7 @@ export default function ProjectDetail() {
               "✅ Found user task with timeLog:",
               userTask.timeLog?.length || 0,
             );
-            setLiveUserTask(userTask);
-
-            // Update hasTimerStarted based on whether user has any time entries
-            if (userTask.timeLog && userTask.timeLog.length > 0) {
-              setHasTimerStarted(true);
-            }
-          } else {
-            setLiveUserTask(null);
-            setHasTimerStarted(false);
+            setLiveUserTask(userTask); // 🔥 This triggers re-render!
           }
 
           // Update context silently
@@ -296,15 +290,7 @@ export default function ProjectDetail() {
   };
 
   const handleSubmitClick = async () => {
-    // CRITICAL FIX: Use liveUserTask first, fallback to getCurrentUserTask
-    const userTask = liveUserTask || getCurrentUserTask();
-
-    console.log("🔍 handleSubmitClick - userTask:", userTask);
-    console.log("🔍 handleSubmitClick - liveUserTask:", liveUserTask);
-    console.log(
-      "🔍 handleSubmitClick - getCurrentUserTask():",
-      getCurrentUserTask(),
-    );
+   const userTask = liveUserTask || getCurrentUserTask();
 
     if (
       !userTask ||
@@ -545,17 +531,23 @@ export default function ProjectDetail() {
                     ))}
                   </select>
 
-                  {project.status === "Accepted" && !hasTimerStarted && (
+                  {/* Estimate Time button - Accepted & In Progress */}
+                  {(project.status === "Accepted" ||
+                    project.status === "In Progress") && (
                     <Button
                       onClick={handleStartClick}
-                      disabled={isSubmitting}
+                      disabled={
+                        isSubmitting || project.status === "In Progress"
+                      }
                       className="bg-green-600 hover:bg-green-700 text-white shadow-md"
                     >
-                      {isSubmitting ? "Starting..." : "Start Timer"}
+                      Estimate Time
                     </Button>
                   )}
 
-                  {hasTimerStarted && (
+                  {/* Submit button - Accepted & In Progress */}
+                  {(project.status === "Accepted" ||
+                    project.status === "In Progress") && (
                     <Button
                       onClick={handleSubmitClick}
                       disabled={isSubmitting}
@@ -915,18 +907,17 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-          {(liveUserTask || userTask)?.timeLog?.length > 0 && (
+        {(liveUserTask || userTask)?.timeLog?.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
-                Your Time Log ({(liveUserTask || userTask).timeLog.length}{" "}
-                entries)
+                Your Time Log ({userTask.timeLog.length} entries)
               </h3>
               <div className="space-y-3 max-h-96 overflow-y-auto text-start">
-                {(liveUserTask || userTask).timeLog.map((log, index) => {
+                {userTask.timeLog.map((log, index) => {
                   return (
                     <div
                       key={index}
-                      className="flex items-start gap-3 text-sm pb-2"
+                      className="flex items-start gap-3 text-sm  pb-2"
                     >
                       <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
                       <div className="flex-1">
