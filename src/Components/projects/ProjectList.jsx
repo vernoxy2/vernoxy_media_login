@@ -33,52 +33,87 @@ import {
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 
-const ITEMS_PER_PAGE = 10;
-
 export function ProjectList({ projects }) {
+  const ITEMS_PER_PAGE = 10;
   const { deleteProject, addProject, getTeamMemberName } = useProjects();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  
   const [userRole, setUserRole] = useState(null);
   const [userDepartment, setUserDepartment] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   
+  const [projectsData, setProjectsData] = useState([]);
+  const [renderKey, setRenderKey] = useState(0);
+  
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
 
   useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    const dept = localStorage.getItem("userDepartment");
-    const userId = localStorage.getItem("userId");
-    
-    console.log("Loading user data:", { role, dept, userId });
-    
-    setUserRole(role);
-    setUserDepartment(dept);
-    setCurrentUserId(userId);
-    setIsDataLoaded(true);
-  }, []);
+    if (projects && projects.length > 0) {
+      setProjectsData([...projects]);
+      setRenderKey(prev => prev + 1);
+    }
+  }, [projects, projects.length]);
+
+  useEffect(() => {
+    const loadUserData = () => {
+      const role = localStorage.getItem("userRole");
+      const dept = localStorage.getItem("userDepartment");
+      const userId = localStorage.getItem("userId");
+      
+      setUserRole(role);
+      setUserDepartment(dept);
+      setCurrentUserId(userId);
+      setIsDataLoaded(true);
+    };
+
+    loadUserData();
+    const timeoutId = setTimeout(loadUserData, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [projects]);
 
   useEffect(() => {
     const handleStorageChange = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
       const userId = localStorage.getItem("userId");
+      
       setUserRole(role);
       setUserDepartment(dept);
       setCurrentUserId(userId);
     };
+    
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  useEffect(() => {
+    const hasActiveProjects = projectsData.some(project => {
+      const userId = currentUserId || localStorage.getItem("userId");
+      const userTask = project.userTasks?.find(task => task.userId === userId);
+      return userTask && userTask.taskStatus === "in_progress";
+    });
+
+    if (!hasActiveProjects) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [projectsData, currentUserId]);
+
   const filteredProjects = useMemo(() => {
-    let filtered = projects;
+    let filtered = projectsData;
 
     if (serviceFilter) {
       filtered = filtered.filter((p) => p.serviceType === serviceFilter);
@@ -86,26 +121,26 @@ export function ProjectList({ projects }) {
     }
 
     if (userRole === "admin") {
-      return projects;
+      return projectsData;
     }
     if (
       userDepartment === "Graphic Design" ||
       userDepartment === "Content Writing"
     ) {
-      filtered = projects.filter(
+      filtered = projectsData.filter(
         (p) => p.serviceType === "GD" || p.serviceType === "CW",
       );
     } else if (
       userDepartment === "Front-End Developer" ||
       userDepartment === "Website"
     ) {
-      filtered = projects.filter((p) => p.serviceType === "WD");
+      filtered = projectsData.filter((p) => p.serviceType === "WD");
     } else if (userDepartment === "ERP") {
-      filtered = projects.filter((p) => p.serviceType === "ERP");
+      filtered = projectsData.filter((p) => p.serviceType === "ERP");
     }
 
     return filtered;
-  }, [projects, userRole, userDepartment, serviceFilter]);
+  }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
@@ -113,42 +148,9 @@ export function ProjectList({ projects }) {
     currentPage * ITEMS_PER_PAGE,
   );
 
-  const projectTasksKey = useMemo(() => {
-    return paginatedProjects
-      .map(p => `${p.id}-${p.userTasks?.length || 0}-${JSON.stringify(p.userTasks?.find(t => t.userId === currentUserId)?.taskStatus || '')}`)
-      .join('|');
-  }, [paginatedProjects, currentUserId]);
-
-  const projectUserTasks = useMemo(() => {
-    if (!currentUserId || !isDataLoaded) return new Map();
-    
-    console.log("🔄 Recalculating user tasks for userId:", currentUserId);
-    console.log("Total paginated projects:", paginatedProjects.length);
-    
-    const taskMap = new Map();
-    paginatedProjects.forEach((project) => {
-      if (project.userTasks) {
-        const userTask = project.userTasks.find(
-          (task) => task.userId === currentUserId
-        );
-        if (userTask) {
-          console.log(`✅ Found task for project ${project.projectId}:`, userTask);
-          taskMap.set(project.id, userTask);
-        }
-      }
-    });
-    
-    console.log("Total tasks found:", taskMap.size);
-    return taskMap;
-  }, [paginatedProjects, currentUserId, isDataLoaded, projectTasksKey]);
-
   useEffect(() => {
     setCurrentPage(1);
-  }, [serviceFilter, projects.length]);
-
-  useEffect(() => {
-    console.log("📊 Projects updated, total:", projects.length);
-  }, [projects]);
+  }, [serviceFilter, projectsData.length]);
 
   const formatDate = (date) => {
     return new Intl.DateTimeFormat("en-US", {
@@ -158,8 +160,24 @@ export function ProjectList({ projects }) {
     }).format(new Date(date));
   };
 
+  const getUserTask = (project) => {
+    const userId = currentUserId || localStorage.getItem("userId");
+    
+    if (!userId) {
+      return null;
+    }
+    
+    if (!project.userTasks || project.userTasks.length === 0) {
+      return null;
+    }
+    
+    const userTask = project.userTasks.find(task => task.userId === userId);
+    
+    return userTask || null;
+  };
+
   const hasActiveTask = (project) => {
-    const userTask = projectUserTasks.get(project.id);
+    const userTask = getUserTask(project);
     return (
       userTask &&
       (userTask.taskStatus === "in_progress" ||
@@ -167,111 +185,107 @@ export function ProjectList({ projects }) {
     );
   };
 
-  // ✅ Get Estimated Time from project form
+  // ✅ FIX: Only show estimated time if current user has their own userTask with estimated time
   const getEstimatedTime = (project) => {
-    const hours = parseInt(project.estimatedHours) || 0;
-    const minutes = parseInt(project.estimatedMinutes) || 0;
+    const userTask = getUserTask(project);
     
-    if (hours === 0 && minutes === 0) {
+    // ✅ If no userTask for current user, show --:--
+    if (!userTask) {
       return "--:--";
     }
     
-    // Add leading zeros
-    const formattedHours = String(hours).padStart(2, "0");
-    const formattedMinutes = String(minutes).padStart(2, "0");
+    // ✅ Only show time if user has set their own estimated time
+    if (!userTask.estimatedHours && !userTask.estimatedMinutes) {
+      return "--:--";
+    }
     
-    return `${formattedHours}h ${formattedMinutes}m`;
+    const hoursStr = userTask.estimatedHours || "0";
+    const minutesStr = userTask.estimatedMinutes || "0";
+    
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    
+    const h = isNaN(hours) ? 0 : hours;
+    const m = isNaN(minutes) ? 0 : minutes;
+    
+    if (h === 0 && m === 0) {
+      return "--:--";
+    }
+    
+    return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
   };
 
-  // ✅ Calculate Actual Time (Working Time ONLY - excludes pauses/breaks)
-  // const calculateActualTime = (userTask) => {
-  //   if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
-  //     return { display: "--:--", hours: 0, minutes: 0 };
-  //   }
+  const calculateTotalTime = (project) => {
+    const userTask = getUserTask(project);
     
-  //   try {
-  //     const timeLog = userTask.timeLog;
-  //     let totalWorkingMs = 0;
-  //     let lastStartTime = null;
-
-  //     for (const log of timeLog) {
-  //       const logTime = new Date(log.timestamp || log.dateTime);
-  //       if (isNaN(logTime.getTime())) continue;
-        
-  //       if (log.type === "start" || log.type === "resume") {
-  //         // Start tracking working time
-  //         lastStartTime = logTime;
-  //       } else if (log.type === "pause" || log.type === "end") {
-  //         // Stop tracking and add only working duration
-  //         if (lastStartTime) {
-  //           totalWorkingMs += logTime - lastStartTime;
-  //           lastStartTime = null;
-  //         }
-  //       }
-  //     }
-      
-  //     // If task is still in progress, add current working time
-  //     if (lastStartTime && userTask.taskStatus === "in_progress") {
-  //       totalWorkingMs += new Date() - lastStartTime;
-  //     }
-      
-  //     const totalMinutes = Math.floor(totalWorkingMs / (1000 * 60));
-  //     const hours = Math.floor(totalMinutes / 60);
-  //     const minutes = totalMinutes % 60;
-
-  //     // Add leading zeros
-  //     const formattedHours = String(hours).padStart(2, "0");
-  //     const formattedMinutes = String(minutes).padStart(2, "0");
-
-  //     return {
-  //       display: `${formattedHours}h ${formattedMinutes}m`,
-  //       hours,
-  //       minutes,
-  //     };
-  //   } catch (error) {
-  //     console.error("Error calculating actual time:", error);
-  //     return { display: "--:--", hours: 0, minutes: 0 };
-  //   }
-  // };
-
-  // ✅ Calculate Total Time (Start to End - INCLUDES pauses/breaks)
-  const calculateTotalTime = (userTask) => {
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return "--:--";
     }
 
     try {
-      const startLog = userTask.timeLog.find((log) => log.type === "start");
-      const endLog = userTask.timeLog.find((log) => log.type === "end");
+      const timeLogs = userTask.timeLog;
+      let totalMs = 0;
+      let currentStartTime = null;
 
-      if (!startLog) return "--:--";
+      const sortedLogs = [...timeLogs].sort((a, b) => {
+        const dateA = new Date(a.dateTime || a.timestamp);
+        const dateB = new Date(b.dateTime || b.timestamp);
+        return dateA - dateB;
+      });
 
-      const startTime = new Date(startLog.timestamp || startLog.dateTime);
-      const endTime = endLog 
-        ? new Date(endLog.timestamp || endLog.dateTime)
-        : new Date(); // If still in progress, use current time
-
-      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
-        return "--:--";
+      for (let i = 0; i < sortedLogs.length; i++) {
+        const log = sortedLogs[i];
+        
+        if (log.type === "start" || log.type === "resume") {
+          const startDate = new Date(log.dateTime || log.timestamp);
+          
+          if (isNaN(startDate.getTime())) {
+            continue;
+          }
+          
+          currentStartTime = startDate;
+        } 
+        else if (log.type === "pause" || log.type === "end") {
+          if (currentStartTime) {
+            const endDate = new Date(log.dateTime || log.timestamp);
+            
+            if (!isNaN(endDate.getTime())) {
+              const sessionMs = endDate - currentStartTime;
+              
+              if (sessionMs > 0) {
+                totalMs += sessionMs;
+              }
+            }
+            
+            currentStartTime = null;
+          }
+        }
+      }
+      
+      if (currentStartTime && userTask.taskStatus === "in_progress") {
+        const runningMs = currentTime - currentStartTime.getTime();
+        
+        if (runningMs > 0) {
+          totalMs += runningMs;
+        }
       }
 
-      const totalMs = endTime - startTime;
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
 
-      // Add leading zeros
-      const formattedHours = String(hours).padStart(2, "0");
-      const formattedMinutes = String(minutes).padStart(2, "0");
+      const displayHours = Math.max(0, hours);
+      const displayMinutes = Math.max(0, minutes);
 
-      return `${formattedHours}h ${formattedMinutes}m`;
+      return `${String(displayHours).padStart(2, "0")}h ${String(displayMinutes).padStart(2, "0")}m`;
     } catch (error) {
-      console.error("Error calculating total time:", error);
       return "--:--";
     }
   };
 
-  const getStartTime = (userTask) => {
+  const getStartTime = (project) => {
+    const userTask = getUserTask(project);
+
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { time: "--:--", date: "" };
     }
@@ -280,22 +294,19 @@ export function ProjectList({ projects }) {
     if (!startLog) return { time: "--:--", date: "" };
 
     try {
-      const dateString = startLog.timestamp || startLog.dateTime;
+      const dateString = startLog.dateTime || startLog.timestamp;
       if (!dateString) return { time: "--:--", date: "" };
 
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return { time: "--:--", date: "" };
 
-      // Convert to 12-hour format
       let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const period = hours >= 12 ? "PM" : "AM";
       
-      // Convert 24-hour to 12-hour
       hours = hours % 12;
-      hours = hours ? hours : 12; // 0 should be 12
+      hours = hours ? hours : 12;
       const formattedHours = String(hours).padStart(2, "0");
-
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = String(date.getFullYear()).slice(-2);
@@ -305,33 +316,33 @@ export function ProjectList({ projects }) {
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
-      console.error("Error parsing start time:", error);
       return { time: "--:--", date: "" };
     }
   };
 
-  const getEndTime = (userTask) => {
+  const getEndTime = (project) => {
+    const userTask = getUserTask(project);
+    
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { time: "--:--", date: "" };
     }
+    
     const endLog = userTask.timeLog.find((log) => log.type === "end");
     if (!endLog) return { time: "--:--", date: "" };
 
     try {
-      const dateString = endLog.timestamp || endLog.dateTime;
+      const dateString = endLog.dateTime || endLog.timestamp;
       if (!dateString) return { time: "--:--", date: "" };
 
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return { time: "--:--", date: "" };
 
-      // Convert to 12-hour format
       let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const period = hours >= 12 ? "PM" : "AM";
       
-      // Convert 24-hour to 12-hour
       hours = hours % 12;
-      hours = hours ? hours : 12; // 0 should be 12
+      hours = hours ? hours : 12;
       const formattedHours = String(hours).padStart(2, "0");
 
       const day = String(date.getDate()).padStart(2, "0");
@@ -343,7 +354,6 @@ export function ProjectList({ projects }) {
         date: `${day}/${month}/${year}`,
       };
     } catch (error) {
-      console.error("Error parsing end time:", error);
       return { time: "--:--", date: "" };
     }
   };
@@ -406,14 +416,13 @@ export function ProjectList({ projects }) {
         setProjectToDelete(null);
         setDeleteDialogOpen(false);
       } catch (error) {
-        console.error("Error deleting project:", error);
         toast.error("Failed to delete project. Please try again.");
       }
     }
   };
 
   const getUserTaskStatus = (project) => {
-    const userTask = projectUserTasks.get(project.id);
+    const userTask = getUserTask(project);
     if (!userTask) return null;
 
     const statusColors = {
@@ -464,17 +473,15 @@ export function ProjectList({ projects }) {
 
   return (
     <>
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="rounded-xl border border-border bg-card overflow-hidden" key={renderKey}>
         <div className="overflow-x-auto table-scroll-container">
           <div className="min-w-[1600px]">
-            {/* Table Header */}
             <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1fr_1fr_0.5fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
               <div>Project</div>
               <div>Start Time</div>
               <div>End Time</div>
               <div>Estimate Time</div>
               <div>Total Time</div>
-              {/* <div>Actual Time</div> */}
               <div>Service</div>
               <div>Assigned To</div>
               <div>Updated</div>
@@ -482,23 +489,19 @@ export function ProjectList({ projects }) {
               <div className="text-end">More</div>
             </div>
 
-            {/* Table Body */}
             <div className="divide-y divide-border">
               {paginatedProjects.map((project) => {
-                const userTask = projectUserTasks.get(project.id) || null;
-                const startTime = getStartTime(userTask);
-                const endTime = getEndTime(userTask);
-                const totalTime = calculateTotalTime(userTask);
+                const startTime = getStartTime(project);
+                const endTime = getEndTime(project);
+                const totalTime = calculateTotalTime(project);
                 const estimatedTime = getEstimatedTime(project);
-                // const actualTime = calculateActualTime(userTask);
 
                 return (
                   <div
-                    key={project.id}
+                    key={`${project.id}-${renderKey}`}
                     onClick={(e) => handleProjectClick(e, project)}
                     className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1fr_1fr_0.5fr] items-center gap-4 px-6 py-4 hover:bg-muted/30 text-start cursor-pointer"
                   >
-                    {/* Project Info */}
                     <div className="space-y-1">
                       <div className="font-mono text-sm font-medium flex items-center gap-2">
                         {project.projectId}
@@ -516,7 +519,6 @@ export function ProjectList({ projects }) {
                       )}
                     </div>
 
-                    {/* Start Time */}
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
@@ -531,7 +533,6 @@ export function ProjectList({ projects }) {
                       )}
                     </div>
 
-                    {/* End Time */}
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
@@ -545,7 +546,7 @@ export function ProjectList({ projects }) {
                         </span>
                       )}
                     </div>
-                      {/* Estimate Time (from form) */}
+
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-blue-500" />
                       <span className="text-xs font-medium text-blue-600">
@@ -553,8 +554,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-
-                    {/* Total Time (Start to End - includes breaks) */}
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <span className="text-xs font-medium text-foreground">
@@ -562,16 +561,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-                  
-                    {/* Actual Time (Working Time - excludes breaks) */}
-                    {/* <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-green-500" />
-                      <span className="text-xs font-medium text-green-600">
-                        {actualTime.display}
-                      </span>
-                    </div> */}
-
-                    {/* Service */}
                     <div>
                       <span
                         className={cn(
@@ -583,7 +572,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-                    {/* Assigned To */}
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground truncate">
@@ -591,7 +579,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-                    {/* Updated Date */}
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">
@@ -599,7 +586,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-                    {/* Status */}
                     <div>
                       <span
                         className={cn(
@@ -611,7 +597,6 @@ export function ProjectList({ projects }) {
                       </span>
                     </div>
 
-                    {/* More Actions */}
                     <div className="flex items-center justify-end">
                       <DropdownMenu>
                         <DropdownMenuTrigger
@@ -664,10 +649,9 @@ export function ProjectList({ projects }) {
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex items-start justify-between mt-4">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredProjects.length} of {projects.length} projects
+          Showing {filteredProjects.length} of {projectsData.length} projects
           {serviceFilter && ` (filtered by ${SERVICE_NAMES[serviceFilter]})`}
         </p>
 
@@ -692,7 +676,6 @@ export function ProjectList({ projects }) {
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

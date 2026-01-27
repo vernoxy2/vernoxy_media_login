@@ -27,13 +27,10 @@ export const TimerProvider = ({ children }) => {
   // ✅ Calculate elapsed time from timeLog entries
   const calculateElapsedTime = (timeLog) => {
     if (!timeLog || timeLog.length === 0) return 0;
-
     let totalElapsed = 0;
     let lastStartTime = null;
-
     for (const entry of timeLog) {
       const entryTime = new Date(entry.timestamp).getTime();
-
       if (entry.type === "start" || entry.type === "resume") {
         lastStartTime = entryTime;
       } else if (entry.type === "pause" || entry.type === "end") {
@@ -72,7 +69,6 @@ export const TimerProvider = ({ children }) => {
   // ✅ Listen to Firebase for current user's timer
   useEffect(() => {
     if (!currentUserEmail) {
-      console.log("❌ No user logged in");
       setActiveTimer(null);
       setRemainingSeconds(0);
       setIsRunning(false);
@@ -80,32 +76,25 @@ export const TimerProvider = ({ children }) => {
       return;
     }
 
-    console.log("👤 Setting up Firebase listener for:", currentUserEmail);
-
     const unsubscribe = onSnapshot(collection(db, "projects"), (snapshot) => {
       let foundTimer = null;
-
       snapshot.forEach((docSnapshot) => {
         // Skip if we already found a timer for current user
         if (foundTimer) return;
-
         const project = docSnapshot.data();
         const userTasks = project.userTasks || [];
-
         // Find task for CURRENT USER only
         const userTask = userTasks.find((task) => {
           if (!task.userEmail) {
             console.log("⚠️ Task has no email");
             return false;
           }
-
           const taskEmail = task.userEmail.toLowerCase().trim();
           const currentEmail = currentUserEmail.toLowerCase().trim();
           // MUST match current user's email
           if (taskEmail !== currentEmail) {
             return false;
           }
-
           // Check if task is active (not completed)
           const isActive =
             task.taskStatus &&
@@ -115,12 +104,10 @@ export const TimerProvider = ({ children }) => {
 
           return isActive;
         });
-
         if (userTask) {
           const hours = parseInt(project.estimatedHours) || 0;
           const minutes = parseInt(project.estimatedMinutes) || 0;
           const totalSeconds = hours * 3600 + minutes * 60;
-
           // Calculate elapsed time from timeLog
           const elapsedSeconds = calculateElapsedTime(userTask.timeLog || []);
           const remaining = Math.max(0, totalSeconds - elapsedSeconds);
@@ -144,14 +131,12 @@ export const TimerProvider = ({ children }) => {
       });
 
       if (!foundTimer) {
-        console.log("❌ No active timer found for:", currentUserEmail);
         setActiveTimer(null);
         setRemainingSeconds(0);
         setIsRunning(false);
         setTimeLog([]);
       }
     });
-
     return () => unsubscribe();
   }, [currentUserEmail]); // Re-run when user changes
 
@@ -169,14 +154,11 @@ export const TimerProvider = ({ children }) => {
   // ✅ Handle logout - pause timer automatically
   useEffect(() => {
     const handleBeforeUnload = async (e) => {
-      // Check if user is logging out (you can add a flag in localStorage)
       const isLoggingOut = localStorage.getItem("isLoggingOut");
-
       if (isLoggingOut && activeTimer && isRunning) {
         await pauseTimer("logout");
       }
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [activeTimer, isRunning]);
@@ -207,23 +189,19 @@ export const TimerProvider = ({ children }) => {
     try {
       const projectRef = doc(db, "projects", firebaseId);
       const projectDoc = await getDoc(projectRef);
-
       if (projectDoc.exists()) {
         const data = projectDoc.data();
         const userTasks = data.userTasks || [];
         const { userEmail } = getCurrentUserInfo();
-
         const userTaskIndex = userTasks.findIndex(
           (task) => task.userEmail?.toLowerCase() === userEmail?.toLowerCase(),
         );
-
         if (userTaskIndex >= 0) {
           userTasks[userTaskIndex] = {
             ...userTasks[userTaskIndex],
             ...taskUpdate,
             updatedAt: new Date().toISOString(),
           };
-
           await updateDoc(projectRef, {
             userTasks,
             updatedAt: new Date().toISOString(),
@@ -241,7 +219,6 @@ export const TimerProvider = ({ children }) => {
 
   const startTimer = async (projectData) => {
     const { userEmail } = getCurrentUserInfo();
-
     const startEntry = {
       type: "start",
       timestamp: new Date().toISOString(),

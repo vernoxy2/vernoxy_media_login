@@ -125,7 +125,7 @@ const projectSchema = z.object({
 export default function NewProject() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { projects, addProject, updateProject, getProjectById, loading, currentUser, teamMembers } = useProjects();
+  const { projects, addProject, updateProject, getProjectById, loading, currentUser } = useProjects();
   const { startTimer, activeTimer, stopTimer } = useTimer();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
@@ -193,6 +193,11 @@ export default function NewProject() {
 
   useEffect(() => {
     if (isEditMode && existingProject) {
+      // ✅ FIX: Load user-specific estimated time from their task
+      const userTask = existingProject.userTasks?.find(
+        task => task.userId === currentUserId
+      );
+
       const graphicDesignData = {
         postType: "",
         platform: "",
@@ -213,10 +218,11 @@ export default function NewProject() {
         month: existingProject.month || "",
         year: existingProject.year || "",
         status: existingProject.status || "Draft",
-        assignedTo: existingProject.assignedTo || "", // This will be ID now
+        assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
-        estimatedHours: existingProject.estimatedHours || "0",
-        estimatedMinutes: existingProject.estimatedMinutes || "0",
+        // ✅ FIX: Load from user's task, not project-level
+        estimatedHours: userTask?.estimatedHours || "0",
+        estimatedMinutes: userTask?.estimatedMinutes || "0",
         graphicDesign: graphicDesignData,
         websiteDesign: existingProject.websiteDesign || {
           websiteType: "",
@@ -247,7 +253,7 @@ export default function NewProject() {
     } else {
       form.setValue("status", "Draft");
     }
-  }, [isEditMode, existingProject, form]);
+  }, [isEditMode, existingProject, form, currentUserId]);
 
   const watchedServiceType = form.watch("serviceType");
   const watchedClientName = form.watch("clientName");
@@ -316,7 +322,7 @@ export default function NewProject() {
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
 
-      // Create initial user task entry
+      // ✅ FIX: Store estimated time in user's task
       const initialUserTask = {
         userId: currentUserId,
         userEmail: currentUser?.email || "",
@@ -325,6 +331,8 @@ export default function NewProject() {
         startTime: currentTime,
         serviceType: watchedServiceType,
         endTime: null,
+        estimatedHours: watchedEstimatedHours,  // ✅ USER-SPECIFIC
+        estimatedMinutes: watchedEstimatedMinutes,  // ✅ USER-SPECIFIC
         timeLog: [
           {
             type: 'start',
@@ -334,7 +342,6 @@ export default function NewProject() {
         ]
       };
 
-      // NOW USING watchedAssignedTo which is ID
       const newProject = {
         projectId: generatedProjectId,
         clientName: watchedClientName,
@@ -343,8 +350,9 @@ export default function NewProject() {
         month: watchedMonth,
         year: watchedYear,
         status: "Draft",
-        assignedTo: watchedAssignedTo || currentUserId, // Store ID, not name/email
+        assignedTo: watchedAssignedTo || currentUserId,
         internalNotes: "",
+        // Keep project-level for backward compatibility (optional)
         estimatedHours: watchedEstimatedHours,
         estimatedMinutes: watchedEstimatedMinutes,
         userTasks: [initialUserTask],
@@ -409,10 +417,13 @@ export default function NewProject() {
       );
 
       if (userTaskIndex !== -1) {
+        // ✅ FIX: Update user's task with their estimated time
         updatedUserTasks[userTaskIndex] = {
           ...updatedUserTasks[userTaskIndex],
           taskStatus: 'completed',
           endTime: currentTime,
+          estimatedHours: data.estimatedHours,  // ✅ USER-SPECIFIC
+          estimatedMinutes: data.estimatedMinutes,  // ✅ USER-SPECIFIC
           timeLog: [
             ...(updatedUserTasks[userTaskIndex].timeLog || []),
             {
@@ -439,6 +450,7 @@ export default function NewProject() {
       const updatedProject = {
         status: "Draft",
         internalNotes: data.internalNotes || "",
+        // Keep project-level for backward compatibility
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
         userTasks: updatedUserTasks,
