@@ -84,31 +84,18 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!id) return;
-
-    console.log("🔥 Setting up real-time listener for project:", id);
-
     const projectRef = doc(db, "projects", id);
     const unsubscribe = onSnapshot(
       projectRef,
       (docSnapshot) => {
         if (docSnapshot.exists()) {
           const updatedProject = docSnapshot.data();
-
-          console.log("📡 Real-time update received:", {
-            projectId: updatedProject.projectId,
-            userTasks: updatedProject.userTasks?.length || 0,
-          });
-
           // 🔥 CRITICAL: Update the live userTask state
           const userTask = updatedProject.userTasks?.find(
             (task) => task.userId === currentUserId,
           );
 
           if (userTask) {
-            console.log(
-              "✅ Found user task with timeLog:",
-              userTask.timeLog?.length || 0,
-            );
             setLiveUserTask(userTask); // 🔥 This triggers re-render!
           }
 
@@ -122,7 +109,6 @@ export default function ProjectDetail() {
     );
 
     return () => {
-      console.log("🔴 Cleaning up listener for project:", id);
       unsubscribe();
     };
   }, [id, currentUserId]);
@@ -268,7 +254,6 @@ export default function ProjectDetail() {
     setIsSubmitting(true);
     try {
       const currentDateTime = new Date().toISOString();
-
       const updateData = {
         status: "Accepted",
         isAccepted: true,
@@ -279,7 +264,6 @@ export default function ProjectDetail() {
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-
       toast.success("Project accepted!");
     } catch (error) {
       console.error("Error accepting project:", error);
@@ -291,7 +275,6 @@ export default function ProjectDetail() {
 
   const handleSubmitClick = async () => {
    const userTask = liveUserTask || getCurrentUserTask();
-
     if (
       !userTask ||
       (userTask.taskStatus !== "in_progress" &&
@@ -305,14 +288,6 @@ export default function ProjectDetail() {
     try {
       const currentDateTime = new Date().toISOString();
       const existingUserTasks = project.userTasks || [];
-
-      console.log("🔍 Before submit - userTask:", userTask);
-      console.log("🔍 Before submit - userTask.timeLog:", userTask.timeLog);
-      console.log(
-        "🔍 Before submit - timeLog length:",
-        userTask.timeLog?.length,
-      );
-
       // CRITICAL FIX: Use the LIVE userTask's timeLog directly
       const updatedUserTasks = existingUserTasks.map((task) => {
         if (task.userId === currentUserId) {
@@ -320,21 +295,12 @@ export default function ProjectDetail() {
           const currentTimeLogs = Array.isArray(userTask.timeLog)
             ? [...userTask.timeLog]
             : [];
-
-          console.log("🔍 Using timeLog from live task:", currentTimeLogs);
-          console.log("🔍 Live timeLog length:", currentTimeLogs.length);
-
           const endEntry = {
             type: "end",
             timestamp: currentDateTime,
             dateTime: formatDateTime(currentDateTime),
           };
-
           const finalTimeLogs = [...currentTimeLogs, endEntry];
-
-          console.log("✅ Final timeLog being saved:", finalTimeLogs);
-          console.log("✅ Final timeLog count:", finalTimeLogs.length);
-
           return {
             ...task,
             taskStatus: "completed",
@@ -344,12 +310,6 @@ export default function ProjectDetail() {
         }
         return task;
       });
-
-      console.log(
-        "📤 Sending to Firebase - updatedUserTasks:",
-        updatedUserTasks,
-      );
-
       const updateData = {
         status: "Review",
         updatedAt: currentDateTime,
@@ -359,7 +319,6 @@ export default function ProjectDetail() {
       // Update Firebase
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
-
       toast.success("Project submitted successfully!");
       setTimeout(() => {
         navigate("/admin/projects");
@@ -377,30 +336,24 @@ export default function ProjectDetail() {
       e.preventDefault();
       e.stopPropagation();
     }
-
     const hours = parseInt(estimatedHours) || 0;
     const minutes = parseInt(estimatedMinutes) || 0;
-
     if (hours === 0 && minutes === 0) {
       toast.error("Please set estimated time before starting!");
       return;
     }
-
     if (hours > 12) {
       toast.error("Hours should be between 0-12");
       return;
     }
-
     if (minutes > 60) {
       toast.error("Minutes should be between 0-60");
       return;
     }
-
     setIsSubmitting(true);
     try {
       const currentDateTime = new Date().toISOString();
       const existingUserTasks = project.userTasks || [];
-
       const newUserTask = {
         userId: currentUserId,
         userEmail: currentUserEmail,
@@ -426,11 +379,9 @@ export default function ProjectDetail() {
         updatedAt: currentDateTime,
         userTasks: [...existingUserTasks, newUserTask],
       };
-
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
       await updateProject(id, updateData);
-
       await startTimer({
         projectId: project.projectId,
         firebaseId: id,
@@ -440,7 +391,6 @@ export default function ProjectDetail() {
         estimatedMinutes: estimatedMinutes,
         userId: currentUserId,
       });
-
       toast.success("Timer started! Status: In Progress");
       setShowSubmitButton(true);
       setHasTimerStarted(true);
@@ -451,7 +401,6 @@ export default function ProjectDetail() {
       setIsSubmitting(false);
     }
   };
-
   const userTask = getCurrentUserTask();
 
   return (

@@ -9,7 +9,6 @@ import { Plus } from 'lucide-react';
 export default function Projects() {
   const { projects } = useProjects();
   const [searchParams] = useSearchParams();
-
   const [filters, setFilters] = useState({
     search: '',
     country: 'all',
@@ -20,7 +19,6 @@ export default function Projects() {
     assignedTo: 'all',
   });
 
-  // URL parameter બદલાય તો service filter update કરો
   useEffect(() => {
     const serviceParam = searchParams.get('service');
     if (serviceParam) {
@@ -30,7 +28,6 @@ export default function Projects() {
     }
   }, [searchParams]);
 
-  // Get total count based ONLY on service filter
   const serviceBasedTotal = useMemo(() => {
     if (filters.service === 'all') {
       return projects.length;
@@ -38,7 +35,6 @@ export default function Projects() {
     return projects.filter(project => project.serviceType === filters.service).length;
   }, [projects, filters.service]);
 
-  // Get filtered projects based on ALL filters
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
       // Search filter
