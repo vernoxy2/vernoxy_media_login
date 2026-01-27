@@ -27,7 +27,7 @@ const Header = ({ toggleMobileSidebar }) => {
     pauseTimer,
     resumeTimer,
     formatTime,
-    getProgressPercentage
+    // getProgressPercentage
   } = useTimer();
 
   const [userEmail] = useState(
@@ -88,7 +88,6 @@ const Header = ({ toggleMobileSidebar }) => {
     try {
       // ✅ Pause timer BEFORE logout if it's running
       if (activeTimer && isRunning) {
-        console.log('🚪 Pausing timer before logout...');
         await pauseTimer('User logged out');
         // Small delay to ensure Firebase update completes
         await new Promise(resolve => setTimeout(resolve, 800));
