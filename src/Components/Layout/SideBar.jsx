@@ -55,10 +55,10 @@ const bottomNavigation = [
 
 const departmentAccess = {
   Admin: ["CW", "GD", "WD", "ERP"],
-  "Content Writing": ["CW", "GD", "WD", "ERP"],
-  "Graphic Design": ["GD", "WD", "ERP"],
-  "Front-End Developer": ["WD", "GD", "ERP"],
-  ERP: ["ERP", "GD", "WD"],
+  "Content Writer": ["CW", "GD", "WD", "ERP"],
+  "Graphic Design": ["GD", "CW", "ERP"],
+  "Front End Developer": ["WD", "GD", "ERP"],
+  ERP: ["ERP", "WD", "GD"],
 };
 
 export function SideBar() {
@@ -106,13 +106,18 @@ export function SideBar() {
     const currentSearch = location.search;
     const [hrefPath, hrefQuery] = href.split("?");
     if (hrefPath === "/admin") {
-      return (currentPath === "/admin" || currentPath === "/admin/") && !currentSearch;
+      return (
+        (currentPath === "/admin" || currentPath === "/admin/") &&
+        !currentSearch
+      );
     }
     if (hrefPath === "/admin/projects/new") {
       return currentPath === "/admin/projects/new";
     }
     if (hrefQuery && hrefPath === "/admin/projects") {
-      return currentPath === "/admin/projects" && currentSearch === `?${hrefQuery}`;
+      return (
+        currentPath === "/admin/projects" && currentSearch === `?${hrefQuery}`
+      );
     }
     if (hrefPath === "/admin/projects" && !hrefQuery) {
       return currentPath === "/admin/projects" && !currentSearch;
