@@ -185,32 +185,72 @@ export function ProjectList({ projects }) {
     );
   };
 
-  // ✅ FIX: Only show estimated time if current user has their own userTask with estimated time
+  // ✅ FIXED: Check estimated time in userTask array, fallback to project level for backwards compatibility
   const getEstimatedTime = (project) => {
     const userTask = getUserTask(project);
     
-    // ✅ If no userTask for current user, show --:--
+    // If no userTask for current user, check project level (backwards compatibility)
     if (!userTask) {
+      // Check if estimated time exists at project level
+      const projectHasEstimatedHours = project.estimatedHours !== undefined && 
+                                       project.estimatedHours !== null;
+      const projectHasEstimatedMinutes = project.estimatedMinutes !== undefined && 
+                                         project.estimatedMinutes !== null;
+      
+      if (!projectHasEstimatedHours && !projectHasEstimatedMinutes) {
+        return "--:--";
+      }
+      
+      const hoursStr = project.estimatedHours || "0";
+      const minutesStr = project.estimatedMinutes || "0";
+      
+      const hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      const h = isNaN(hours) ? 0 : hours;
+      const m = isNaN(minutes) ? 0 : minutes;
+      
+      return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
+    }
+    
+    // ✅ PRIORITY 1: Check if estimated time exists in userTask (correct location)
+    const userTaskHasEstimatedHours = userTask.estimatedHours !== undefined && 
+                                  userTask.estimatedHours !== null;
+    const userTaskHasEstimatedMinutes = userTask.estimatedMinutes !== undefined && 
+                                        userTask.estimatedMinutes !== null;
+    
+    // If userTask has estimated time, use it
+    if (userTaskHasEstimatedHours || userTaskHasEstimatedMinutes) {
+      const hoursStr = userTask.estimatedHours || "0";
+      const minutesStr = userTask.estimatedMinutes || "0";
+      
+      const hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      const h = isNaN(hours) ? 0 : hours;
+      const m = isNaN(minutes) ? 0 : minutes;
+      
+      return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
+    }
+    
+    // ✅ PRIORITY 2: Fallback to project level (for backwards compatibility with old data)
+    const projectHasEstimatedHours = project.estimatedHours !== undefined && 
+                                     project.estimatedHours !== null;
+    const projectHasEstimatedMinutes = project.estimatedMinutes !== undefined && 
+                                       project.estimatedMinutes !== null;
+    
+    if (!projectHasEstimatedHours && !projectHasEstimatedMinutes) {
       return "--:--";
     }
     
-    // ✅ Only show time if user has set their own estimated time
-    if (!userTask.estimatedHours && !userTask.estimatedMinutes) {
-      return "--:--";
-    }
-    
-    const hoursStr = userTask.estimatedHours || "0";
-    const minutesStr = userTask.estimatedMinutes || "0";
+    const hoursStr = project.estimatedHours || "0";
+    const minutesStr = project.estimatedMinutes || "0";
     
     const hours = parseInt(hoursStr, 10);
     const minutes = parseInt(minutesStr, 10);
     
     const h = isNaN(hours) ? 0 : hours;
     const m = isNaN(minutes) ? 0 : minutes;
-    
-    if (h === 0 && m === 0) {
-      return "--:--";
-    }
     
     return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
   };
@@ -227,12 +267,14 @@ export function ProjectList({ projects }) {
       let totalMs = 0;
       let currentStartTime = null;
 
+      // Sort logs by time
       const sortedLogs = [...timeLogs].sort((a, b) => {
         const dateA = new Date(a.dateTime || a.timestamp);
         const dateB = new Date(b.dateTime || b.timestamp);
         return dateA - dateB;
       });
 
+      // Calculate total time from all start/pause/resume/end pairs
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
         
@@ -262,6 +304,7 @@ export function ProjectList({ projects }) {
         }
       }
       
+      // If task is still in progress, add current running time
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
         
@@ -270,6 +313,7 @@ export function ProjectList({ projects }) {
         }
       }
 
+      // Convert to hours and minutes
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;

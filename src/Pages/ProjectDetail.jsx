@@ -274,7 +274,7 @@ export default function ProjectDetail() {
   };
 
   const handleSubmitClick = async () => {
-   const userTask = liveUserTask || getCurrentUserTask();
+    const userTask = liveUserTask || getCurrentUserTask();
     if (
       !userTask ||
       (userTask.taskStatus !== "in_progress" &&
@@ -353,22 +353,89 @@ export default function ProjectDetail() {
     setIsSubmitting(true);
     try {
       const currentDateTime = new Date().toISOString();
+      // const existingUserTasks = project.userTasks || [];
+      // const newUserTask = {
+      //   userId: currentUserId,
+      //   userEmail: currentUserEmail,
+      //   userName: currentUserName,
+      //   taskStatus: "in_progress",
+      //   startTime: formatDateTime(currentDateTime),
+      //   estimatedHours: estimatedHours,
+      //   estimatedMinutes: estimatedMinutes,
+      //   serviceType: project.serviceType,
+      //   endTime: null,
+      //   timeLog: [
+      //     {
+      //       type: "start",
+      //       timestamp: currentDateTime,
+      //       dateTime: formatDateTime(currentDateTime),
+      //     },
+      //   ],
+      // };
+
+      // const updateData = {
+      //   status: "In Progress",
+      //   startWorkTime: formatDateTime(currentDateTime),
+      //   startedAt: currentDateTime,
+      //   estimatedHours: estimatedHours,
+      //   estimatedMinutes: estimatedMinutes,
+      //   updatedAt: currentDateTime,
+      //   userTasks: [...existingUserTasks, newUserTask],
+      // };'
       const existingUserTasks = project.userTasks || [];
-      const newUserTask = {
-        userId: currentUserId,
-        userEmail: currentUserEmail,
-        userName: currentUserName,
-        taskStatus: "in_progress",
-        startTime: formatDateTime(currentDateTime),
-        endTime: null,
-        timeLog: [
-          {
-            type: "start",
-            timestamp: currentDateTime,
-            dateTime: formatDateTime(currentDateTime),
-          },
-        ],
-      };
+
+      // ✅ Check if user already has a task
+      const existingTaskIndex = existingUserTasks.findIndex(
+        (task) => task.userId === currentUserId,
+      );
+
+      let updatedUserTasks;
+
+      if (existingTaskIndex >= 0) {
+        // ✅ UPDATE existing user task
+        updatedUserTasks = existingUserTasks.map((task, index) => {
+          if (index === existingTaskIndex) {
+            return {
+              ...task,
+              taskStatus: "in_progress",
+              startTime: formatDateTime(currentDateTime),
+              estimatedHours: estimatedHours,
+              estimatedMinutes: estimatedMinutes,
+              serviceType: project.serviceType,
+              timeLog: [
+                ...(task.timeLog || []),
+                {
+                  type: "start",
+                  timestamp: currentDateTime,
+                  dateTime: formatDateTime(currentDateTime),
+                },
+              ],
+            };
+          }
+          return task;
+        });
+      } else {
+        // ✅ CREATE new user task
+        const newUserTask = {
+          userId: currentUserId,
+          userEmail: currentUserEmail,
+          userName: currentUserName,
+          taskStatus: "in_progress",
+          startTime: formatDateTime(currentDateTime),
+          estimatedHours: estimatedHours,
+          estimatedMinutes: estimatedMinutes,
+          serviceType: project.serviceType,
+          endTime: null,
+          timeLog: [
+            {
+              type: "start",
+              timestamp: currentDateTime,
+              dateTime: formatDateTime(currentDateTime),
+            },
+          ],
+        };
+        updatedUserTasks = [...existingUserTasks, newUserTask];
+      }
 
       const updateData = {
         status: "In Progress",
@@ -377,7 +444,7 @@ export default function ProjectDetail() {
         estimatedHours: estimatedHours,
         estimatedMinutes: estimatedMinutes,
         updatedAt: currentDateTime,
-        userTasks: [...existingUserTasks, newUserTask],
+        userTasks: updatedUserTasks, 
       };
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
@@ -856,7 +923,7 @@ export default function ProjectDetail() {
             </div>
           </div>
 
-        {(liveUserTask || userTask)?.timeLog?.length > 0 && (
+          {(liveUserTask || userTask)?.timeLog?.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 text-sm font-semibold text-foreground">
                 Your Time Log ({userTask.timeLog.length} entries)
