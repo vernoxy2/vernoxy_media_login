@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { BsPersonFill } from "react-icons/bs";
 import { IoMdNotifications } from "react-icons/io";
@@ -5,10 +6,11 @@ import { IoMenu } from "react-icons/io5";
 import { BiLogOut } from "react-icons/bi";
 import { Clock, Play, Pause } from "lucide-react";
 import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
-import { db, auth } from "../../firebase";
-import { useTimer } from "../../context/TimerContext";
+import { auth, db } from "../../firebase";
 import PauseReasonModal from "../PauseReasonModal";
 import { Link, useNavigate } from "react-router-dom";
+import { logUserLogout } from "../../services/loginLogService";
+import { useTimer } from "../../context/TimerContext";
 
 // ✅ MAIN HEADER COMPONENT
 const Header = ({ toggleMobileSidebar }) => {
@@ -27,7 +29,6 @@ const Header = ({ toggleMobileSidebar }) => {
     pauseTimer,
     resumeTimer,
     formatTime,
-    // getProgressPercentage
   } = useTimer();
 
   const [userEmail] = useState(
@@ -92,6 +93,15 @@ const Header = ({ toggleMobileSidebar }) => {
         // Small delay to ensure Firebase update completes
         await new Promise(resolve => setTimeout(resolve, 800));
       }
+
+      // ✅ LOG THE LOGOUT TO loginLogs COLLECTION
+      try {
+        await logUserLogout();
+        console.log("Logout logged successfully");
+      } catch (logError) {
+        console.error("Failed to log logout:", logError);
+        // Don't block logout if logging fails
+      }
       
       // Then proceed with logout
       await auth.signOut();
@@ -100,11 +110,12 @@ const Header = ({ toggleMobileSidebar }) => {
       localStorage.removeItem("userId");
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userDisplayRole");
-      navigate("/admin/login", { replace: true });
+      localStorage.removeItem("userDepartment");
+      navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
       localStorage.clear();
-      navigate("/admin/login", { replace: true });
+      navigate("/login", { replace: true });
     }
   };
 

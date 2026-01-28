@@ -85,7 +85,7 @@ export default function AdminDashboard() {
 
     try {
       await signOut(auth);
-      navigate("/admin/login", { replace: true });
+      navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
     }
