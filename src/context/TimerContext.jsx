@@ -85,7 +85,6 @@ export const TimerProvider = ({ children }) => {
         // Find task for CURRENT USER only
         const userTask = userTasks.find((task) => {
           if (!task.userEmail) {
-            console.log("⚠️ Task has no email");
             return false;
           }
           const taskEmail = task.userEmail.toLowerCase().trim();
@@ -205,7 +204,6 @@ export const TimerProvider = ({ children }) => {
             userTasks,
             updatedAt: new Date().toISOString(),
           });
-          console.log("✅ Firebase updated successfully");
           return true;
         }
       }
@@ -266,8 +264,6 @@ export const TimerProvider = ({ children }) => {
           userTasks,
           updatedAt: new Date().toISOString(),
         });
-
-        console.log("✅ Timer started in Firebase");
       }
     } catch (error) {
       console.error("❌ Error starting timer:", error);
@@ -276,7 +272,6 @@ export const TimerProvider = ({ children }) => {
 
   const pauseTimer = async (reason) => {
     if (!activeTimer) {
-      console.log("❌ No active timer to pause");
       return;
     }
 
@@ -296,7 +291,6 @@ export const TimerProvider = ({ children }) => {
         taskStatus: "paused",
         pausedAt: pauseEntry.dateTime,
       });
-      console.log("✅ Timer paused:", reason);
     } catch (error) {
       console.error("❌ Error pausing timer:", error);
       throw error;
@@ -320,7 +314,6 @@ export const TimerProvider = ({ children }) => {
         taskStatus: "in_progress",
         resumedAt: resumeEntry.dateTime,
       });
-      console.log("✅ Timer resumed");
     } catch (error) {
       console.error("❌ Error resuming timer:", error);
     }
@@ -345,7 +338,6 @@ export const TimerProvider = ({ children }) => {
         remainingTime: remainingSeconds,
         completedAt: new Date().toISOString(),
       });
-      console.log("✅ Timer stopped");
     } catch (error) {
       console.error("❌ Error stopping timer:", error);
     }
