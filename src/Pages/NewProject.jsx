@@ -443,15 +443,19 @@ export default function NewProject() {
       );
 
       if (userTaskIndex !== -1) {
-        // ✅ FIX: Update user's task with their estimated time
+        // ✅ FIX: Preserve estimated time from existing task (form fields are disabled in edit mode)
+        const existingTask = updatedUserTasks[userTaskIndex];
+        
         updatedUserTasks[userTaskIndex] = {
-          ...updatedUserTasks[userTaskIndex],
+          ...existingTask,
           taskStatus: "completed",
           endTime: currentTime,
-          estimatedHours: data.estimatedHours, // ✅ USER-SPECIFIC
-          estimatedMinutes: data.estimatedMinutes, // ✅ USER-SPECIFIC
+          completedAt: currentDateTime,
+          // ✅ CRITICAL FIX: Keep existing estimated time (don't rely on form data)
+          estimatedHours: existingTask.estimatedHours,
+          estimatedMinutes: existingTask.estimatedMinutes,
           timeLog: [
-            ...(updatedUserTasks[userTaskIndex].timeLog || []),
+            ...(existingTask.timeLog || []),
             {
               type: "end",
               dateTime: currentDateTime,
