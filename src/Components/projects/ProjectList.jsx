@@ -185,74 +185,39 @@ export function ProjectList({ projects }) {
     );
   };
 
-  // ✅ FIXED: Check estimated time in userTask array, fallback to project level for backwards compatibility
+  // ✅ FIXED: Only show estimate when user has valid estimate in THEIR userTask
+  // NEVER fallback to project-level estimate
   const getEstimatedTime = (project) => {
     const userTask = getUserTask(project);
     
-    // If no userTask for current user, check project level (backwards compatibility)
-    if (!userTask) {
-      // Check if estimated time exists at project level
-      const projectHasEstimatedHours = project.estimatedHours !== undefined && 
-                                       project.estimatedHours !== null;
-      const projectHasEstimatedMinutes = project.estimatedMinutes !== undefined && 
-                                         project.estimatedMinutes !== null;
-      
-      if (!projectHasEstimatedHours && !projectHasEstimatedMinutes) {
-        return "--:--";
+    // Helper function to check if a value is valid (not null, undefined, empty string, or "0")
+    const isValidEstimate = (value) => {
+      if (value === undefined || value === null || value === "" || value === "0") {
+        return false;
       }
-      
-      const hoursStr = project.estimatedHours || "0";
-      const minutesStr = project.estimatedMinutes || "0";
-      
-      const hours = parseInt(hoursStr, 10);
-      const minutes = parseInt(minutesStr, 10);
-      
-      const h = isNaN(hours) ? 0 : hours;
-      const m = isNaN(minutes) ? 0 : minutes;
-      
-      return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
-    }
+      const num = parseInt(value, 10);
+      return !isNaN(num) && num > 0;
+    };
     
-    // ✅ PRIORITY 1: Check if estimated time exists in userTask (correct location)
-    const userTaskHasEstimatedHours = userTask.estimatedHours !== undefined && 
-                                  userTask.estimatedHours !== null;
-    const userTaskHasEstimatedMinutes = userTask.estimatedMinutes !== undefined && 
-                                        userTask.estimatedMinutes !== null;
-    
-    // If userTask has estimated time, use it
-    if (userTaskHasEstimatedHours || userTaskHasEstimatedMinutes) {
-      const hoursStr = userTask.estimatedHours || "0";
-      const minutesStr = userTask.estimatedMinutes || "0";
-      
-      const hours = parseInt(hoursStr, 10);
-      const minutes = parseInt(minutesStr, 10);
-      
-      const h = isNaN(hours) ? 0 : hours;
-      const m = isNaN(minutes) ? 0 : minutes;
-      
-      return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
-    }
-    
-    // ✅ PRIORITY 2: Fallback to project level (for backwards compatibility with old data)
-    const projectHasEstimatedHours = project.estimatedHours !== undefined && 
-                                     project.estimatedHours !== null;
-    const projectHasEstimatedMinutes = project.estimatedMinutes !== undefined && 
-                                       project.estimatedMinutes !== null;
-    
-    if (!projectHasEstimatedHours && !projectHasEstimatedMinutes) {
+    // ✅ No userTask = user hasn't started work yet = show blank
+    if (!userTask) {
       return "--:--";
     }
     
-    const hoursStr = project.estimatedHours || "0";
-    const minutesStr = project.estimatedMinutes || "0";
+    // ✅ Check if user's own estimate exists in their userTask
+    const userTaskHasValidHours = isValidEstimate(userTask.estimatedHours);
+    const userTaskHasValidMinutes = isValidEstimate(userTask.estimatedMinutes);
     
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
+    // If userTask has valid estimated time, show it
+    if (userTaskHasValidHours || userTaskHasValidMinutes) {
+      const hours = userTaskHasValidHours ? parseInt(userTask.estimatedHours, 10) : 0;
+      const minutes = userTaskHasValidMinutes ? parseInt(userTask.estimatedMinutes, 10) : 0;
+      
+      return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
+    }
     
-    const h = isNaN(hours) ? 0 : hours;
-    const m = isNaN(minutes) ? 0 : minutes;
-    
-    return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
+    // ✅ User has task but no valid estimate set yet = show blank
+    return "--:--";
   };
 
   const calculateTotalTime = (project) => {
@@ -592,8 +557,8 @@ export function ProjectList({ projects }) {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-blue-500" />
-                      <span className="text-xs font-medium text-blue-600">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
                         {estimatedTime}
                       </span>
                     </div>
