@@ -185,34 +185,39 @@ export function ProjectList({ projects }) {
     );
   };
 
-  // ✅ FIX: Only show estimated time if current user has their own userTask with estimated time
+  // ✅ FIXED: Only show estimate when user has valid estimate in THEIR userTask
+  // NEVER fallback to project-level estimate
   const getEstimatedTime = (project) => {
     const userTask = getUserTask(project);
     
-    // ✅ If no userTask for current user, show --:--
+    // Helper function to check if a value is valid (not null, undefined, empty string, or "0")
+    const isValidEstimate = (value) => {
+      if (value === undefined || value === null || value === "" || value === "0") {
+        return false;
+      }
+      const num = parseInt(value, 10);
+      return !isNaN(num) && num > 0;
+    };
+    
+    // ✅ No userTask = user hasn't started work yet = show blank
     if (!userTask) {
       return "--:--";
     }
     
-    // ✅ Only show time if user has set their own estimated time
-    if (!userTask.estimatedHours && !userTask.estimatedMinutes) {
-      return "--:--";
+    // ✅ Check if user's own estimate exists in their userTask
+    const userTaskHasValidHours = isValidEstimate(userTask.estimatedHours);
+    const userTaskHasValidMinutes = isValidEstimate(userTask.estimatedMinutes);
+    
+    // If userTask has valid estimated time, show it
+    if (userTaskHasValidHours || userTaskHasValidMinutes) {
+      const hours = userTaskHasValidHours ? parseInt(userTask.estimatedHours, 10) : 0;
+      const minutes = userTaskHasValidMinutes ? parseInt(userTask.estimatedMinutes, 10) : 0;
+      
+      return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
     }
     
-    const hoursStr = userTask.estimatedHours || "0";
-    const minutesStr = userTask.estimatedMinutes || "0";
-    
-    const hours = parseInt(hoursStr, 10);
-    const minutes = parseInt(minutesStr, 10);
-    
-    const h = isNaN(hours) ? 0 : hours;
-    const m = isNaN(minutes) ? 0 : minutes;
-    
-    if (h === 0 && m === 0) {
-      return "--:--";
-    }
-    
-    return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`;
+    // ✅ User has task but no valid estimate set yet = show blank
+    return "--:--";
   };
 
   const calculateTotalTime = (project) => {
@@ -227,12 +232,14 @@ export function ProjectList({ projects }) {
       let totalMs = 0;
       let currentStartTime = null;
 
+      // Sort logs by time
       const sortedLogs = [...timeLogs].sort((a, b) => {
         const dateA = new Date(a.dateTime || a.timestamp);
         const dateB = new Date(b.dateTime || b.timestamp);
         return dateA - dateB;
       });
 
+      // Calculate total time from all start/pause/resume/end pairs
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
         
@@ -262,6 +269,7 @@ export function ProjectList({ projects }) {
         }
       }
       
+      // If task is still in progress, add current running time
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
         
@@ -270,6 +278,7 @@ export function ProjectList({ projects }) {
         }
       }
 
+      // Convert to hours and minutes
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
@@ -548,8 +557,8 @@ export function ProjectList({ projects }) {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3 text-blue-500" />
-                      <span className="text-xs font-medium text-blue-600">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
                         {estimatedTime}
                       </span>
                     </div>

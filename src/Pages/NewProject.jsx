@@ -36,17 +36,17 @@ const UserInfoDisplay = ({ currentUser }) => {
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
       <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white font-semibold text-lg">
-        {currentUser.name?.charAt(0).toUpperCase() || 'U'}
+        {currentUser.name?.charAt(0).toUpperCase() || "U"}
       </div>
       <div className="flex flex-col gap-0.5">
         <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {currentUser.name || 'User'}
+          {currentUser.name || "User"}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">
           {getDisplayRole()}
         </span>
         <span className="text-sm text-gray-600 dark:text-gray-400">
-          {currentUser.email || 'Email'}
+          {currentUser.email || "Email"}
         </span>
       </div>
     </div>
@@ -84,19 +84,27 @@ const projectSchema = z.object({
       numberOfPages: z.string().optional(),
       technologyPreference: z.string().optional(),
       referenceWebsites: z.string().optional(),
-      pages: z.array(z.object({
-        pageName: z.string().optional(),
-        pagePurpose: z.string().optional(),
-        sections: z.array(z.object({
-          sectionType: z.string().optional(),
-          mainHeading: z.string().optional(),
-          subHeading: z.string().optional(),
-          paragraphText: z.string().optional(),
-          buttonText: z.string().optional(),
-          buttonLink: z.string().optional(),
-          layoutNotes: z.string().optional(),
-        })).optional(),
-      })).optional(),
+      pages: z
+        .array(
+          z.object({
+            pageName: z.string().optional(),
+            pagePurpose: z.string().optional(),
+            sections: z
+              .array(
+                z.object({
+                  sectionType: z.string().optional(),
+                  mainHeading: z.string().optional(),
+                  subHeading: z.string().optional(),
+                  paragraphText: z.string().optional(),
+                  buttonText: z.string().optional(),
+                  buttonLink: z.string().optional(),
+                  layoutNotes: z.string().optional(),
+                }),
+              )
+              .optional(),
+          }),
+        )
+        .optional(),
     })
     .optional(),
   contentWriting: z
@@ -125,29 +133,35 @@ const projectSchema = z.object({
 export default function NewProject() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { projects, addProject, updateProject, getProjectById, loading, currentUser } = useProjects();
+  const {
+    projects,
+    addProject,
+    updateProject,
+    getProjectById,
+    loading,
+    currentUser,
+  } = useProjects();
   const { startTimer, activeTimer, stopTimer } = useTimer();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showOldData, setShowOldData] = useState(false);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [createdProjectId, setCreatedProjectId] = useState(null);
-
+  const CURRENT_MONTH = new Date().toLocaleString("default", { month: "long" });
+  const CURRENT_YEAR = new Date().getFullYear().toString();
   const isEditMode = Boolean(id);
   const existingProject = isEditMode ? getProjectById(id) : null;
-  const isContentWriter = currentUser?.department === "Content Writing";
+  const isContentWriter = currentUser?.department === "Content Writer";
   const isAdmin = currentUser?.role === "admin";
   const currentUserId = localStorage.getItem("userId");
-  
   const hideAdminFromDropdown = true;
-
   const form = useForm({
     resolver: zodResolver(projectSchema),
     defaultValues: {
       clientName: "",
       country: "",
       serviceType: "",
-      month: "",
-      year: "2026",
+      month: CURRENT_MONTH,
+      year: CURRENT_YEAR,
       status: "Draft",
       assignedTo: "",
       internalNotes: "",
@@ -195,7 +209,7 @@ export default function NewProject() {
     if (isEditMode && existingProject) {
       // ✅ FIX: Load user-specific estimated time from their task
       const userTask = existingProject.userTasks?.find(
-        task => task.userId === currentUserId
+        (task) => task.userId === currentUserId,
       );
 
       const graphicDesignData = {
@@ -208,7 +222,7 @@ export default function NewProject() {
         hashtags: "",
         caption: "",
         designerNotes: "",
-        ...(existingProject.graphicDesign || {})
+        ...(existingProject.graphicDesign || {}),
       };
 
       form.reset({
@@ -263,7 +277,7 @@ export default function NewProject() {
   const watchedEstimatedHours = form.watch("estimatedHours");
   const watchedEstimatedMinutes = form.watch("estimatedMinutes");
   const watchedAssignedTo = form.watch("assignedTo");
-  
+
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
       return existingProject.projectId;
@@ -273,7 +287,13 @@ export default function NewProject() {
       return "";
     }
 
-    if (!watchedCountry || !watchedServiceType || !watchedClientName || !watchedMonth || !watchedYear) {
+    if (
+      !watchedCountry ||
+      !watchedServiceType ||
+      !watchedClientName ||
+      !watchedMonth ||
+      !watchedYear
+    ) {
       return "";
     }
 
@@ -284,7 +304,7 @@ export default function NewProject() {
       clientCode,
       watchedMonth,
       watchedYear,
-      projects
+      projects,
     );
     return newId;
   }, [
@@ -300,7 +320,13 @@ export default function NewProject() {
   ]);
 
   const handleStartTimer = async () => {
-    if (!watchedClientName || !watchedCountry || !watchedServiceType || !watchedMonth || !watchedYear) {
+    if (
+      !watchedClientName ||
+      !watchedCountry ||
+      !watchedServiceType ||
+      !watchedMonth ||
+      !watchedYear
+    ) {
       toast.error("Please fill all required fields before starting timer!");
       return;
     }
@@ -327,19 +353,19 @@ export default function NewProject() {
         userId: currentUserId,
         userEmail: currentUser?.email || "",
         userName: currentUser?.name || currentUser?.email || "",
-        taskStatus: 'in_progress',
+        taskStatus: "in_progress",
         startTime: currentTime,
         serviceType: watchedServiceType,
         endTime: null,
-        estimatedHours: watchedEstimatedHours,  // ✅ USER-SPECIFIC
-        estimatedMinutes: watchedEstimatedMinutes,  // ✅ USER-SPECIFIC
+        estimatedHours: watchedEstimatedHours, // ✅ USER-SPECIFIC
+        estimatedMinutes: watchedEstimatedMinutes, // ✅ USER-SPECIFIC
         timeLog: [
           {
-            type: 'start',
+            type: "start",
             dateTime: currentDateTime,
-            timestamp: currentTime
-          }
-        ]
+            timestamp: currentTime,
+          },
+        ],
       };
 
       const newProject = {
@@ -359,7 +385,7 @@ export default function NewProject() {
         isAccepted: true,
         acceptedAt: currentDateTime,
         createdAt: currentDateTime,
-        updatedAt: currentDateTime
+        updatedAt: currentDateTime,
       };
 
       const createdProject = await addProject(newProject);
@@ -372,7 +398,7 @@ export default function NewProject() {
         serviceType: watchedServiceType,
         estimatedHours: watchedEstimatedHours,
         estimatedMinutes: watchedEstimatedMinutes,
-        userId: currentUserId
+        userId: currentUserId,
       });
 
       setShowServiceForm(true);
@@ -413,33 +439,37 @@ export default function NewProject() {
       let updatedUserTasks = existingProject?.userTasks || [];
 
       const userTaskIndex = updatedUserTasks.findIndex(
-        task => task.userId === currentUserId
+        (task) => task.userId === currentUserId,
       );
 
       if (userTaskIndex !== -1) {
-        // ✅ FIX: Update user's task with their estimated time
+        // ✅ FIX: Preserve estimated time from existing task (form fields are disabled in edit mode)
+        const existingTask = updatedUserTasks[userTaskIndex];
+        
         updatedUserTasks[userTaskIndex] = {
-          ...updatedUserTasks[userTaskIndex],
-          taskStatus: 'completed',
+          ...existingTask,
+          taskStatus: "completed",
           endTime: currentTime,
-          estimatedHours: data.estimatedHours,  // ✅ USER-SPECIFIC
-          estimatedMinutes: data.estimatedMinutes,  // ✅ USER-SPECIFIC
+          completedAt: currentDateTime,
+          // ✅ CRITICAL FIX: Keep existing estimated time (don't rely on form data)
+          estimatedHours: existingTask.estimatedHours,
+          estimatedMinutes: existingTask.estimatedMinutes,
           timeLog: [
-            ...(updatedUserTasks[userTaskIndex].timeLog || []),
+            ...(existingTask.timeLog || []),
             {
-              type: 'end',
+              type: "end",
               dateTime: currentDateTime,
-              timestamp: currentTime
-            }
-          ]
+              timestamp: currentTime,
+            },
+          ],
         };
       }
 
       const getTextUpdates = (graphicDesignData) => {
         const updates = {};
         if (graphicDesignData) {
-          Object.keys(graphicDesignData).forEach(key => {
-            if (key.startsWith('mainText') || key.startsWith('subText')) {
+          Object.keys(graphicDesignData).forEach((key) => {
+            if (key.startsWith("mainText") || key.startsWith("subText")) {
               updates[key] = graphicDesignData[key];
             }
           });
@@ -454,7 +484,7 @@ export default function NewProject() {
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
         userTasks: updatedUserTasks,
-        updatedAt: currentDateTime
+        updatedAt: currentDateTime,
       };
 
       // Add service-specific data
@@ -469,7 +499,7 @@ export default function NewProject() {
           hashtags: data.graphicDesign?.hashtags || "",
           caption: data.graphicDesign?.caption || "",
           designerNotes: data.graphicDesign?.designerNotes || "",
-          ...getTextUpdates(data.graphicDesign)
+          ...getTextUpdates(data.graphicDesign),
         };
       }
 
@@ -502,7 +532,11 @@ export default function NewProject() {
   };
 
   const handleCancelServiceForm = async () => {
-    if (window.confirm('Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.')) {
+    if (
+      window.confirm(
+        "Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.",
+      )
+    ) {
       setShowServiceForm(false);
 
       if (activeTimer) {
@@ -572,16 +606,28 @@ export default function NewProject() {
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">Project ID:</span>
-                <p className="text-blue-800 dark:text-blue-300">{existingProject.projectId}</p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">
+                  Project ID:
+                </span>
+                <p className="text-blue-800 dark:text-blue-300">
+                  {existingProject.projectId}
+                </p>
               </div>
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">Client Name:</span>
-                <p className="text-blue-800 dark:text-blue-300">{existingProject.clientName}</p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">
+                  Client Name:
+                </span>
+                <p className="text-blue-800 dark:text-blue-300">
+                  {existingProject.clientName}
+                </p>
               </div>
               <div>
-                <span className="font-medium text-blue-900 dark:text-blue-200">Assigned To (ID):</span>
-                <p className="text-blue-800 dark:text-blue-300">{existingProject.assignedTo}</p>
+                <span className="font-medium text-blue-900 dark:text-blue-200">
+                  Assigned To (ID):
+                </span>
+                <p className="text-blue-800 dark:text-blue-300">
+                  {existingProject.assignedTo}
+                </p>
               </div>
             </div>
           </div>

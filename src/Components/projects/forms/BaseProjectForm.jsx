@@ -19,6 +19,7 @@ import {
   SERVICE_NAMES,
   MONTHS,
   YEARS,
+  CURRENT_MONTH,
 } from "../../../types/project";
 import { useProjects } from "../../../context/ProjectContext";
 
@@ -196,13 +197,13 @@ export function BaseProjectForm({
               <Select
                 onValueChange={field.onChange}
                 value={field.value}
-                disabled={isContentWriter}
+                // disabled={isContentWriter}
               >
                 <FormControl>
                   <SelectTrigger
                     className={
                       isContentWriter
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                        ? "bg-gray-100 dark:bg-gray-300 text-gray-800 dark:text-gray-400 cursor-not-allowed"
                         : ""
                     }
                   >
@@ -233,6 +234,7 @@ export function BaseProjectForm({
         <FormField
           control={form.control}
           name="month"
+          defaultValue={CURRENT_MONTH}
           render={({ field }) => (
             <FormItem>
               <FormLabel>
@@ -247,7 +249,7 @@ export function BaseProjectForm({
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select month" />
+                      <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -317,7 +319,7 @@ export function BaseProjectForm({
                   {(() => {
                     // Find member by ID for display
                     const member = (teamMembers || []).find(
-                      (m) => m.id === field.value
+                      (m) => m.id === field.value,
                     );
                     return member?.name || field.value || "Not Assigned";
                   })()}
@@ -381,7 +383,8 @@ export function BaseProjectForm({
                     <SelectContent>
                       {hoursOptions.map((hour) => (
                         <SelectItem key={hour} value={hour.toString()}>
-                          {String(hour).padStart(2, '0')} {hour === 1 ? "hour" : "hours"}
+                          {String(hour).padStart(2, "0")}{" "}
+                          {hour === 1 ? "hour" : "hours"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -416,7 +419,8 @@ export function BaseProjectForm({
                     <SelectContent>
                       {minutesOptions.map((minute) => (
                         <SelectItem key={minute} value={minute.toString()}>
-                          {String(minute).padStart(2, '0')} {minute === 1 ? "min" : "mins"}
+                          {String(minute).padStart(2, "0")}{" "}
+                          {minute === 1 ? "min" : "mins"}
                         </SelectItem>
                       ))}
                     </SelectContent>
