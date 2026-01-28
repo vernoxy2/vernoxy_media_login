@@ -13,11 +13,17 @@ export const SERVICE_NAMES = {
   ERP: 'Custom ERP Development',
 };
 
-// Time constants
-export const MONTHS = [
+const monthNames = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+const currentMonthIndex = new Date().getMonth();
+export const MONTHS = [
+  monthNames[currentMonthIndex]
+];
+
+// ✅ Current month as default
+export const CURRENT_MONTH = monthNames[currentMonthIndex];
 
 // ✅ Current year + Previous year in dropdown
 const currentYear = new Date().getFullYear();
@@ -27,9 +33,6 @@ export const YEARS = [// Previous year
 
 // ✅ Current year as default (always selected)
 export const CURRENT_YEAR = currentYear.toString();
-
-// ✅ Get current month name
-export const CURRENT_MONTH = MONTHS[new Date().getMonth()];
 
 // Valid values as constants (optional - for validation if needed)
 export const COUNTRIES = ['IN', 'US', 'CA', 'UAE'];

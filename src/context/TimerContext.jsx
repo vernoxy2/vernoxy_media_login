@@ -45,7 +45,6 @@ export const TimerProvider = ({ children }) => {
     if (lastStartTime) {
       totalElapsed += (Date.now() - lastStartTime) / 1000;
     }
-
     return Math.floor(totalElapsed);
   };
 
