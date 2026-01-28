@@ -10,6 +10,7 @@ import {
   Palette,
   Globe,
   Code,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -53,6 +54,11 @@ const bottomNavigation = [
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
+// Admin-only navigation items
+const adminOnlyNavigation = [
+  { name: "User Login Logs", href: "/admin/login-logs", icon: ClipboardList },
+];
+
 const departmentAccess = {
   Admin: ["CW", "GD", "WD", "ERP"],
   "Content Writing": ["CW", "GD", "WD", "ERP"],
@@ -65,6 +71,7 @@ export function SideBar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [userDepartment, setUserDepartment] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [filteredServices, setFilteredServices] = useState(allServiceLinks);
 
   useEffect(() => {
@@ -80,6 +87,8 @@ export function SideBar() {
             const department = userData.department;
             const role = userData.role;
             setUserDepartment(department);
+            setUserRole(role);
+            
             if (role === "admin") {
               setFilteredServices(allServiceLinks);
             } else {
@@ -211,6 +220,32 @@ export function SideBar() {
                     <item.icon className="h-4 w-4" />
                     {item.name}
                   </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Admin-Only Section */}
+          {userRole === "admin" && (
+            <div className="mt-8">
+              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                LOGS
+              </h3>
+              <div className="space-y-1">
+                {adminOnlyNavigation.map((item) => (
+                  <NavLink
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive(item.href)
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.name}
+                  </NavLink>
                 ))}
               </div>
             </div>

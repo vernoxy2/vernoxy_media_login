@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { LogIn, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { logUserLogin } from "../../services/loginLogService";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -44,7 +45,6 @@ export default function AdminLogin() {
     checkAuth();
   }, [navigate]);
 
-  // ✅ FIXED: Changed navigation from /admin/login to /admin
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
@@ -68,8 +68,11 @@ export default function AdminLogin() {
         setLoading(false);
         return;
       }
+      
       const userData = userDoc.data();
+      
       if (userData.role === "admin" || userData.role === "user") {
+        // Store user data in localStorage
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("userRole", userData.role); 
         localStorage.setItem("userEmail", userData.email || email);
@@ -77,7 +80,23 @@ export default function AdminLogin() {
         localStorage.setItem("userDepartment", userData.department || ""); 
         const displayRole =
           userData.role.charAt(0).toUpperCase() + userData.role.slice(1);
-        localStorage.setItem("userDisplayRole", displayRole); 
+        localStorage.setItem("userDisplayRole", displayRole);
+
+        // ✅ LOG THE LOGIN TO loginLogs COLLECTION
+        try {
+          await logUserLogin(
+            user.uid,
+            userData.email || email,
+            userData.role,
+            userData.department || "",
+            userData.name || userData.email
+          );
+          console.log("Login logged successfully");
+        } catch (logError) {
+          console.error("Failed to log login:", logError);
+          // Don't block login if logging fails
+        }
+        
         navigate("/admin", { replace: true });
       } else {
         setError("Access denied. Admin privileges required.");
@@ -287,11 +306,8 @@ export default function AdminLogin() {
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white font-Bai_Jamjuree">
-            Admin Login
+            Login
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-400">
-            Access the ERP submissions dashboard
-          </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
@@ -373,12 +389,6 @@ export default function AdminLogin() {
             </button>
           </div>
         </form>
-
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            For admin access only. Contact support if you need help.
-          </p>
-        </div>
       </div>
     </div>
   );

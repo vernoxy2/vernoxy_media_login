@@ -42,6 +42,7 @@ import ProjectDetail from "./Pages/ProjectDetail";
 import Team from "./Pages/Team";
 import Settings from "./Pages/Settings";
 import Welcome from "./Pages/Admin/Welcome";
+import UserLoginLogs from "./Pages/Admin/UserLoginLogs";
 import ERP_Requirement from "./Components/ERP_Requirement";
 import CityDisplay from "./Components/CityDisplay";
 import CityPage from "./Pages/GlobalPresence/Sections/CityPage";
@@ -111,7 +112,7 @@ const App = () => {
                 <Route path="/:citySlug" element={<CityPage />} />
                 <Route path="/erp-capture" element={<ERPCapture />} />
 
-                <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/login" element={<AdminLogin />} />
 
                 {/* Admin routes wrapped with ProjectProvider */}
                 <Route
@@ -135,6 +136,7 @@ const App = () => {
                   <Route path="projects/:id" element={<ProjectDetail />} />
                   <Route path="team" element={<Team />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="login-logs" element={<UserLoginLogs />} />
                 </Route>
 
                 {/* 404 fallback */}
