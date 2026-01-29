@@ -95,7 +95,19 @@ const projectSchema = z.object({
       websiteType: z.string().optional(),
       numberOfPages: z.string().optional(),
       technologyPreference: z.string().optional(),
-      referenceWebsites: z.string().optional(),
+      // referenceWebsites: z.string().optional(),
+      link: z
+        .array(
+          z
+            .string()
+            .trim()
+            .refine(
+              (val) =>
+                val === "" || /^(https?:\/\/|www\.)[^\s]+\.[^\s]+$/.test(val),
+              "Please enter a valid link (http, https, or www)",
+            ),
+        )
+        .optional(),
       pages: z
         .array(
           z.object({
@@ -194,9 +206,9 @@ export default function NewProject() {
       websiteDesign: {
         websiteType: "",
         numberOfPages: "",
-        // link: [""],
+        link: [""],
         technologyPreference: "",
-        referenceWebsites: "",
+        // referenceWebsites: "",
         pages: [],
       },
       contentWriting: {
@@ -250,7 +262,6 @@ export default function NewProject() {
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
-        // ✅ FIX: Load from user's task, not project-level
         estimatedHours: userTask?.estimatedHours || "0",
         estimatedMinutes: userTask?.estimatedMinutes || "0",
         graphicDesign: graphicDesignData,
@@ -258,7 +269,8 @@ export default function NewProject() {
           websiteType: "",
           numberOfPages: "",
           technologyPreference: "",
-          referenceWebsites: "",
+          link: [""],
+          // referenceWebsites: "",
           pages: [],
         },
         contentWriting: existingProject.contentWriting || {
