@@ -62,7 +62,7 @@ const adminOnlyNavigation = [
 const departmentAccess = {
   Admin: ["CW", "GD", "WD", "ERP"],
   "Content Writer": ["CW", "GD", "WD", "ERP"],
-  "Graphic Design": ["GD", "CW", "ERP"],
+  "Graphic Design": ["GD", "WD", "ERP"],
   "Front End Developer": ["WD", "GD", "ERP"],
   ERP: ["ERP", "WD", "GD"],
 };
