@@ -29,10 +29,19 @@ export function GraphicDesignForm({
   const postTypes = ["Social Post", "Banner", "Ad", "Poster", "Thumbnail"];
   const platforms = ["Instagram", "Facebook", "LinkedIn", "Website"];
   const sizes = ["Square", "Portrait", "Landscape"];
+
   const [links, setLinks] = useState([""]);
+
   useEffect(() => {
-    form.setValue("graphicDesign.link", links);
+    form.setValue("websiteDesign.link", links);
   }, [links, form]);
+
+  useEffect(() => {
+    if (isEditMode && existingData?.link?.length) {
+      setLinks(existingData.link);
+    }
+  }, [isEditMode, existingData]);
+
   const addLink = () => {
     setLinks([...links, ""]);
   };
@@ -46,11 +55,7 @@ export function GraphicDesignForm({
   const removeLink = (index) => {
     setLinks(links.filter((_, i) => i !== index));
   };
-  useEffect(() => {
-    if (isEditMode && existingData?.link?.length) {
-      setLinks(existingData.link);
-    }
-  }, [isEditMode, existingData]);
+
   // Load existing updates when in edit mode
   useEffect(() => {
     if (isEditMode && existingData) {
@@ -254,6 +259,7 @@ export function GraphicDesignForm({
 
       <div className="space-y-3">
         <FormLabel>Reference Links</FormLabel>
+
         {links.map((link, index) => (
           <div key={index} className="flex items-center gap-2 w-full lg:w-1/2">
             <Input
@@ -265,7 +271,8 @@ export function GraphicDesignForm({
 
             {index === links.length - 1 && !isEditMode && (
               <CiCirclePlus
-                className="text-3xl cursor-pointer text-gray-600 hover:text-black"
+                size={28}
+                className="cursor-pointer text-gray-600 hover:text-black"
                 onClick={addLink}
               />
             )}
@@ -280,7 +287,7 @@ export function GraphicDesignForm({
         ))}
 
         <FormMessage>
-          {form.formState.errors?.graphicDesign?.link?.message}
+          {form.formState.errors?.websiteDesign?.link?.message}
         </FormMessage>
       </div>
 

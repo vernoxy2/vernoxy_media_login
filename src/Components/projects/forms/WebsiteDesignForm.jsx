@@ -39,10 +39,27 @@ export function WebsiteDesignForm({
     control: form.control,
     name: "websiteDesign.pages",
   });
+  
   const [links, setLinks] = useState([""]);
+
+  // ✅ Load existing links when in edit mode
   useEffect(() => {
-    form.setValue("graphicDesign.link", links);
+    if (isEditMode && existingData?.link && existingData.link.length > 0) {
+      const validLinks = existingData.link.filter(link => link && link.trim() !== "");
+      if (validLinks.length > 0) {
+        setLinks(validLinks);
+      } else {
+        setLinks([""]);
+      }
+    }
+  }, [isEditMode, existingData]);
+
+  // ✅ Update form value whenever links change
+  useEffect(() => {
+    const filteredLinks = links.filter((link) => link && link.trim() !== "");
+    form.setValue("websiteDesign.link", filteredLinks);
   }, [links, form]);
+
   const addLink = () => {
     setLinks([...links, ""]);
   };
@@ -57,13 +74,6 @@ export function WebsiteDesignForm({
     setLinks(links.filter((_, i) => i !== index));
   };
 
-  useEffect(() => {
-    if (isEditMode && existingData?.link?.length) {
-      setLinks(existingData.link);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const addPage = () => {
     appendPage({
       pageName: "",
@@ -71,6 +81,7 @@ export function WebsiteDesignForm({
       sections: [],
     });
   };
+
   const websiteTypes = [
     "Corporate",
     "E-commerce",
@@ -87,6 +98,7 @@ export function WebsiteDesignForm({
     "Testimonials",
     "Footer",
   ];
+
   return (
     <div className="space-y-6 rounded-xl border border-service-website/20 bg-service-website/5 p-6">
       <div className="flex items-center gap-2">
@@ -97,7 +109,7 @@ export function WebsiteDesignForm({
       </div>
 
       {/* Website Basics */}
-      <div className="grid gap-6 md:grid-cols-3 ">
+      <div className="grid gap-6 md:grid-cols-3">
         <FormField
           control={form.control}
           name="websiteDesign.websiteType"
@@ -163,30 +175,18 @@ export function WebsiteDesignForm({
         />
       </div>
 
-      {/* <FormField
-        control={form.control}
-        name="websiteDesign.referenceWebsites"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Reference Websites</FormLabel>
-            <FormControl>
-              <Textarea placeholder="Enter URLs of reference websites..." {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      /> */}
+      {/* Reference Links */}
       <div className="space-y-3">
-        <FormLabel>Reference Links1</FormLabel>
+        <FormLabel>Reference Links</FormLabel>
         {links.map((link, index) => (
-          <div className="flex items-center gap-2 w-full lg:w-1/2">
+          <div key={index} className="flex items-center gap-2 w-full lg:w-1/2">
             <Input
               placeholder={`Reference Link ${index + 1}`}
               value={link}
               onChange={(e) => updateLink(index, e.target.value)}
             />
 
-            {index === links.length - 1 && !isEditMode && (
+            {index === links.length - 1 && (
               <CiCirclePlus
                 size={28}
                 className="flex-shrink-0 cursor-pointer text-gray-600 hover:text-black"
@@ -194,7 +194,7 @@ export function WebsiteDesignForm({
               />
             )}
 
-            {links.length > 1 && !isEditMode && (
+            {links.length > 1 && (
               <X
                 className="flex-shrink-0 cursor-pointer text-red-500"
                 onClick={() => removeLink(index)}
@@ -204,7 +204,7 @@ export function WebsiteDesignForm({
         ))}
 
         <FormMessage>
-          {form.formState.errors?.graphicDesign?.link?.message}
+          {form.formState.errors?.websiteDesign?.link?.message}
         </FormMessage>
       </div>
 
@@ -404,7 +404,7 @@ function PageSections({ form, pageIndex, sectionTypes }) {
               size="sm"
               className="text-destructive hover:text-destructive"
               onClick={() => remove(sectionIndex)}
-            >
+              >
               <Trash2 className="mr-1 h-3 w-3" />
               Remove
             </Button>
