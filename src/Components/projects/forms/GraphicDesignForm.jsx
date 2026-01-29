@@ -123,26 +123,20 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
           render={({ field }) => (
             <FormItem>
               <FormLabel>Post Type</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || 'Not specified'}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {postTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {postTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -155,26 +149,20 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
           render={({ field }) => (
             <FormItem>
               <FormLabel>Platform</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || 'Not specified'}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select platform" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {platforms.map((platform) => (
-                      <SelectItem key={platform} value={platform}>
-                        {platform}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {platforms.map((platform) => (
+                    <SelectItem key={platform} value={platform}>
+                      {platform}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -187,26 +175,20 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
           render={({ field }) => (
             <FormItem>
               <FormLabel>Size</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || 'Not specified'}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {sizes.map((size) => (
-                      <SelectItem key={size} value={size}>
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {sizes.map((size) => (
+                    <SelectItem key={size} value={size}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -219,15 +201,11 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
         name="graphicDesign.mainText"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>
-              Main Text {isEditMode && '(Original)'}
-            </FormLabel>
+            <FormLabel>Main Text</FormLabel>
             <FormControl>
               <Textarea 
                 placeholder="Enter main headline text..." 
                 {...field}
-                disabled={isEditMode}
-                className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
               />
             </FormControl>
             <FormMessage />
@@ -293,15 +271,11 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
         name="graphicDesign.subText"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>
-              Sub Text {isEditMode && '(Original)'}
-            </FormLabel>
+            <FormLabel>Sub Text</FormLabel>
             <FormControl>
               <Textarea 
                 placeholder="Enter supporting text..." 
                 {...field}
-                disabled={isEditMode}
-                className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
               />
             </FormControl>
             <FormMessage />
@@ -373,8 +347,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
                 <Input 
                   placeholder="e.g., Shop Now, Learn More" 
                   {...field}
-                  disabled={isEditMode}
-                  className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
                 />
               </FormControl>
               <FormMessage />
@@ -393,8 +365,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
                 <Input 
                   placeholder="#example #hashtags" 
                   {...field}
-                  disabled={isEditMode}
-                  className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
                 />
               </FormControl>
               <FormMessage />
@@ -413,8 +383,6 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
                 <Input 
                   placeholder="e.g., Data-Driven Decisions" 
                   {...field}
-                  disabled={isEditMode}
-                  className={isEditMode ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : ""}
                 />
               </FormControl>
               <FormMessage />
@@ -433,9 +401,8 @@ export function GraphicDesignForm({ form, isEditMode = false, existingData = nul
             <FormControl>
               <Textarea
                 placeholder="Add notes for the designer..."
-                className={isEditMode ? "min-h-[100px] bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed" : "min-h-[100px]"}
+                className="min-h-[100px]"
                 {...field}
-                disabled={isEditMode}
               />
             </FormControl>
             <FormMessage />
