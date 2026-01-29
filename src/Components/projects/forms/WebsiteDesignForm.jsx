@@ -1,52 +1,99 @@
-import { useFieldArray } from 'react-hook-form';
+import { useState, useEffect } from "react";
+import { useFieldArray } from "react-hook-form";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../Components/ui/form';
-import { Input } from '../../../Components/ui/input';
-import { Textarea } from '../../../Components/ui/textarea';
-import { Button } from '../../../Components/ui/button';
+} from "../../../Components/ui/form";
+import { Input } from "../../../Components/ui/input";
+import { Textarea } from "../../../Components/ui/textarea";
+import { Button } from "../../../Components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../Components/ui/select';
+} from "../../../Components/ui/select";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '../../../Components/ui/accordion';
-import { Plus, Trash2 } from 'lucide-react';
+} from "../../../Components/ui/accordion";
+import { Plus, Trash2, X } from "lucide-react";
+import { CiCirclePlus } from "react-icons/ci";
 
-const websiteTypes = ['Corporate', 'E-commerce', 'Portfolio', 'Landing Page', 'Web App'];
-const pageCounts = ['1-5', '6-10', '10+'];
-const sectionTypes = ['Hero', 'About', 'Services', 'CTA', 'Testimonials', 'Footer'];
-
-export function WebsiteDesignForm({ form }) {
-  const { fields: pageFields, append: appendPage, remove: removePage } = useFieldArray({
+export function WebsiteDesignForm({
+  form,
+  isEditMode = false,
+  existingData = null,
+}) {
+  const {
+    fields: pageFields,
+    append: appendPage,
+    remove: removePage,
+  } = useFieldArray({
     control: form.control,
-    name: 'websiteDesign.pages',
+    name: "websiteDesign.pages",
   });
+  const [links, setLinks] = useState([""]);
+  useEffect(() => {
+    form.setValue("graphicDesign.link", links);
+  }, [links, form]);
+  const addLink = () => {
+    setLinks([...links, ""]);
+  };
+
+  const updateLink = (index, value) => {
+    const updated = [...links];
+    updated[index] = value;
+    setLinks(updated);
+  };
+
+  const removeLink = (index) => {
+    setLinks(links.filter((_, i) => i !== index));
+  };
+
+  useEffect(() => {
+    if (isEditMode && existingData?.link?.length) {
+      setLinks(existingData.link);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addPage = () => {
     appendPage({
-      pageName: '',
-      pagePurpose: '',
+      pageName: "",
+      pagePurpose: "",
       sections: [],
     });
   };
-
+  const websiteTypes = [
+    "Corporate",
+    "E-commerce",
+    "Portfolio",
+    "Landing Page",
+    "Web App",
+  ];
+  const pageCounts = ["1-5", "6-10", "10+"];
+  const sectionTypes = [
+    "Hero",
+    "About",
+    "Services",
+    "CTA",
+    "Testimonials",
+    "Footer",
+  ];
   return (
     <div className="space-y-6 rounded-xl border border-service-website/20 bg-service-website/5 p-6">
       <div className="flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-service-website" />
-        <h3 className="text-lg font-semibold text-foreground">Website Design Details</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          Website Design Details
+        </h3>
       </div>
 
       {/* Website Basics */}
@@ -116,7 +163,7 @@ export function WebsiteDesignForm({ form }) {
         />
       </div>
 
-      <FormField
+      {/* <FormField
         control={form.control}
         name="websiteDesign.referenceWebsites"
         render={({ field }) => (
@@ -128,12 +175,45 @@ export function WebsiteDesignForm({ form }) {
             <FormMessage />
           </FormItem>
         )}
-      />
+      /> */}
+      <div className="space-y-3">
+        <FormLabel>Reference Links1</FormLabel>
+        {links.map((link, index) => (
+          <div className="flex items-center gap-2 w-full lg:w-1/2">
+            <Input
+              placeholder={`Reference Link ${index + 1}`}
+              value={link}
+              onChange={(e) => updateLink(index, e.target.value)}
+            />
+
+            {index === links.length - 1 && !isEditMode && (
+              <CiCirclePlus
+                size={28}
+                className="flex-shrink-0 cursor-pointer text-gray-600 hover:text-black"
+                onClick={addLink}
+              />
+            )}
+
+            {links.length > 1 && !isEditMode && (
+              <X
+                className="flex-shrink-0 cursor-pointer text-red-500"
+                onClick={() => removeLink(index)}
+              />
+            )}
+          </div>
+        ))}
+
+        <FormMessage>
+          {form.formState.errors?.graphicDesign?.link?.message}
+        </FormMessage>
+      </div>
 
       {/* Page Structure */}
       <div className="border-t border-border pt-6">
         <div className="mb-4 flex items-center justify-between">
-          <h4 className="text-sm font-semibold text-foreground">Page-wise Structure</h4>
+          <h4 className="text-sm font-semibold text-foreground">
+            Page-wise Structure
+          </h4>
           <Button type="button" variant="outline" size="sm" onClick={addPage}>
             <Plus className="mr-1 h-4 w-4" />
             Add Page
@@ -150,7 +230,8 @@ export function WebsiteDesignForm({ form }) {
               <AccordionTrigger className="px-4 hover:no-underline">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">
-                    {form.watch(`websiteDesign.pages.${pageIndex}.pageName`) || `Page ${pageIndex + 1}`}
+                    {form.watch(`websiteDesign.pages.${pageIndex}.pageName`) ||
+                      `Page ${pageIndex + 1}`}
                   </span>
                 </div>
               </AccordionTrigger>
@@ -178,7 +259,10 @@ export function WebsiteDesignForm({ form }) {
                         <FormItem>
                           <FormLabel>Page Purpose</FormLabel>
                           <FormControl>
-                            <Input placeholder="Main purpose of this page" {...field} />
+                            <Input
+                              placeholder="Main purpose of this page"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -186,7 +270,11 @@ export function WebsiteDesignForm({ form }) {
                     />
                   </div>
 
-                  <PageSections form={form} pageIndex={pageIndex} sectionTypes={sectionTypes} />
+                  <PageSections
+                    form={form}
+                    pageIndex={pageIndex}
+                    sectionTypes={sectionTypes}
+                  />
 
                   <Button
                     type="button"
@@ -215,13 +303,13 @@ function PageSections({ form, pageIndex, sectionTypes }) {
 
   const addSection = () => {
     append({
-      sectionType: '',
-      mainHeading: '',
-      subHeading: '',
-      paragraphText: '',
-      buttonText: '',
-      buttonLink: '',
-      layoutNotes: '',
+      sectionType: "",
+      mainHeading: "",
+      subHeading: "",
+      paragraphText: "",
+      buttonText: "",
+      buttonLink: "",
+      layoutNotes: "",
     });
   };
 
@@ -236,7 +324,10 @@ function PageSections({ form, pageIndex, sectionTypes }) {
       </div>
 
       {fields.map((section, sectionIndex) => (
-        <div key={section.id} className="rounded-lg border border-border/50 bg-muted/30 p-4">
+        <div
+          key={section.id}
+          className="rounded-lg border border-border/50 bg-muted/30 p-4"
+        >
           <div className="grid gap-3 md:grid-cols-2">
             <FormField
               control={form.control}
@@ -282,7 +373,11 @@ function PageSections({ form, pageIndex, sectionTypes }) {
                 <FormItem>
                   <FormLabel className="text-xs">Sub Heading</FormLabel>
                   <FormControl>
-                    <Input className="h-8" placeholder="Sub heading" {...field} />
+                    <Input
+                      className="h-8"
+                      placeholder="Sub heading"
+                      {...field}
+                    />
                   </FormControl>
                 </FormItem>
               )}
