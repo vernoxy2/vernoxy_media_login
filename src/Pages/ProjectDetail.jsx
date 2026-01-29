@@ -40,7 +40,6 @@ export default function ProjectDetail() {
     seconds: 0,
   });
   const [hasTimerStarted, setHasTimerStarted] = useState(false);
-
   const project = getProjectById(id || "");
   const currentUserEmail = localStorage.getItem("userEmail");
   const currentUserId = localStorage.getItem("userId");
@@ -90,7 +89,6 @@ export default function ProjectDetail() {
       (docSnapshot) => {
         if (docSnapshot.exists()) {
           const updatedProject = docSnapshot.data();
-          // 🔥 CRITICAL: Update the live userTask state
           const userTask = updatedProject.userTasks?.find(
             (task) => task.userId === currentUserId,
           );
@@ -444,7 +442,7 @@ export default function ProjectDetail() {
         estimatedHours: estimatedHours,
         estimatedMinutes: estimatedMinutes,
         updatedAt: currentDateTime,
-        userTasks: updatedUserTasks, 
+        userTasks: updatedUserTasks,
       };
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
@@ -720,42 +718,104 @@ export default function ProjectDetail() {
                 <div className="h-2 w-2 rounded-full bg-service-graphic" />
                 Graphic Design Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-3 text-start">
+              <div className="grid gap-4 md:grid-cols-2 text-start">
                 <div>
-                  <p className="text-sm text-muted-foreground">Post Type</p>
-                  <p className="font-medium text-foreground">
+                  <p className="text-sm text-muted-foreground ">Post Type</p>
+                  <p className=" text-foreground">
                     {project.graphicDesign.postType}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Platform</p>
-                  <p className="font-medium text-foreground">
+                  <p className=" text-foreground">
                     {project.graphicDesign.platform}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Size</p>
-                  <p className="font-medium text-foreground">
+                  <p className=" text-foreground">
                     {project.graphicDesign.size}
                   </p>
                 </div>
+                {project.graphicDesign.ctaText && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">CTA</p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.ctaText}
+                    </p>
+                  </div>
+                )}
+                {project.graphicDesign.hashtags && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">Hash Tags</p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.hashtags}
+                    </p>
+                  </div>
+                )}
+                {project.graphicDesign.caption && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">Caption</p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.caption}
+                    </p>
+                  </div>
+                )}
+
+                {project.graphicDesign.designerNotes && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">
+                      Internal Designer Notes
+                    </p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.designerNotes}
+                    </p>
+                  </div>
+                )}
+                {Array.isArray(project.graphicDesign?.link) &&
+                  project.graphicDesign.link.length > 0 && (
+                    <div className="mt-4 text-start">
+                      <p className="text-sm text-muted-foreground">
+                        Reference Links
+                      </p>
+
+                      {project.graphicDesign.link.map((link, index) => (
+                        <p
+                          key={index}
+                          className=" text-sm text-black underline "
+                        >
+                          <a
+                            href={
+                              link.startsWith("http") ? link : `https://${link}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {link}
+                          </a>
+                        </p>
+                      ))}
+                    </div>
+                  )}
               </div>
-              {project.graphicDesign.mainText && (
-                <div className="mt-4 text-start">
-                  <p className="text-sm text-muted-foreground">Main Text</p>
-                  <p className="font-medium text-foreground">
-                    {project.graphicDesign.mainText}
-                  </p>
-                </div>
-              )}
-              {project.graphicDesign.ctaText && (
-                <div className="mt-4 text-start">
-                  <p className="text-sm text-muted-foreground">CTA</p>
-                  <p className="font-medium text-foreground">
-                    {project.graphicDesign.ctaText}
-                  </p>
-                </div>
-              )}
+              <div className="grid gap-4 md:grid-cols-1 text-start">
+                {project.graphicDesign.mainText && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">Main Text</p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.mainText}
+                    </p>
+                  </div>
+                )}
+                {project.graphicDesign.subText && (
+                  <div className="mt-4 text-start">
+                    <p className="text-sm text-muted-foreground">Sub Text</p>
+                    <p className=" text-foreground">
+                      {project.graphicDesign.subText}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -781,11 +841,39 @@ export default function ProjectDetail() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Technology</p>
+                  <p className="text-sm text-muted-foreground">Technology Preference</p>
                   <p className="font-medium text-foreground">
                     {project.websiteDesign.technologyPreference ||
                       "Not specified"}
                   </p>
+                  
+                  {Array.isArray(project.websiteDesign?.link) &&
+                    project.websiteDesign.link.length > 0 && (
+                      <div className="mt-4 text-start">
+                        <p className="text-sm text-muted-foreground">
+                          Reference Links
+                        </p>
+
+                        {project.websiteDesign.link.map((link, index) => (
+                          <p
+                            key={index}
+                            className=" text-sm text-black underline "
+                          >
+                            <a
+                              href={
+                                link.startsWith("http")
+                                  ? link
+                                  : `https://${link}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {link}
+                            </a>
+                          </p>
+                        ))}
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
