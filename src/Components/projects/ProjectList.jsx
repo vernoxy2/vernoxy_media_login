@@ -45,6 +45,7 @@ export function ProjectList({ projects }) {
   const [userDepartment, setUserDepartment] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState(null); 
   
   const [projectsData, setProjectsData] = useState([]);
   const [renderKey, setRenderKey] = useState(0);
@@ -61,15 +62,17 @@ export function ProjectList({ projects }) {
     }
   }, [projects, projects.length]);
 
-  useEffect(() => {
+useEffect(() => {
     const loadUserData = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
       const userId = localStorage.getItem("userId");
+      const userEmail = localStorage.getItem("userEmail"); // ✅ ADD THIS LINE
       
       setUserRole(role);
       setUserDepartment(dept);
       setCurrentUserId(userId);
+      setCurrentUserEmail(userEmail); // ✅ ADD THIS LINE
       setIsDataLoaded(true);
     };
 
@@ -79,15 +82,17 @@ export function ProjectList({ projects }) {
     return () => clearTimeout(timeoutId);
   }, [projects]);
 
-  useEffect(() => {
+useEffect(() => {
     const handleStorageChange = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
       const userId = localStorage.getItem("userId");
+      const userEmail = localStorage.getItem("userEmail"); // ✅ ADD THIS LINE
       
       setUserRole(role);
       setUserDepartment(dept);
       setCurrentUserId(userId);
+      setCurrentUserEmail(userEmail); // ✅ ADD THIS LINE
     };
     
     window.addEventListener("storage", handleStorageChange);
@@ -112,36 +117,102 @@ export function ProjectList({ projects }) {
     return () => clearInterval(interval);
   }, [projectsData, currentUserId]);
 
+  // const filteredProjects = useMemo(() => {
+  //   let filtered = projectsData;
+
+  //   if (serviceFilter) {
+  //     filtered = filtered.filter((p) => p.serviceType === serviceFilter);
+  //     return filtered;
+  //   }
+
+  //   if (userRole === "admin") {
+  //     return projectsData;
+  //   }
+  //   if (
+  //     userDepartment === "Graphic Design" ||
+  //     userDepartment === "Content Writing"
+  //   ) {
+  //     filtered = projectsData.filter(
+  //       (p) => p.serviceType === "GD" || p.serviceType === "CW",
+  //     );
+  //   } else if (
+  //     userDepartment === "Front-End Developer" ||
+  //     userDepartment === "Website"
+  //   ) {
+  //     filtered = projectsData.filter((p) => p.serviceType === "WD");
+  //   } else if (userDepartment === "ERP") {
+  //     filtered = projectsData.filter((p) => p.serviceType === "ERP");
+  //   }
+
+  //   return filtered;
+  // }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
+
+
   const filteredProjects = useMemo(() => {
     let filtered = projectsData;
 
+    // Apply service filter first
     if (serviceFilter) {
       filtered = filtered.filter((p) => p.serviceType === serviceFilter);
-      return filtered;
+    } else {
+      // Department-based filtering
+      if (userRole === "admin") {
+        filtered = projectsData;
+      } else if (
+        userDepartment === "Graphic Design" ||
+        userDepartment === "Content Writing"
+      ) {
+        filtered = projectsData.filter(
+          (p) => p.serviceType === "GD" || p.serviceType === "CW",
+        );
+      } else if (
+        userDepartment === "Front-End Developer" ||
+        userDepartment === "Website"
+      ) {
+        filtered = projectsData.filter((p) => p.serviceType === "WD");
+      } else if (userDepartment === "ERP") {
+        filtered = projectsData.filter((p) => p.serviceType === "ERP");
+      }
     }
 
-    if (userRole === "admin") {
-      return projectsData;
-    }
-    if (
-      userDepartment === "Graphic Design" ||
-      userDepartment === "Content Writing"
-    ) {
-      filtered = projectsData.filter(
-        (p) => p.serviceType === "GD" || p.serviceType === "CW",
+    // ✅ NEW: Apply creator/assigned visibility rules
+  const userEmail = currentUserEmail || localStorage.getItem("userEmail");
+    
+    filtered = filtered.filter((project) => {
+      // Admin sees all projects (already filtered by department/service)
+      if (userRole === "admin") {
+        return true;
+      }
+
+      // Check if current user is the creator
+      const isCreator = project.createdBy === currentUserEmail;
+      
+      // If creator, always show the project
+      if (isCreator) {
+        return true;
+      }
+
+      // Check if current user is assigned to this project
+      const isAssigned = project.assignedTo === currentUserId;
+      
+      // If not creator and not assigned, don't show
+      if (!isAssigned) {
+        return false;
+      }
+
+      // User is assigned but not creator
+      // Check if the creator has completed their task
+      const creatorTask = project.userTasks?.find(
+        (task) => task.userEmail === project.createdBy
       );
-    } else if (
-      userDepartment === "Front-End Developer" ||
-      userDepartment === "Website"
-    ) {
-      filtered = projectsData.filter((p) => p.serviceType === "WD");
-    } else if (userDepartment === "ERP") {
-      filtered = projectsData.filter((p) => p.serviceType === "ERP");
-    }
+
+      // Only show to assigned user if creator has completed their task
+      return creatorTask && creatorTask.taskStatus === "completed";
+    });
 
     return filtered;
-  }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
-
+  }, [projectsData, userRole, userDepartment, serviceFilter, renderKey, currentUserId, currentUserEmail]);
+  
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
