@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FormControl,
   FormField,
@@ -19,13 +19,14 @@ import {
 import { Plus, X } from "lucide-react";
 import { CiCirclePlus } from "react-icons/ci";
 
-export function GraphicDesignForm({
-  form,
-  isEditMode = false,
-  existingData = null,
-}) {
+
+export function GraphicDesignForm({ form, isEditMode = false, existingData = null, projectId }) {
   const [mainTextUpdates, setMainTextUpdates] = useState([]);
   const [subTextUpdates, setSubTextUpdates] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hasLoadedFromStorage = useRef(false);
+
+
   const postTypes = ["Social Post", "Banner", "Ad", "Poster", "Thumbnail"];
   const platforms = ["Instagram", "Facebook", "LinkedIn", "Website"];
   const sizes = ["Square", "Portrait", "Landscape"];
@@ -56,6 +57,116 @@ export function GraphicDesignForm({
     setLinks(links.filter((_, i) => i !== index));
   };
 
+  // ✅ FIX: Memoize localStorage key
+  const getLocalStorageKey = useCallback(() => {
+    return `graphicDesign_autosave_${projectId || 'new'}`;
+  }, [projectId]);
+
+  // ✅ FIX: Memoized save function that uses current state
+  const saveToLocalStorage = useCallback((watchedValues, currentMainUpdates, currentSubUpdates) => {
+    // Don't save if we haven't loaded yet
+    if (!isInitialized) return;
+    
+    const graphicDesignData = watchedValues?.graphicDesign || {};
+    
+    const formData = {
+      postType: graphicDesignData.postType || '',
+      platform: graphicDesignData.platform || '',
+      size: graphicDesignData.size || '',
+      mainText: graphicDesignData.mainText || '',
+      subText: graphicDesignData.subText || '',
+      ctaText: graphicDesignData.ctaText || '',
+      hashtags: graphicDesignData.hashtags || '',
+      caption: graphicDesignData.caption || '',
+      designerNotes: graphicDesignData.designerNotes || '',
+    };
+
+    const dataToSave = {
+      formData,
+      mainTextUpdates: currentMainUpdates.filter(item => !item.isExisting),
+      subTextUpdates: currentSubUpdates.filter(item => !item.isExisting),
+      timestamp: new Date().toISOString()
+    };
+
+    const key = getLocalStorageKey();
+    localStorage.setItem(key, JSON.stringify(dataToSave));
+    console.log('✅ Saved to localStorage:', key, dataToSave);
+  }, [getLocalStorageKey, isInitialized]);
+
+  // ✅ FIX: Load data from localStorage - waits for projectId to be set
+  useEffect(() => {
+    // Only load once and only if we have a projectId
+    if (hasLoadedFromStorage.current || !projectId) return;
+    
+    const key = getLocalStorageKey();
+    const savedData = localStorage.getItem(key);
+    
+    console.log('🔍 Checking localStorage:', key, savedData);
+    
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        
+        // Only restore from localStorage if not in edit mode or if there's no existing data
+        if (!isEditMode || !existingData) {
+          console.log('📥 Restoring from localStorage:', parsed);
+          
+          // Restore form values with a small delay to ensure form is ready
+          setTimeout(() => {
+            if (parsed.formData) {
+              Object.keys(parsed.formData).forEach((key) => {
+                const value = parsed.formData[key];
+                if (value) { // Only set if there's a value
+                  form.setValue(`graphicDesign.${key}`, value, {
+                    shouldValidate: false,
+                    shouldDirty: false
+                  });
+                  console.log(`✅ Restored graphicDesign.${key}:`, value);
+                }
+              });
+            }
+            
+            // Restore main text updates
+            if (parsed.mainTextUpdates && parsed.mainTextUpdates.length > 0) {
+              setMainTextUpdates(parsed.mainTextUpdates);
+              parsed.mainTextUpdates.forEach((item) => {
+                form.setValue(`graphicDesign.mainText${item.index}`, item.value, {
+                  shouldValidate: false,
+                  shouldDirty: false
+                });
+              });
+            }
+            
+            // Restore sub text updates
+            if (parsed.subTextUpdates && parsed.subTextUpdates.length > 0) {
+              setSubTextUpdates(parsed.subTextUpdates);
+              parsed.subTextUpdates.forEach((item) => {
+                form.setValue(`graphicDesign.subText${item.index}`, item.value, {
+                  shouldValidate: false,
+                  shouldDirty: false
+                });
+              });
+            }
+            
+            hasLoadedFromStorage.current = true;
+            setIsInitialized(true);
+          }, 100);
+        } else {
+          hasLoadedFromStorage.current = true;
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        console.error('❌ Error loading autosaved data:', error);
+        hasLoadedFromStorage.current = true;
+        setIsInitialized(true);
+      }
+    } else {
+      console.log('ℹ️ No saved data found');
+      hasLoadedFromStorage.current = true;
+      setIsInitialized(true);
+    }
+  }, [projectId, isEditMode, existingData, form, getLocalStorageKey]);
+
   // Load existing updates when in edit mode
   useEffect(() => {
     if (isEditMode && existingData) {
@@ -77,6 +188,7 @@ export function GraphicDesignForm({
 
       existingMainUpdates.sort((a, b) => a.index - b.index);
       setMainTextUpdates(existingMainUpdates);
+      
       const existingSubUpdates = [];
       Object.keys(existingData).forEach((key) => {
         if (key.startsWith("subText") && key !== "subText") {
@@ -98,16 +210,25 @@ export function GraphicDesignForm({
     }
   }, [isEditMode, existingData, form]);
 
+  // ✅ FIX: Watch form changes and auto-save only after initialization
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const subscription = form.watch((value) => {
+      saveToLocalStorage(value, mainTextUpdates, subTextUpdates);
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [form, mainTextUpdates, subTextUpdates, saveToLocalStorage, isInitialized]);
+
   const addMainTextUpdate = () => {
     const highestIndex =
       mainTextUpdates.length > 0
         ? Math.max(...mainTextUpdates.map((item) => item.index))
         : 0;
     const newIndex = highestIndex + 1;
-    setMainTextUpdates([
-      ...mainTextUpdates,
-      { index: newIndex, value: "", isExisting: false },
-    ]);
+    const newUpdates = [...mainTextUpdates, { index: newIndex, value: '', isExisting: false }];
+    setMainTextUpdates(newUpdates);
   };
 
   const addSubTextUpdate = () => {
@@ -116,37 +237,35 @@ export function GraphicDesignForm({
         ? Math.max(...subTextUpdates.map((item) => item.index))
         : 0;
     const newIndex = highestIndex + 1;
-    setSubTextUpdates([
-      ...subTextUpdates,
-      { index: newIndex, value: "", isExisting: false },
-    ]);
+    const newUpdates = [...subTextUpdates, { index: newIndex, value: '', isExisting: false }];
+    setSubTextUpdates(newUpdates);
   };
 
   const removeMainTextUpdate = (index) => {
-    setMainTextUpdates(mainTextUpdates.filter((item) => item.index !== index));
+    const newUpdates = mainTextUpdates.filter(item => item.index !== index);
+    setMainTextUpdates(newUpdates);
     form.setValue(`graphicDesign.mainText${index}`, undefined);
   };
 
   const removeSubTextUpdate = (index) => {
-    setSubTextUpdates(subTextUpdates.filter((item) => item.index !== index));
+    const newUpdates = subTextUpdates.filter(item => item.index !== index);
+    setSubTextUpdates(newUpdates);
     form.setValue(`graphicDesign.subText${index}`, undefined);
   };
 
   const updateMainTextValue = (index, value) => {
-    setMainTextUpdates(
-      mainTextUpdates.map((item) =>
-        item.index === index ? { ...item, value } : item,
-      ),
+    const newUpdates = mainTextUpdates.map(item => 
+      item.index === index ? { ...item, value } : item
     );
+    setMainTextUpdates(newUpdates);
     form.setValue(`graphicDesign.mainText${index}`, value);
   };
 
   const updateSubTextValue = (index, value) => {
-    setSubTextUpdates(
-      subTextUpdates.map((item) =>
-        item.index === index ? { ...item, value } : item,
-      ),
+    const newUpdates = subTextUpdates.map(item => 
+      item.index === index ? { ...item, value } : item
     );
+    setSubTextUpdates(newUpdates);
     form.setValue(`graphicDesign.subText${index}`, value);
   };
 
@@ -167,26 +286,23 @@ export function GraphicDesignForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Post Type</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || "Not specified"}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {postTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select 
+                onValueChange={field.onChange} 
+                value={field.value || ''}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {postTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -199,26 +315,23 @@ export function GraphicDesignForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Platform</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || "Not specified"}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select platform" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {platforms.map((platform) => (
-                      <SelectItem key={platform} value={platform}>
-                        {platform}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select 
+                onValueChange={field.onChange} 
+                value={field.value || ''}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select platform" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {platforms.map((platform) => (
+                    <SelectItem key={platform} value={platform}>
+                      {platform}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -231,26 +344,23 @@ export function GraphicDesignForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Size</FormLabel>
-              {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                  {field.value || "Not specified"}
-                </div>
-              ) : (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {sizes.map((size) => (
-                      <SelectItem key={size} value={size}>
-                        {size}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select 
+                onValueChange={field.onChange} 
+                value={field.value || ''}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {sizes.map((size) => (
+                    <SelectItem key={size} value={size}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -297,17 +407,12 @@ export function GraphicDesignForm({
         name="graphicDesign.mainText"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Main Text {isEditMode && "(Original)"}</FormLabel>
+            <FormLabel>Main Text</FormLabel>
             <FormControl>
               <Textarea
                 placeholder="Enter main headline text..."
                 {...field}
-                disabled={isEditMode}
-                className={
-                  isEditMode
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : ""
-                }
+                value={field.value || ''}
               />
             </FormControl>
             <FormMessage />
@@ -381,17 +486,12 @@ export function GraphicDesignForm({
         name="graphicDesign.subText"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Sub Text {isEditMode && "(Original)"}</FormLabel>
+            <FormLabel>Sub Text</FormLabel>
             <FormControl>
               <Textarea
                 placeholder="Enter supporting text..."
                 {...field}
-                disabled={isEditMode}
-                className={
-                  isEditMode
-                    ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : ""
-                }
+                value={field.value || ''}
               />
             </FormControl>
             <FormMessage />
@@ -471,12 +571,7 @@ export function GraphicDesignForm({
                 <Input
                   placeholder="e.g., Shop Now, Learn More"
                   {...field}
-                  disabled={isEditMode}
-                  className={
-                    isEditMode
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : ""
-                  }
+                  value={field.value || ''}
                 />
               </FormControl>
               <FormMessage />
@@ -495,12 +590,7 @@ export function GraphicDesignForm({
                 <Input
                   placeholder="#example #hashtags"
                   {...field}
-                  disabled={isEditMode}
-                  className={
-                    isEditMode
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : ""
-                  }
+                  value={field.value || ''}
                 />
               </FormControl>
               <FormMessage />
@@ -519,12 +609,7 @@ export function GraphicDesignForm({
                 <Input
                   placeholder="e.g., Data-Driven Decisions"
                   {...field}
-                  disabled={isEditMode}
-                  className={
-                    isEditMode
-                      ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                      : ""
-                  }
+                  value={field.value || ''}
                 />
               </FormControl>
               <FormMessage />
@@ -543,13 +628,9 @@ export function GraphicDesignForm({
             <FormControl>
               <Textarea
                 placeholder="Add notes for the designer..."
-                className={
-                  isEditMode
-                    ? "min-h-[100px] bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                    : "min-h-[100px]"
-                }
+                className="min-h-[100px]"
                 {...field}
-                disabled={isEditMode}
+                value={field.value || ''}
               />
             </FormControl>
             <FormMessage />
@@ -559,3 +640,9 @@ export function GraphicDesignForm({
     </div>
   );
 }
+
+// Export function to clear localStorage (call this after successful submission)
+export const clearGraphicDesignAutosave = (projectId) => {
+  const key = `graphicDesign_autosave_${projectId || 'new'}`;
+  localStorage.removeItem(key);
+};

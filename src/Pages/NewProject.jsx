@@ -5,8 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form } from "../Components/ui/form";
 import { Button } from "../Components/ui/button";
-import { BaseProjectForm } from "../Components/projects/forms/BaseProjectForm";
-import { GraphicDesignForm } from "../Components/projects/forms/GraphicDesignForm";
+import { BaseProjectForm ,clearBaseProjectAutosave} from "../Components/projects/forms/BaseProjectForm";
+import { GraphicDesignForm,clearGraphicDesignAutosave  } from "../Components/projects/forms/GraphicDesignForm";
 import { WebsiteDesignForm } from "../Components/projects/forms/WebsiteDesignForm";
 import { ContentWritingForm } from "../Components/projects/forms/ContentWritingForm";
 import { ERPForm } from "../Components/projects/forms/ERPForm";
@@ -543,7 +543,8 @@ export default function NewProject() {
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
-
+ clearGraphicDesignAutosave(generatedProjectId);
+ clearBaseProjectAutosave(generatedProjectId);
       toast.success("Project submitted successfully!");
       navigate(`/admin/projects`);
     } catch (error) {
@@ -688,6 +689,7 @@ export default function NewProject() {
                   form={form}
                   isEditMode={isEditMode}
                   existingData={existingProject?.graphicDesign}
+                   projectId={generatedProjectId}  
                 />
               )}
               {watchedServiceType === "WD" && (

@@ -1,3 +1,4 @@
+import { useEffect, useCallback, useRef } from "react";
 import {
   FormControl,
   FormField,
@@ -31,11 +32,12 @@ export function BaseProjectForm({
   currentUser = null,
   onTimerStart = null,
   showServiceForm = false,
-  // isAdmin = false,
   hideAdminFromDropdown = false,
   countdownTimerComponent = null,
 }) {
   const { teamMembers } = useProjects();
+  const saveTimeoutRef = useRef(null);
+  
   const statuses = [
     "Draft",
     "Accepted",
@@ -67,6 +69,73 @@ export function BaseProjectForm({
       currentUser?.email && member.email === currentUser.email;
     return !matchByName && !matchByEmail;
   });
+
+  // ✅ FIX: Memoize localStorage key function
+  const getLocalStorageKey = useCallback(() => {
+    return `baseProject_autosave_${projectId || 'new'}`;
+  }, [projectId]);
+
+  // ✅ FIX: Debounced save function
+  const saveToLocalStorage = useCallback((value) => {
+    if (isEditMode || !projectId) return;
+    
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Debounce the save by 300ms
+    saveTimeoutRef.current = setTimeout(() => {
+      const key = getLocalStorageKey();
+      const dataToSave = {
+        internalNotes: value || '',
+        timestamp: new Date().toISOString()
+      };
+      
+      try {
+        localStorage.setItem(key, JSON.stringify(dataToSave));
+        console.log('💾 BaseProject - Saved to localStorage:', key, dataToSave);
+      } catch (error) {
+        console.error('❌ BaseProject - Error saving:', error);
+      }
+    }, 300);
+  }, [isEditMode, projectId, getLocalStorageKey]);
+
+  // ✅ FIX: Load internalNotes from localStorage on mount
+  useEffect(() => {
+    if (isEditMode || !projectId) return;
+
+    const key = getLocalStorageKey();
+    const savedData = localStorage.getItem(key);
+    
+    console.log('🔍 BaseProject - Checking localStorage:', key, savedData);
+    
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (parsed.internalNotes) {
+          setTimeout(() => {
+            form.setValue('internalNotes', parsed.internalNotes, { 
+              shouldValidate: false,
+              shouldDirty: false 
+            });
+            console.log('✅ BaseProject - Restored internalNotes:', parsed.internalNotes);
+          }, 100);
+        }
+      } catch (error) {
+        console.error('❌ BaseProject - Error loading autosave:', error);
+      }
+    } else {
+      console.log('ℹ️ BaseProject - No saved data found');
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [isEditMode, projectId, form, getLocalStorageKey]);
 
   return (
     <div className="space-y-6">
@@ -197,7 +266,6 @@ export function BaseProjectForm({
               <Select
                 onValueChange={field.onChange}
                 value={field.value}
-                // disabled={isContentWriter}
               >
                 <FormControl>
                   <SelectTrigger
@@ -304,7 +372,7 @@ export function BaseProjectForm({
 
       {/* Estimated Time - Hours and Minutes with Start Button */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Assigned To Field - NOW STORES USER ID */}
+        {/* Assigned To Field */}
         <FormField
           control={form.control}
           name="assignedTo"
@@ -317,7 +385,6 @@ export function BaseProjectForm({
               {isEditMode ? (
                 <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
                   {(() => {
-                    // Find member by ID for display
                     const member = (teamMembers || []).find(
                       (m) => m.id === field.value,
                     );
@@ -337,7 +404,6 @@ export function BaseProjectForm({
                   <SelectContent>
                     {filteredTeamMembers.length > 0 ? (
                       filteredTeamMembers.map((member) => (
-                        // NOW USING member.id AS VALUE
                         <SelectItem key={member.id} value={member.id}>
                           {member.name} ({member.role})
                         </SelectItem>
@@ -355,109 +421,120 @@ export function BaseProjectForm({
           )}
         />
 
+        {/* Estimated Time Field */}
         <div>
           <FormLabel>Estimated Time</FormLabel>
-          <div className="flex gap-3 mt-2">
-            {/* Hours Dropdown - WITH LEADING ZEROS */}
-            <FormField
-              control={form.control}
-              name="estimatedHours"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value?.toString()}
-                    disabled={isEditMode}
-                  >
-                    <FormControl>
-                      <SelectTrigger
-                        className={
-                          isEditMode
-                            ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                            : ""
-                        }
-                      >
-                        <SelectValue placeholder="Hours" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {hoursOptions.map((hour) => (
-                        <SelectItem key={hour} value={hour.toString()}>
-                          {String(hour).padStart(2, "0")}{" "}
-                          {hour === 1 ? "hour" : "hours"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          {isEditMode ? (
+            <div className="flex gap-3 mt-2">
+              <FormField
+                control={form.control}
+                name="estimatedHours"
+                render={({ field }) => (
+                  <div className="flex-1 px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    {String(field.value || 0).padStart(2, "0")} {field.value == "1" ? "hour" : "hours"}
+                  </div>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="estimatedMinutes"
+                render={({ field }) => (
+                  <div className="flex-1 px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    {String(field.value || 0).padStart(2, "0")} {field.value == "1" ? "min" : "mins"}
+                  </div>
+                )}
+              />
+            </div>
+          ) : (
+            <div className="flex gap-3 mt-2">
+              {/* Hours Dropdown */}
+              <FormField
+                control={form.control}
+                name="estimatedHours"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Hours" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {hoursOptions.map((hour) => (
+                          <SelectItem key={hour} value={hour.toString()}>
+                            {String(hour).padStart(2, "0")}{" "}
+                            {hour === 1 ? "hour" : "hours"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Minutes Dropdown - WITH LEADING ZEROS */}
-            <FormField
-              control={form.control}
-              name="estimatedMinutes"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value?.toString()}
-                    disabled={isEditMode}
-                  >
-                    <FormControl>
-                      <SelectTrigger
-                        className={
-                          isEditMode
-                            ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                            : ""
-                        }
-                      >
-                        <SelectValue placeholder="Minutes" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {minutesOptions.map((minute) => (
-                        <SelectItem key={minute} value={minute.toString()}>
-                          {String(minute).padStart(2, "0")}{" "}
-                          {minute === 1 ? "min" : "mins"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              {/* Minutes Dropdown */}
+              <FormField
+                control={form.control}
+                name="estimatedMinutes"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value?.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Minutes" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {minutesOptions.map((minute) => (
+                          <SelectItem key={minute} value={minute.toString()}>
+                            {String(minute).padStart(2, "0")}{" "}
+                            {minute === 1 ? "min" : "mins"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Start Button */}
-            {!isEditMode && onTimerStart && (
-              <button
-                type="button"
-                onClick={onTimerStart}
-                className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              {/* Start Button */}
+              {!isEditMode && onTimerStart && (
+                <button
+                  type="button"
+                  onClick={onTimerStart}
+                  className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
                 >
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                Start
-              </button>
-            )}
-          </div>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Start
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* ✅ FIX: Internal Notes with direct onChange handler */}
       <FormField
         control={form.control}
         name="internalNotes"
@@ -469,6 +546,13 @@ export function BaseProjectForm({
                 placeholder="Add any internal notes or comments..."
                 className="min-h-[100px]"
                 {...field}
+                value={field.value || ''}
+                onChange={(e) => {
+                  // Call the form's onChange first
+                  field.onChange(e);
+                  // Then save to localStorage
+                  saveToLocalStorage(e.target.value);
+                }}
               />
             </FormControl>
             <FormMessage />
@@ -478,3 +562,9 @@ export function BaseProjectForm({
     </div>
   );
 }
+
+// Export function to clear localStorage
+export const clearBaseProjectAutosave = (projectId) => {
+  const key = `baseProject_autosave_${projectId || 'new'}`;
+  localStorage.removeItem(key);
+};
