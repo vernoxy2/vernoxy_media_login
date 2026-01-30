@@ -69,6 +69,18 @@ const projectSchema = z.object({
       postType: z.string().optional(),
       platform: z.string().optional(),
       size: z.string().optional(),
+      link: z
+        .array(
+          z
+            .string()
+            .trim()
+            .refine(
+              (val) =>
+                val === "" || /^(https?:\/\/|www\.)[^\s]+\.[^\s]+$/.test(val),
+              "Please enter a valid link (http, https, or www)",
+            ),
+        )
+        .optional(),
       mainText: z.string().optional(),
       subText: z.string().optional(),
       ctaText: z.string().optional(),
@@ -83,7 +95,19 @@ const projectSchema = z.object({
       websiteType: z.string().optional(),
       numberOfPages: z.string().optional(),
       technologyPreference: z.string().optional(),
-      referenceWebsites: z.string().optional(),
+      // referenceWebsites: z.string().optional(),
+      link: z
+        .array(
+          z
+            .string()
+            .trim()
+            .refine(
+              (val) =>
+                val === "" || /^(https?:\/\/|www\.)[^\s]+\.[^\s]+$/.test(val),
+              "Please enter a valid link (http, https, or www)",
+            ),
+        )
+        .optional(),
       pages: z
         .array(
           z.object({
@@ -171,6 +195,7 @@ export default function NewProject() {
         postType: "",
         platform: "",
         size: "",
+        link: [""],
         mainText: "",
         subText: "",
         ctaText: "",
@@ -181,14 +206,16 @@ export default function NewProject() {
       websiteDesign: {
         websiteType: "",
         numberOfPages: "",
+        link: [""],
         technologyPreference: "",
-        referenceWebsites: "",
+        // referenceWebsites: "",
         pages: [],
       },
       contentWriting: {
         contentType: "",
         wordCount: "",
         tone: "",
+        // link: [""],
         mainContent: "",
         cta: "",
         seoKeywords: "",
@@ -197,6 +224,7 @@ export default function NewProject() {
       erp: {
         erpType: "",
         modulesRequired: [],
+        // link: [""],
         workflowDescription: "",
         userRoles: "",
         integrationsRequired: "",
@@ -234,7 +262,6 @@ export default function NewProject() {
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
-        // ✅ FIX: Load from user's task, not project-level
         estimatedHours: userTask?.estimatedHours || "0",
         estimatedMinutes: userTask?.estimatedMinutes || "0",
         graphicDesign: graphicDesignData,
@@ -242,7 +269,8 @@ export default function NewProject() {
           websiteType: "",
           numberOfPages: "",
           technologyPreference: "",
-          referenceWebsites: "",
+          link: [""],
+          // referenceWebsites: "",
           pages: [],
         },
         contentWriting: existingProject.contentWriting || {
@@ -424,34 +452,26 @@ export default function NewProject() {
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-
     try {
       const projectIdToUpdate = isEditMode ? id : createdProjectId;
-
       if (!projectIdToUpdate) {
         throw new Error("No project ID found. Please start the timer first.");
       }
-
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
-
       const existingProject = getProjectById(projectIdToUpdate);
       let updatedUserTasks = existingProject?.userTasks || [];
-
       const userTaskIndex = updatedUserTasks.findIndex(
         (task) => task.userId === currentUserId,
       );
 
       if (userTaskIndex !== -1) {
-        // ✅ FIX: Preserve estimated time from existing task (form fields are disabled in edit mode)
         const existingTask = updatedUserTasks[userTaskIndex];
-        
         updatedUserTasks[userTaskIndex] = {
           ...existingTask,
           taskStatus: "completed",
           endTime: currentTime,
           completedAt: currentDateTime,
-          // ✅ CRITICAL FIX: Keep existing estimated time (don't rely on form data)
           estimatedHours: existingTask.estimatedHours,
           estimatedMinutes: existingTask.estimatedMinutes,
           timeLog: [
@@ -493,6 +513,9 @@ export default function NewProject() {
           postType: data.graphicDesign?.postType || "",
           platform: data.graphicDesign?.platform || "",
           size: data.graphicDesign?.size || "",
+          link: (data.graphicDesign?.link || []).filter(
+            (l) => l && l.trim() !== "",
+          ),
           mainText: data.graphicDesign?.mainText || "",
           subText: data.graphicDesign?.subText || "",
           ctaText: data.graphicDesign?.ctaText || "",
@@ -636,7 +659,12 @@ export default function NewProject() {
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form
+          onSubmit={form.handleSubmit(onSubmit, (errors) =>
+            console.log("FORM ERRORS 👉", errors),
+          )}
+          className="space-y-8"
+        >
           <div className="rounded-xl border border-border bg-card p-6">
             <h2 className="mb-6 text-lg font-semibold text-foreground">
               Project Information
