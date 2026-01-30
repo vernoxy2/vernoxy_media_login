@@ -85,39 +85,34 @@ const Header = ({ toggleMobileSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      // ✅ Pause timer BEFORE logout if it's running
-      if (activeTimer && isRunning) {
-        await pauseTimer('User logged out');
-        // Small delay to ensure Firebase update completes
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-
-      // ✅ LOG THE LOGOUT TO loginLogs COLLECTION
-      try {
-        await logUserLogout();
-        console.log("Logout logged successfully");
-      } catch (logError) {
-        console.error("Failed to log logout:", logError);
-        // Don't block logout if logging fails
-      }
-      
-      // Then proceed with logout
-      await auth.signOut();
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("userRole");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("userEmail");
-      localStorage.removeItem("userDisplayRole");
-      localStorage.removeItem("userDepartment");
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error("Logout error:", error);
-      localStorage.clear();
-      navigate("/login", { replace: true });
+const handleLogout = async () => {
+  try {
+    // Pause timer before logout
+    if (activeTimer && isRunning) {
+      await pauseTimer('User logged out');
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
-  };
+
+    // Log logout (non-blocking)
+    try {
+      await logUserLogout();
+      console.log("Logout logged successfully");
+    } catch (logError) {
+      console.error("Failed to log logout:", logError);
+    }
+
+    // Firebase sign out
+    await auth.signOut();
+  } catch (error) {
+    console.error("Logout error:", error);
+  } finally {
+    // ✅ ALWAYS clear localStorage
+    localStorage.clear();
+
+    // Redirect no matter what
+    navigate("/login", { replace: true });
+  }
+};
 
   const handlePauseClick = () => {
     setShowPauseModal(true);
