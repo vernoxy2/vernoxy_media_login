@@ -5,11 +5,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form } from "../Components/ui/form";
 import { Button } from "../Components/ui/button";
-import { BaseProjectForm ,clearBaseProjectAutosave} from "../Components/projects/forms/BaseProjectForm";
-import { GraphicDesignForm,clearGraphicDesignAutosave  } from "../Components/projects/forms/GraphicDesignForm";
-import { WebsiteDesignForm } from "../Components/projects/forms/WebsiteDesignForm";
+import {
+  BaseProjectForm,
+  clearBaseProjectAutosave,
+} from "../Components/projects/forms/BaseProjectForm";
+import {
+  GraphicDesignForm,
+  clearGraphicDesignAutosave,
+} from "../Components/projects/forms/GraphicDesignForm";
+import {
+  WebsiteDesignForm,
+  clearWebsiteDesignAutosave,
+} from "../Components/projects/forms/WebsiteDesignForm";
 import { ContentWritingForm } from "../Components/projects/forms/ContentWritingForm";
-import { ERPForm } from "../Components/projects/forms/ERPForm";
+import {
+  ERPForm,
+  clearERPAutosave,
+} from "../Components/projects/forms/ERPForm";
 import { useProjects } from "../context/ProjectContext";
 import { useTimer } from "../context/TimerContext";
 import { generateProjectId, generateClientCode } from "../lib/projectUtils";
@@ -145,6 +157,18 @@ const projectSchema = z.object({
   erp: z
     .object({
       erpType: z.string().optional(),
+      link: z
+        .array(
+          z
+            .string()
+            .trim()
+            .refine(
+              (val) =>
+                val === "" || /^(https?:\/\/|www\.)[^\s]+\.[^\s]+$/.test(val),
+              "Please enter a valid link (http, https, or www)",
+            ),
+        )
+        .optional(),
       modulesRequired: z.array(z.string()).optional(),
       workflowDescription: z.string().optional(),
       userRoles: z.string().optional(),
@@ -208,7 +232,6 @@ export default function NewProject() {
         numberOfPages: "",
         link: [""],
         technologyPreference: "",
-        // referenceWebsites: "",
         pages: [],
       },
       contentWriting: {
@@ -224,7 +247,7 @@ export default function NewProject() {
       erp: {
         erpType: "",
         modulesRequired: [],
-        // link: [""],
+        link: [""],
         workflowDescription: "",
         userRoles: "",
         integrationsRequired: "",
@@ -543,8 +566,11 @@ export default function NewProject() {
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
- clearGraphicDesignAutosave(generatedProjectId);
- clearBaseProjectAutosave(generatedProjectId);
+      clearGraphicDesignAutosave(generatedProjectId);
+      clearBaseProjectAutosave(generatedProjectId);
+      clearWebsiteDesignAutosave(generatedProjectId);
+      clearERPAutosave(generatedProjectId);
+
       toast.success("Project submitted successfully!");
       navigate(`/admin/projects`);
     } catch (error) {
@@ -689,17 +715,27 @@ export default function NewProject() {
                   form={form}
                   isEditMode={isEditMode}
                   existingData={existingProject?.graphicDesign}
-                   projectId={generatedProjectId}  
+                  projectId={generatedProjectId}
                 />
               )}
               {watchedServiceType === "WD" && (
-                <WebsiteDesignForm form={form} isEditMode={isEditMode} />
+                <WebsiteDesignForm
+                  form={form}
+                  isEditMode={isEditMode}
+                  existingData={existingProject?.websiteDesign}
+                  projectId={generatedProjectId} // ✅ ADD THIS
+                />
               )}
               {watchedServiceType === "CW" && (
                 <ContentWritingForm form={form} isEditMode={isEditMode} />
               )}
               {watchedServiceType === "ERP" && (
-                <ERPForm form={form} isEditMode={isEditMode} />
+                <ERPForm
+                  form={form}
+                  isEditMode={isEditMode}
+                  existingData={existingProject?.erp}
+                  projectId={generatedProjectId} // ✅ ADD THIS
+                />
               )}
 
               <div className="flex items-center justify-end gap-4">
