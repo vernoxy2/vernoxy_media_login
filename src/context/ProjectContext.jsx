@@ -359,6 +359,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+   onSnapshot, 
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -457,6 +458,78 @@ export function ProjectProvider({ children }) {
       fetchProjects();
     }
   }, [authLoading]);
+
+  // ✅ NEW: Real-time listener for projects (after initial load)
+  useEffect(() => {
+    if (authLoading || loading) {
+      return; // Wait for initial load to complete
+    }
+
+    if (!auth.currentUser) {
+      console.warn("⚠️ No authenticated user for real-time listener");
+      return;
+    }
+
+    console.log("🔥 Setting up real-time listener for projects...");
+
+    const projectsRef = collection(db, "projects");
+    const q = query(projectsRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        console.log("📡 Real-time update received from Firebase");
+        
+        const projectsData = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+
+          // Handle timestamp conversion
+          let createdAtDate = new Date();
+          let updatedAtDate = new Date();
+
+          if (data.createdAt && typeof data.createdAt.toDate === "function") {
+            createdAtDate = data.createdAt.toDate();
+          } else if (data.createdAt instanceof Date) {
+            createdAtDate = data.createdAt;
+          } else if (data.createdAt) {
+            createdAtDate = new Date(data.createdAt);
+          }
+
+          if (data.updatedAt && typeof data.updatedAt.toDate === "function") {
+            updatedAtDate = data.updatedAt.toDate();
+          } else if (data.updatedAt instanceof Date) {
+            updatedAtDate = data.updatedAt;
+          } else if (data.updatedAt) {
+            updatedAtDate = new Date(data.updatedAt);
+          }
+
+          projectsData.push({
+            id: docSnap.id,
+            ...data,
+            createdAt: createdAtDate,
+            updatedAt: updatedAtDate,
+          });
+        });
+
+        // ✅ Update state silently (no loading spinner, no toast)
+        setProjects(projectsData);
+        console.log(`✅ Real-time update: ${projectsData.length} projects`);
+      },
+      (error) => {
+        console.error("❌ Real-time listener error:", error);
+        if (error.code === "permission-denied") {
+          toast.error("Permission denied for real-time updates");
+        }
+      }
+    );
+
+    // Cleanup listener on unmount
+    return () => {
+      console.log("🔴 Cleaning up real-time listener");
+      unsubscribe();
+    };
+  }, [authLoading, loading]); // Only run after initial auth and data load
 
   const fetchProjects = async () => {
     try {
