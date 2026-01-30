@@ -140,8 +140,8 @@ const handleLogout = async () => {
 
         {/* Timer Display - Center */}
         {activeTimer && (
-          <div className="flex-1 flex justify-center px-4">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-3 shadow-lg max-w-md w-full">
+          <div className="flex-1 flex px-4 justify-end items-end">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-3 shadow-lg max-w-md ">
               <div className="flex items-center justify-between gap-3">
                 {/* Timer Info */}
                 <div className="flex items-center gap-2 flex-1">
@@ -157,7 +157,7 @@ const handleLogout = async () => {
                 </div>
 
                 {/* Controls - Only Pause/Resume */}
-                <div className="flex gap-1.5">
+                <div className="flex gap-1.5 ">
                   <button
                     type="button"
                     onClick={isRunning ? handlePauseClick : resumeTimer}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useFieldArray } from "react-hook-form";
 import {
   FormControl,
@@ -30,6 +30,7 @@ export function WebsiteDesignForm({
   form,
   isEditMode = false,
   existingData = null,
+  projectId,
 }) {
   const {
     fields: pageFields,
@@ -39,25 +40,51 @@ export function WebsiteDesignForm({
     control: form.control,
     name: "websiteDesign.pages",
   });
-  
-  const [links, setLinks] = useState([""]);
 
-  // ✅ Load existing links when in edit mode
+  const [links, setLinks] = useState([""]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hasLoadedFromStorage = useRef(false);
+
+  // ✅ Load links from localStorage when component mounts
   useEffect(() => {
+    // Try to get links from localStorage first
+    const storedLinks = localStorage.getItem("websiteDesignLinks");
+
+    if (storedLinks) {
+      try {
+        // If localStorage has links, use them
+        const parsedLinks = JSON.parse(storedLinks);
+        if (parsedLinks && parsedLinks.length > 0) {
+          setLinks(parsedLinks);
+          return;
+        }
+      } catch (error) {
+        console.error("Error parsing stored links:", error);
+      }
+    }
+
+    // Otherwise, check if we're in edit mode with existing data
     if (isEditMode && existingData?.link && existingData.link.length > 0) {
-      const validLinks = existingData.link.filter(link => link && link.trim() !== "");
+      const validLinks = existingData.link.filter(
+        (link) => link && link.trim() !== "",
+      );
       if (validLinks.length > 0) {
         setLinks(validLinks);
+        // Store in localStorage
+        localStorage.setItem("websiteDesignLinks", JSON.stringify(validLinks));
       } else {
         setLinks([""]);
       }
     }
   }, [isEditMode, existingData]);
 
-  // ✅ Update form value whenever links change
+  // ✅ Update form value AND localStorage whenever links change
   useEffect(() => {
     const filteredLinks = links.filter((link) => link && link.trim() !== "");
     form.setValue("websiteDesign.link", filteredLinks);
+
+    // Save to localStorage
+    localStorage.setItem("websiteDesignLinks", JSON.stringify(links));
   }, [links, form]);
 
   const addLink = () => {
@@ -71,8 +98,134 @@ export function WebsiteDesignForm({
   };
 
   const removeLink = (index) => {
-    setLinks(links.filter((_, i) => i !== index));
+    const updatedLinks = links.filter((_, i) => i !== index);
+    setLinks(updatedLinks);
   };
+
+  // ✅ ADD THIS - Memoize localStorage key
+  const getLocalStorageKey = useCallback(() => {
+    return `websiteDesign_autosave_${projectId || "new"}`;
+  }, [projectId]);
+
+  // ✅ ADD THIS - Save function
+  const saveToLocalStorage = useCallback(
+    (watchedValues) => {
+      if (!isInitialized) return;
+
+      const websiteData = watchedValues?.websiteDesign || {};
+
+      const formData = {
+        websiteType: websiteData.websiteType || "",
+        numberOfPages: websiteData.numberOfPages || "",
+        technologyPreference: websiteData.technologyPreference || "",
+        link: (websiteData.link || []).filter((l) => l && l.trim() !== ""),
+        pages: websiteData.pages || [],
+      };
+
+      const dataToSave = {
+        formData,
+        timestamp: new Date().toISOString(),
+      };
+
+      const key = getLocalStorageKey();
+      localStorage.setItem(key, JSON.stringify(dataToSave));
+      console.log("✅ Website Design saved to localStorage:", key, dataToSave);
+    },
+    [getLocalStorageKey, isInitialized],
+  );
+
+  // ✅ ADD THIS COMPLETE useEffect
+  useEffect(() => {
+    if (hasLoadedFromStorage.current || !projectId) return;
+
+    const key = getLocalStorageKey();
+    const savedData = localStorage.getItem(key);
+
+    console.log("🔍 Checking Website Design localStorage:", key, savedData);
+
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+
+        if (!isEditMode || !existingData) {
+          console.log("📥 Restoring Website Design from localStorage:", parsed);
+
+          setTimeout(() => {
+            if (parsed.formData) {
+              if (parsed.formData.websiteType) {
+                form.setValue(
+                  "websiteDesign.websiteType",
+                  parsed.formData.websiteType,
+                  {
+                    shouldValidate: false,
+                    shouldDirty: false,
+                  },
+                );
+              }
+              if (parsed.formData.numberOfPages) {
+                form.setValue(
+                  "websiteDesign.numberOfPages",
+                  parsed.formData.numberOfPages,
+                  {
+                    shouldValidate: false,
+                    shouldDirty: false,
+                  },
+                );
+              }
+              if (parsed.formData.technologyPreference) {
+                form.setValue(
+                  "websiteDesign.technologyPreference",
+                  parsed.formData.technologyPreference,
+                  {
+                    shouldValidate: false,
+                    shouldDirty: false,
+                  },
+                );
+              }
+              if (parsed.formData.link && parsed.formData.link.length > 0) {
+                setLinks(parsed.formData.link);
+                form.setValue("websiteDesign.link", parsed.formData.link, {
+                  shouldValidate: false,
+                  shouldDirty: false,
+                });
+              }
+              if (parsed.formData.pages && parsed.formData.pages.length > 0) {
+                form.setValue("websiteDesign.pages", parsed.formData.pages, {
+                  shouldValidate: false,
+                  shouldDirty: false,
+                });
+              }
+            }
+
+            hasLoadedFromStorage.current = true;
+            setIsInitialized(true);
+          }, 100);
+        } else {
+          hasLoadedFromStorage.current = true;
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        console.error("❌ Error loading Website Design autosaved data:", error);
+        hasLoadedFromStorage.current = true;
+        setIsInitialized(true);
+      }
+    } else {
+      console.log("ℹ️ No Website Design saved data found");
+      hasLoadedFromStorage.current = true;
+      setIsInitialized(true);
+    }
+  }, [projectId, isEditMode, existingData, form, getLocalStorageKey]);
+
+  // ✅ ADD THIS - Watch and auto-save
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const subscription = form.watch((value) => {
+      saveToLocalStorage(value);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form, saveToLocalStorage, isInitialized]);
 
   const addPage = () => {
     appendPage({
@@ -116,7 +269,7 @@ export function WebsiteDesignForm({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Website Type</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
@@ -167,7 +320,7 @@ export function WebsiteDesignForm({
             <FormItem>
               <FormLabel>Technology Preference</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., React, WordPress" {...field} />
+                <Input placeholder="e.g., React, WordPress" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -404,7 +557,7 @@ function PageSections({ form, pageIndex, sectionTypes }) {
               size="sm"
               className="text-destructive hover:text-destructive"
               onClick={() => remove(sectionIndex)}
-              >
+            >
               <Trash2 className="mr-1 h-3 w-3" />
               Remove
             </Button>
@@ -414,3 +567,9 @@ function PageSections({ form, pageIndex, sectionTypes }) {
     </div>
   );
 }
+// ✅ ADD THIS at the end of file (after PageSections function)
+export const clearWebsiteDesignAutosave = (projectId) => {
+  const key = `websiteDesign_autosave_${projectId || 'new'}`;
+  localStorage.removeItem(key);
+  console.log('🗑️ Cleared Website Design autosave:', key);
+};

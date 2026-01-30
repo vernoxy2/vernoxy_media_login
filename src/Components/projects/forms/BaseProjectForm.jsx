@@ -23,6 +23,7 @@ import {
   CURRENT_MONTH,
 } from "../../../types/project";
 import { useProjects } from "../../../context/ProjectContext";
+import { useNavigate } from "react-router-dom";
 
 export function BaseProjectForm({
   form,
@@ -37,7 +38,7 @@ export function BaseProjectForm({
 }) {
   const { teamMembers } = useProjects();
   const saveTimeoutRef = useRef(null);
-  
+const navigate = useNavigate();
   const statuses = [
     "Draft",
     "Accepted",
@@ -72,34 +73,36 @@ export function BaseProjectForm({
 
   // ✅ FIX: Memoize localStorage key function
   const getLocalStorageKey = useCallback(() => {
-    return `baseProject_autosave_${projectId || 'new'}`;
+    return `baseProject_autosave_${projectId || "new"}`;
   }, [projectId]);
 
   // ✅ FIX: Debounced save function
-  const saveToLocalStorage = useCallback((value) => {
-    if (isEditMode || !projectId) return;
-    
-    // Clear any pending save
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    // Debounce the save by 300ms
-    saveTimeoutRef.current = setTimeout(() => {
-      const key = getLocalStorageKey();
-      const dataToSave = {
-        internalNotes: value || '',
-        timestamp: new Date().toISOString()
-      };
-      
-      try {
-        localStorage.setItem(key, JSON.stringify(dataToSave));
-        console.log('💾 BaseProject - Saved to localStorage:', key, dataToSave);
-      } catch (error) {
-        console.error('❌ BaseProject - Error saving:', error);
+  const saveToLocalStorage = useCallback(
+    (value) => {
+      if (isEditMode || !projectId) return;
+
+      // Clear any pending save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-    }, 300);
-  }, [isEditMode, projectId, getLocalStorageKey]);
+
+      // Debounce the save by 300ms
+      saveTimeoutRef.current = setTimeout(() => {
+        const key = getLocalStorageKey();
+        const dataToSave = {
+          internalNotes: value || "",
+          timestamp: new Date().toISOString(),
+        };
+
+        try {
+          localStorage.setItem(key, JSON.stringify(dataToSave));
+        } catch (error) {
+          console.error("❌ BaseProject - Error saving:", error);
+        }
+      }, 300);
+    },
+    [isEditMode, projectId, getLocalStorageKey],
+  );
 
   // ✅ FIX: Load internalNotes from localStorage on mount
   useEffect(() => {
@@ -107,28 +110,27 @@ export function BaseProjectForm({
 
     const key = getLocalStorageKey();
     const savedData = localStorage.getItem(key);
-    
-    console.log('🔍 BaseProject - Checking localStorage:', key, savedData);
-    
+
+    console.log("🔍 BaseProject - Checking localStorage:", key, savedData);
+
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
         if (parsed.internalNotes) {
           setTimeout(() => {
-            form.setValue('internalNotes', parsed.internalNotes, { 
+            form.setValue("internalNotes", parsed.internalNotes, {
               shouldValidate: false,
-              shouldDirty: false 
+              shouldDirty: false,
             });
-            console.log('✅ BaseProject - Restored internalNotes:', parsed.internalNotes);
           }, 100);
         }
       } catch (error) {
-        console.error('❌ BaseProject - Error loading autosave:', error);
+        console.error("❌ BaseProject - Error loading autosave:", error);
       }
     } else {
-      console.log('ℹ️ BaseProject - No saved data found');
+      console.log("ℹ️ BaseProject - No saved data found");
     }
-    
+
     // Cleanup timeout on unmount
     return () => {
       if (saveTimeoutRef.current) {
@@ -263,10 +265,7 @@ export function BaseProjectForm({
               <FormLabel>
                 Status <span className="text-destructive">*</span>
               </FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value}
-              >
+              <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger
                     className={
@@ -431,7 +430,8 @@ export function BaseProjectForm({
                 name="estimatedHours"
                 render={({ field }) => (
                   <div className="flex-1 px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                    {String(field.value || 0).padStart(2, "0")} {field.value == "1" ? "hour" : "hours"}
+                    {String(field.value || 0).padStart(2, "0")}{" "}
+                    {field.value == "1" ? "hour" : "hours"}
                   </div>
                 )}
               />
@@ -440,7 +440,8 @@ export function BaseProjectForm({
                 name="estimatedMinutes"
                 render={({ field }) => (
                   <div className="flex-1 px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                    {String(field.value || 0).padStart(2, "0")} {field.value == "1" ? "min" : "mins"}
+                    {String(field.value || 0).padStart(2, "0")}{" "}
+                    {field.value == "1" ? "min" : "mins"}
                   </div>
                 )}
               />
@@ -509,7 +510,10 @@ export function BaseProjectForm({
               {!isEditMode && onTimerStart && (
                 <button
                   type="button"
-                  onClick={onTimerStart}
+                  onClick={async () => {
+                    await onTimerStart(); // First start the timer
+                    navigate("/admin/projects"); // Then navigate
+                  }}
                   className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
                 >
                   <svg
@@ -535,7 +539,7 @@ export function BaseProjectForm({
       </div>
 
       {/* ✅ FIX: Internal Notes with direct onChange handler */}
-      <FormField
+      {/* <FormField
         control={form.control}
         name="internalNotes"
         render={({ field }) => (
@@ -558,13 +562,13 @@ export function BaseProjectForm({
             <FormMessage />
           </FormItem>
         )}
-      />
+      /> */}
     </div>
   );
 }
 
 // Export function to clear localStorage
 export const clearBaseProjectAutosave = (projectId) => {
-  const key = `baseProject_autosave_${projectId || 'new'}`;
+  const key = `baseProject_autosave_${projectId || "new"}`;
   localStorage.removeItem(key);
 };
