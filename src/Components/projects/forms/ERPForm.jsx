@@ -489,7 +489,7 @@ export function ERPForm({ form, isEditMode = false, existingData = null, project
               {links.length > 1 && (
                 <X
                   size={20}
-                  className="cursor-pointer text-red-500 hover:text-red-700"
+                  className="cursor-pointer text-gray-600 hover:text-black"
                   onClick={() => removeLink(index)}
                 />
               )}

@@ -101,6 +101,7 @@ export function WebsiteDesignForm({
     const updatedLinks = links.filter((_, i) => i !== index);
     setLinks(updatedLinks);
   };
+  
 
   // ✅ ADD THIS - Memoize localStorage key
   const getLocalStorageKey = useCallback(() => {
@@ -349,7 +350,7 @@ export function WebsiteDesignForm({
 
             {links.length > 1 && (
               <X
-                className="flex-shrink-0 cursor-pointer text-red-500"
+                className="flex-shrink-0 cursor-pointer text-black"
                 onClick={() => removeLink(index)}
               />
             )}
