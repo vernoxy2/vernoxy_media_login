@@ -18,7 +18,7 @@ import { auth, db } from "../../firebase";
 import { LogIn, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { logUserLogin } from "../../services/loginLogService";
 
-export default function AdminLogin() {
+export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -38,7 +38,7 @@ export default function AdminLogin() {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           // Both admin and user go to /admin
-          navigate("/admin", { replace: true });
+          navigate("/dashboard", { replace: true });
         }
       }
     };
@@ -97,7 +97,7 @@ export default function AdminLogin() {
           // Don't block login if logging fails
         }
         
-        navigate("/admin", { replace: true });
+        navigate("/dashboard", { replace: true });
       } else {
         setError("Access denied. Admin privileges required.");
         await auth.signOut();
@@ -306,7 +306,7 @@ export default function AdminLogin() {
             </div>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-white font-Bai_Jamjuree">
-            Login
+            Vernoxy Media CRM <br /> Login
           </h2>
         </div>
 

@@ -1,29 +1,18 @@
 import React from "react";
 import { SideBar } from "./SideBar";
 import Header from "./Header";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet,  } from "react-router-dom";
 
 
 const AdminLayout = () => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
-  const location = useLocation();
 
   const toggleMobileSidebar = () => setMobileOpen(!mobileOpen);
-
-  // Paths where header should be hidden
-  const hideHeaderPaths = [
-    "/admin/welcome",
-    "/admin/admin-page",
-    "/admin/user-page",
-    "/admin/dashboard"
-  ];
-
-  const shouldHideHeader = hideHeaderPaths.includes(location.pathname);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-x-hidden bg-white text-black">
       {/* Conditionally render Header */}
-      {!shouldHideHeader && <Header toggleMobileSidebar={toggleMobileSidebar} />}
+      { <Header toggleMobileSidebar={toggleMobileSidebar} />}
 
       <div className="flex flex-1 w-full">
         {/* Sidebar */}

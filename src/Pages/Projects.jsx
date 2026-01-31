@@ -68,7 +68,7 @@ export default function Projects() {
             Showing {filteredProjects.length} of {projects.length} projects 
           </p>
         </div>
-        <Link to="/admin/projects/new">
+        <Link to="/dashboard/projects/new">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             New Project

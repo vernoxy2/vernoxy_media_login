@@ -572,7 +572,7 @@ export default function NewProject() {
       clearERPAutosave(generatedProjectId);
 
       toast.success("Project submitted successfully!");
-      navigate(`/admin/projects`);
+      navigate(`/dashboard/projects`);
     } catch (error) {
       console.error("❌ Error saving project:", error);
       toast.error(`Error saving project: ${error.message}. Please try again.`);
@@ -593,7 +593,7 @@ export default function NewProject() {
         await stopTimer();
       }
 
-      navigate("/admin/projects");
+      navigate("/dashboard/projects");
     }
   };
 

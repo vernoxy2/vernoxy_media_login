@@ -17,46 +17,46 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 const navigation = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "All Projects", href: "/admin/projects", icon: FolderKanban },
-  { name: "New Project", href: "/admin/projects/new", icon: PlusCircle },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "All Projects", href: "/dashboard/projects", icon: FolderKanban },
+  { name: "New Project", href: "/dashboard/projects/new", icon: PlusCircle },
 ];
 
 const allServiceLinks = [
   {
     name: "Content Writing",
-    href: "/admin/projects?service=CW",
+    href: "/dashboard/projects?service=CW",
     icon: FileText,
     code: "CW",
   },
   {
     name: "Graphic Design",
-    href: "/admin/projects?service=GD",
+    href: "/dashboard/projects?service=GD",
     icon: Palette,
     code: "GD",
   },
   {
     name: "Website Design",
-    href: "/admin/projects?service=WD",
+    href: "/dashboard/projects?service=WD",
     icon: Globe,
     code: "WD",
   },
   {
     name: "ERP Development",
-    href: "/admin/projects?service=ERP",
+    href: "/dashboard/projects?service=ERP",
     icon: Code,
     code: "ERP",
   },
 ];
 
 const bottomNavigation = [
-  { name: "Team", href: "/admin/team", icon: Users },
-  { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Team", href: "/dashboard/team", icon: Users },
+  { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 // Admin-only navigation items
 const adminOnlyNavigation = [
-  { name: "User Login Logs", href: "/admin/login-logs", icon: ClipboardList },
+  { name: "User Login Logs", href: "/dashboard/login-logs", icon: ClipboardList },
 ];
 
 const departmentAccess = {
@@ -114,29 +114,29 @@ export function SideBar() {
     const currentPath = location.pathname;
     const currentSearch = location.search;
     const [hrefPath, hrefQuery] = href.split("?");
-    if (hrefPath === "/admin") {
+    if (hrefPath === "/dashboard") {
       return (
-        (currentPath === "/admin" || currentPath === "/admin/") &&
+        (currentPath === "/dashboard" || currentPath === "/dashboard/") &&
         !currentSearch
       );
     }
-    if (hrefPath === "/admin/projects/new") {
-      return currentPath === "/admin/projects/new";
+    if (hrefPath === "/dashboard/projects/new") {
+      return currentPath === "/dashboard/projects/new";
     }
-    if (hrefQuery && hrefPath === "/admin/projects") {
+    if (hrefQuery && hrefPath === "/dashboard/projects") {
       return (
-        currentPath === "/admin/projects" && currentSearch === `?${hrefQuery}`
+        currentPath === "/dashboard/projects" && currentSearch === `?${hrefQuery}`
       );
     }
-    if (hrefPath === "/admin/projects" && !hrefQuery) {
-      return currentPath === "/admin/projects" && !currentSearch;
+    if (hrefPath === "/dashboard/projects" && !hrefQuery) {
+      return currentPath === "/dashboard/projects" && !currentSearch;
     }
     return currentPath.startsWith(hrefPath);
   };
 
   const handleAllProjectsClick = (e) => {
     e.preventDefault();
-    navigate("/admin/projects");
+    navigate("/dashboard/projects");
   };
 
   const handleServiceClick = (e, href) => {
