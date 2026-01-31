@@ -11,10 +11,13 @@ import {
   Globe,
   Code,
   ClipboardList,
+  LogOut,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { logUserLogout } from "../../services/loginLogService";
+import { useTimer } from "../../context/TimerContext";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -56,7 +59,11 @@ const bottomNavigation = [
 
 // Admin-only navigation items
 const adminOnlyNavigation = [
-  { name: "User Login Logs", href: "/dashboard/login-logs", icon: ClipboardList },
+  {
+    name: "User Login Logs",
+    href: "/dashboard/login-logs",
+    icon: ClipboardList,
+  },
 ];
 
 const departmentAccess = {
@@ -73,6 +80,15 @@ export function SideBar() {
   const [userDepartment, setUserDepartment] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [filteredServices, setFilteredServices] = useState(allServiceLinks);
+  const [userEmail, setUserEmail] = useState(null);
+  const userInitial = userRole?.charAt(0).toUpperCase();
+
+  // Get timer context
+  const {
+    activeTimer,
+    isRunning,
+    pauseTimer,
+  } = useTimer();
 
   useEffect(() => {
     const auth = getAuth();
@@ -88,7 +104,9 @@ export function SideBar() {
             const role = userData.role;
             setUserDepartment(department);
             setUserRole(role);
-            
+            const email = user.email;
+            setUserEmail(email);
+
             if (role === "admin") {
               setFilteredServices(allServiceLinks);
             } else {
@@ -125,7 +143,8 @@ export function SideBar() {
     }
     if (hrefQuery && hrefPath === "/dashboard/projects") {
       return (
-        currentPath === "/dashboard/projects" && currentSearch === `?${hrefQuery}`
+        currentPath === "/dashboard/projects" &&
+        currentSearch === `?${hrefQuery}`
       );
     }
     if (hrefPath === "/dashboard/projects" && !hrefQuery) {
@@ -149,17 +168,65 @@ export function SideBar() {
     navigate(href);
   };
 
+  // Logout function matching Header component exactly
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+
+      // ✅ Pause timer BEFORE logout if it's running
+      if (activeTimer && isRunning) {
+        await pauseTimer('User logged out');
+        // Small delay to ensure Firebase update completes
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      // ✅ LOG THE LOGOUT TO loginLogs COLLECTION
+      try {
+        await logUserLogout();
+        console.log("Logout logged successfully");
+      } catch (logError) {
+        console.error("Failed to log logout:", logError);
+        // Don't block logout if logging fails
+      }
+      
+      // Then proceed with logout
+      await auth.signOut();
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userDisplayRole");
+      localStorage.removeItem("userDepartment");
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("Logout error:", error);
+      localStorage.clear();
+      navigate("/login", { replace: true });
+    }
+  };
+
   return (
     <aside className="flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border">
-      <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-border">
+      {/* Logo */}
+      <div className="flex h-16 items-center text-start gap-3 px-6 border-b border-sidebar-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-          <FolderKanban className="h-4 w-4 text-sidebar-primary-foreground" />
+          <FolderKanban className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
-        <span className="text-lg font-semibold text-sidebar-foreground">
-          Vernoxy Media
-        </span>
+        <div>
+          <span className="text-lg font-semibold text-white">
+            Vernoxy Media
+          </span>
+          <p className="text-xs text-gray-400">
+            <span className="font-bold capitalize text-white">
+              {" "}
+              {userRole?.toLowerCase() === "admin" ? "Admin Panel" : userRole}
+            </span>
+            {userDepartment && ` | ${userDepartment}`}
+          </p>
+        </div>
       </div>
 
+      {/* Page Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="px-3">
           <div className="space-y-1">
@@ -277,6 +344,24 @@ export function SideBar() {
             </NavLink>
           ))}
         </div>
+      </div>
+
+      {/* User Profile */}
+      <div className="flex text-start items-center gap-3 rounded-lg p-3 transition-colors">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-primary text-white font-semibold text-sm">
+          {userInitial}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate capitalize">{userRole}</p>
+          <p className="text-xs text-gray-400 truncate">{userEmail}</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-[#4ED5E2]/30 text-gray-300 hover:text-white transition-colors"
+          title="Logout"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </div>
     </aside>
   );
