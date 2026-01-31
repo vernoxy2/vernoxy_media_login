@@ -84,11 +84,7 @@ export function SideBar() {
   const userInitial = userRole?.charAt(0).toUpperCase();
 
   // Get timer context
-  const {
-    activeTimer,
-    isRunning,
-    pauseTimer,
-  } = useTimer();
+  const { activeTimer, isRunning, pauseTimer } = useTimer();
 
   useEffect(() => {
     const auth = getAuth();
@@ -175,9 +171,9 @@ export function SideBar() {
 
       // ✅ Pause timer BEFORE logout if it's running
       if (activeTimer && isRunning) {
-        await pauseTimer('User logged out');
+        await pauseTimer("User logged out");
         // Small delay to ensure Firebase update completes
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise((resolve) => setTimeout(resolve, 800));
       }
 
       // ✅ LOG THE LOGOUT TO loginLogs COLLECTION
@@ -188,7 +184,7 @@ export function SideBar() {
         console.error("Failed to log logout:", logError);
         // Don't block logout if logging fails
       }
-      
+
       // Then proceed with logout
       await auth.signOut();
       localStorage.removeItem("isLoggedIn");
@@ -206,7 +202,7 @@ export function SideBar() {
   };
 
   return (
-    <aside className="flex h-screen w-64 flex-col bg-sidebar border-r border-sidebar-border">
+    <aside className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border">
       {/* Logo */}
       <div className="flex h-16 items-center text-start gap-3 px-6 border-b border-sidebar-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
@@ -242,7 +238,7 @@ export function SideBar() {
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                       isActive(item.href)
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -260,7 +256,7 @@ export function SideBar() {
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
                     isActive(item.href)
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -272,8 +268,8 @@ export function SideBar() {
 
           {/* Service Quick Links - FILTERED BY DEPARTMENT */}
           {filteredServices.length > 0 && (
-            <div className="mt-8">
-              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+            <div className="mt-4">
+              <h3 className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-sidebar-primary">
                 By Service
               </h3>
               <div className="space-y-1">
@@ -286,7 +282,7 @@ export function SideBar() {
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
                       isActive(item.href)
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -299,7 +295,7 @@ export function SideBar() {
 
           {/* Admin-Only Section */}
           {userRole === "admin" && (
-            <div className="mt-8">
+            <div className="mt-4">
               <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
                 LOGS
               </h3>
@@ -312,7 +308,7 @@ export function SideBar() {
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       isActive(item.href)
                         ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -323,36 +319,43 @@ export function SideBar() {
             </div>
           )}
         </div>
+
+        <hr className="mx-6 m-3 border-sidebar-border" />
+
+        {/* Bottom Navigation */}
+        <div className="p-3 pt-0">
+          <div className="space-y-1">
+            {bottomNavigation.map((item) => (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  isActive(item.href)
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.name}
+              </NavLink>
+            ))}
+          </div>
+        </div>
       </nav>
 
-      {/* Bottom Navigation */}
-      <div className="border-t border-sidebar-border p-3">
-        <div className="space-y-1">
-          {bottomNavigation.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive(item.href)
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.name}
-            </NavLink>
-          ))}
-        </div>
-      </div>
-
       {/* User Profile */}
-      <div className="flex text-start items-center gap-3 rounded-lg p-3 transition-colors">
+      <div
+        className="flex text-start items-center gap-3 p-3 transition-colors mx-2m mb-2 border-t border-sidebar-border
+      "
+      >
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-primary text-white font-semibold text-sm">
           {userInitial}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate capitalize">{userRole}</p>
+          <p className="text-sm font-medium text-white truncate capitalize">
+            {userRole}
+          </p>
           <p className="text-xs text-gray-400 truncate">{userEmail}</p>
         </div>
         <button
