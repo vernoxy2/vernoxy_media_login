@@ -49,37 +49,55 @@ export default function ProjectDetail() {
   const [timerInterval, setTimerInterval] = useState(null);
   const [liveUserTask, setLiveUserTask] = useState(null);
 
+  // useEffect(() => {
+  //   if (!project) return;
+  //   if (project.notes) {
+  //     setNotes(project.notes);
+  //   }
+  //   // Load estimated time from project (preserves the time even after refresh)
+  //   if (project.estimatedHours) {
+  //     setEstimatedHours(project.estimatedHours);
+  //   } else {
+  //     setEstimatedHours("0");
+  //   }
+
+  //   if (project.estimatedMinutes) {
+  //     setEstimatedMinutes(project.estimatedMinutes);
+  //   } else {
+  //     setEstimatedMinutes("0");
+  //   }
+
+  //   const userTask = project.userTasks?.find(
+  //     (task) => task.userId === currentUserId,
+  //   );
+
+  //   // Check if user has any task (started, paused, or completed)
+  //   if (userTask && userTask.timeLog && userTask.timeLog.length > 0) {
+  //     setHasTimerStarted(true);
+  //   } else {
+  //     setHasTimerStarted(false);
+  //   }
+  // }, [project, currentUserId]);
+
   useEffect(() => {
-    if (!project) return;
-
-    if (project.notes) {
-      setNotes(project.notes);
-    }
-
-    // Load estimated time from project (preserves the time even after refresh)
-    if (project.estimatedHours) {
-      setEstimatedHours(project.estimatedHours);
-    } else {
-      setEstimatedHours("0");
-    }
-
-    if (project.estimatedMinutes) {
-      setEstimatedMinutes(project.estimatedMinutes);
-    } else {
-      setEstimatedMinutes("0");
-    }
-
-    const userTask = project.userTasks?.find(
-      (task) => task.userId === currentUserId,
-    );
-
-    // Check if user has any task (started, paused, or completed)
-    if (userTask && userTask.timeLog && userTask.timeLog.length > 0) {
-      setHasTimerStarted(true);
-    } else {
-      setHasTimerStarted(false);
-    }
-  }, [project, currentUserId]);
+  if (!project) return;
+  if (project.notes) {
+    setNotes(project.notes);
+  }
+  const userTask = project.userTasks?.find(
+    (task) => task.userId === currentUserId,
+  );
+  const timerStarted = userTask && userTask.timeLog && userTask.timeLog.length > 0;
+  if (timerStarted) {
+    setHasTimerStarted(true);
+    setEstimatedHours(project.estimatedHours || "0");
+    setEstimatedMinutes(project.estimatedMinutes || "0");
+  } else {
+    setHasTimerStarted(false);
+    setEstimatedHours("0");
+    setEstimatedMinutes("0");
+  }
+}, [project, currentUserId]);
 
   useEffect(() => {
     if (!id) return;
@@ -662,7 +680,7 @@ export default function ProjectDetail() {
                 <div className="h-2 w-2 rounded-full bg-service-graphic" />
                 Graphic Design Details
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 text-start">
+              <div className="grid gap-4 md:grid-cols-3 text-start">
                 <div>
                   <p className="text-sm text-muted-foreground ">Post Type</p>
                   <p className=" text-foreground">
@@ -706,6 +724,36 @@ export default function ProjectDetail() {
                   </div>
                 )}
 
+                {Array.isArray(project?.graphicDesign?.link) &&
+                  project?.graphicDesign?.link?.some(
+                    (link) => link && link.trim() !== "",
+                  ) && (
+                    <div className="mb-6">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Reference Links
+                      </p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {project.graphicDesign.link
+                          .filter((link) => link && link.trim() !== "")
+                          .map((link, index) => (
+                            <li key={index} className="text-sm">
+                              <a
+                                href={
+                                  link.startsWith("http")
+                                    ? link
+                                    : `https://${link}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                              >
+                                {link}
+                              </a>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
                 {project.graphicDesign.designerNotes && (
                   <div className="mt-4 text-start">
                     <p className="text-sm text-muted-foreground">
@@ -716,31 +764,6 @@ export default function ProjectDetail() {
                     </p>
                   </div>
                 )}
-                {Array.isArray(project.graphicDesign?.link) &&
-                  project.graphicDesign.link.length > 0 && (
-                    <div className="mt-4 text-start">
-                      <p className="text-sm text-muted-foreground">
-                        Reference Links
-                      </p>
-
-                      {project.graphicDesign.link.map((link, index) => (
-                        <p
-                          key={index}
-                          className=" text-sm text-black underline "
-                        >
-                          <a
-                            href={
-                              link.startsWith("http") ? link : `https://${link}`
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {link}
-                          </a>
-                        </p>
-                      ))}
-                    </div>
-                  )}
               </div>
               <div className="grid gap-4 md:grid-cols-1 text-start">
                 {project.graphicDesign.mainText && (
@@ -997,29 +1020,34 @@ export default function ProjectDetail() {
                     {project.erp.integrationsRequired || "None"}
                   </p>
                 </div>
-                {Array.isArray(project.erp?.link) &&
-                  project.erp.link.length > 0 && (
-                    <div className="mt-4 text-start">
-                      <p className="text-sm text-muted-foreground">
+                {Array.isArray(project?.erp?.link) &&
+                  project?.erp?.link?.some(
+                    (link) => link && link.trim() !== "",
+                  ) && (
+                    <div className="mb-6">
+                      <p className="text-sm text-muted-foreground mb-2">
                         Reference Links
                       </p>
-
-                      {project.erp.link.map((link, index) => (
-                        <p
-                          key={index}
-                          className=" text-sm text-black underline "
-                        >
-                          <a
-                            href={
-                              link.startsWith("http") ? link : `https://${link}`
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {link}
-                          </a>
-                        </p>
-                      ))}
+                      <ul className="list-disc list-inside space-y-1">
+                        {project.erp.link
+                          .filter((link) => link && link.trim() !== "")
+                          .map((link, index) => (
+                            <li key={index} className="text-sm">
+                              <a
+                                href={
+                                  link.startsWith("http")
+                                    ? link
+                                    : `https://${link}`
+                                }
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                              >
+                                {link}
+                              </a>
+                            </li>
+                          ))}
+                      </ul>
                     </div>
                   )}
               </div>

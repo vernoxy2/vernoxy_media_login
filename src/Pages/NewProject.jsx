@@ -107,7 +107,6 @@ const projectSchema = z.object({
       websiteType: z.string().optional(),
       numberOfPages: z.string().optional(),
       technologyPreference: z.string().optional(),
-      // referenceWebsites: z.string().optional(),
       link: z
         .array(
           z
@@ -238,7 +237,6 @@ export default function NewProject() {
         contentType: "",
         wordCount: "",
         tone: "",
-        // link: [""],
         mainContent: "",
         cta: "",
         seoKeywords: "",
@@ -474,6 +472,9 @@ export default function NewProject() {
   };
 
   const onSubmit = async (data) => {
+    console.log("🔍 Form Data:", data);
+    console.log("🔍 Graphic Design Data:", data.graphicDesign);
+    console.log("🔍 Links Array:", data.graphicDesign?.link);
     setIsSubmitting(true);
     try {
       const projectIdToUpdate = isEditMode ? id : createdProjectId;
@@ -536,9 +537,9 @@ export default function NewProject() {
           postType: data.graphicDesign?.postType || "",
           platform: data.graphicDesign?.platform || "",
           size: data.graphicDesign?.size || "",
-          link: (data.graphicDesign?.link || []).filter(
-            (l) => l && l.trim() !== "",
-          ),
+          link: Array.isArray(data.graphicDesign?.link)
+            ? data.graphicDesign.link.filter((l) => l && l.trim() !== "")
+            : [],
           mainText: data.graphicDesign?.mainText || "",
           subText: data.graphicDesign?.subText || "",
           ctaText: data.graphicDesign?.ctaText || "",
@@ -547,6 +548,11 @@ export default function NewProject() {
           designerNotes: data.graphicDesign?.designerNotes || "",
           ...getTextUpdates(data.graphicDesign),
         };
+        console.log(
+          "✅ Updated Project Graphic Design:",
+          updatedProject.graphicDesign,
+        );
+        console.log("✅ Links being saved:", updatedProject.graphicDesign.link);
       }
 
       if (data.serviceType === "WD" && data.websiteDesign) {
@@ -562,6 +568,11 @@ export default function NewProject() {
       }
 
       await updateProject(projectIdToUpdate, updatedProject);
+      console.log("🚀 FINAL DATA SENDING TO FIREBASE:", updatedProject);
+      console.log(
+        "🚀 Graphic Design being sent:",
+        updatedProject.graphicDesign,
+      );
 
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
@@ -723,7 +734,7 @@ export default function NewProject() {
                   form={form}
                   isEditMode={isEditMode}
                   existingData={existingProject?.websiteDesign}
-                  projectId={generatedProjectId} // ✅ ADD THIS
+                  projectId={generatedProjectId}
                 />
               )}
               {watchedServiceType === "CW" && (
@@ -734,7 +745,7 @@ export default function NewProject() {
                   form={form}
                   isEditMode={isEditMode}
                   existingData={existingProject?.erp}
-                  projectId={generatedProjectId} // ✅ ADD THIS
+                  projectId={generatedProjectId}
                 />
               )}
 
