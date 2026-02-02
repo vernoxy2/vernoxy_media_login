@@ -539,7 +539,7 @@ export function BaseProjectForm({
                   type="button"
                   onClick={async () => {
                     await onTimerStart(); // First start the timer
-                    navigate("/admin/projects"); // Then navigate
+                    navigate("/dashboard/projects"); // Then navigate
                   }}
                   className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium flex items-center gap-2"
                 >
