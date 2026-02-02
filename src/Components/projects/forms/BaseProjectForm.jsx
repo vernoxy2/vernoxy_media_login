@@ -38,7 +38,7 @@ export function BaseProjectForm({
 }) {
   const { teamMembers } = useProjects();
   const saveTimeoutRef = useRef(null);
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const statuses = [
     "Draft",
     "Accepted",
@@ -301,7 +301,6 @@ const navigate = useNavigate();
         <FormField
           control={form.control}
           name="month"
-          defaultValue={CURRENT_MONTH}
           render={({ field }) => (
             <FormItem>
               <FormLabel>
@@ -309,16 +308,45 @@ const navigate = useNavigate();
                 {!isEditMode && <span className="text-destructive">*</span>}
               </FormLabel>
               {isEditMode ? (
-                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                <div className="px-3 py-2 rounded-md border bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400  ">
                   {field.value}
                 </div>
               ) : (
+                // <Select
+                //   onValueChange={field.onChange}
+                //   value={field.value}
+                //   defaultValue={field.value}
+                // >
+                //   <FormControl>
+                //     <SelectTrigger className="[&>span]:text-left [&>span]:block">
+                //       <SelectValue
+                //         placeholder="Select month"
+                //         style={{
+                //           textAlign: "left",
+                //           justifyContent: "flex-start",
+                //         }}
+                //       />
+                //       {field.value || "Select month"}
+                //     </SelectTrigger>
+                //   </FormControl>
+                //   <SelectContent>
+                //     {availableMonths.map((month) => (
+                //       <SelectItem key={month} value={month}>
+                //         {month}
+                //       </SelectItem>
+                //     ))}
+                //   </SelectContent>
+                // </Select>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="justify-start text-left">
+                      <SelectValue className="hidden" />
+                      <span className="text-left w-full block">
+                        {field.value || "Select month"}
+                      </span>
                     </SelectTrigger>
                   </FormControl>
+
                   <SelectContent>
                     {availableMonths.map((month) => (
                       <SelectItem key={month} value={month}>
@@ -332,7 +360,6 @@ const navigate = useNavigate();
             </FormItem>
           )}
         />
-
         {/* Year Field */}
         <FormField
           control={form.control}
