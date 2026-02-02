@@ -429,13 +429,11 @@ export default function NewProject() {
     const hours = parseInt(watchedEstimatedHours) || 0;
     const minutes = parseInt(watchedEstimatedMinutes) || 0;
     if (hours === 0 && minutes === 0) {
-      console.error("❌ No estimated time set");
       toast.error("Please set estimated time before starting timer!");
       return;
     }
 
     if (!generatedProjectId) {
-      console.error("❌ Project ID generation failed");
       toast.error("Project ID generation failed. Please try again.");
       return;
     }
@@ -618,7 +616,7 @@ export default function NewProject() {
       clearERPAutosave(generatedProjectId);
 
       toast.success("Project submitted successfully!");
-      navigate(`/dashboard/projects`);
+      navigate(`/admin/projects`);
     } catch (error) {
       toast.error(`Error saving project: ${error.message}. Please try again.`);
     } finally {
@@ -638,7 +636,7 @@ export default function NewProject() {
         await stopTimer();
       }
 
-      navigate("/dashboard/projects");
+      navigate("/admin/projects");
     }
   };
 
