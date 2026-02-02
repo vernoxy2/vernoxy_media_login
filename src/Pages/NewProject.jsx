@@ -416,14 +416,6 @@ export default function NewProject() {
   ]);
 
   const handleStartTimer = async () => {
-    console.log("⏰ handleStartTimer called");
-    console.log("📋 Validating fields...");
-    console.log("   Client Name:", watchedClientName);
-    console.log("   Country:", watchedCountry);
-    console.log("   Service Type:", watchedServiceType);
-    console.log("   Month:", watchedMonth);
-    console.log("   Year:", watchedYear);
-
     if (
       !watchedClientName ||
       !watchedCountry ||
@@ -431,16 +423,11 @@ export default function NewProject() {
       !watchedMonth ||
       !watchedYear
     ) {
-      console.error("❌ Missing required fields");
       toast.error("Please fill all required fields before starting timer!");
       return;
     }
-
     const hours = parseInt(watchedEstimatedHours) || 0;
     const minutes = parseInt(watchedEstimatedMinutes) || 0;
-
-    console.log("⏱️ Estimated time - Hours:", hours, "Minutes:", minutes);
-
     if (hours === 0 && minutes === 0) {
       console.error("❌ No estimated time set");
       toast.error("Please set estimated time before starting timer!");
@@ -511,8 +498,6 @@ export default function NewProject() {
         estimatedMinutes: watchedEstimatedMinutes,
         userId: currentUserId,
       });
-
-      console.log("✅ Timer started");
       setShowServiceForm(true);
       toast.success("Project created and timer started!");
     } catch (error) {
@@ -535,16 +520,9 @@ export default function NewProject() {
   };
 
   const onSubmit = async (data) => {
-    console.log("📝 Form submitted");
-    console.log("🔍 Form Data:", data);
-    console.log("🔍 Graphic Design Data:", data.graphicDesign);
-    console.log("🔍 Links Array:", data.graphicDesign?.link);
-    
     setIsSubmitting(true);
     try {
       const projectIdToUpdate = isEditMode ? id : createdProjectId;
-      console.log("🆔 Project ID to update:", projectIdToUpdate);
-      
       if (!projectIdToUpdate) {
         throw new Error("No project ID found. Please start the timer first.");
       }
@@ -629,14 +607,9 @@ export default function NewProject() {
       if (data.serviceType === "ERP" && data.erp) {
         updatedProject.erp = data.erp;
       }
-
-      console.log("🚀 FINAL DATA SENDING TO FIREBASE:", updatedProject);
       await updateProject(projectIdToUpdate, updatedProject);
-      console.log("✅ Project updated successfully");
-
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
-        console.log("⏹️ Timer stopped");
       }
       
       clearGraphicDesignAutosave(generatedProjectId);
@@ -645,9 +618,8 @@ export default function NewProject() {
       clearERPAutosave(generatedProjectId);
 
       toast.success("Project submitted successfully!");
-      navigate(`/admin/projects`);
+      navigate(`/dashboard/projects`);
     } catch (error) {
-      console.error("❌ Error saving project:", error);
       toast.error(`Error saving project: ${error.message}. Please try again.`);
     } finally {
       setIsSubmitting(false);
@@ -660,20 +632,17 @@ export default function NewProject() {
         "Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.",
       )
     ) {
-      console.log("🚫 Form cancelled");
       setShowServiceForm(false);
 
       if (activeTimer) {
         await stopTimer();
-        console.log("⏹️ Timer stopped due to cancellation");
       }
 
-      navigate("/admin/projects");
+      navigate("/dashboard/projects");
     }
   };
 
   if (loading) {
-    console.log("⏳ Loading...");
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -682,7 +651,6 @@ export default function NewProject() {
   }
 
   if (isEditMode && !existingProject) {
-    console.log("❌ Project not found in edit mode");
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
         <p className="text-muted-foreground">Project not found</p>
@@ -690,7 +658,6 @@ export default function NewProject() {
     );
   }
 
-  console.log("🎨 Rendering form");
 
   return (
     <div className="p-8 text-start">
