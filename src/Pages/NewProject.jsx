@@ -201,6 +201,12 @@ export default function NewProject() {
   const isAdmin = currentUser?.role === "admin";
   const currentUserId = localStorage.getItem("userId");
   const hideAdminFromDropdown = true;
+
+  console.log("🚀 NewProject Component Loaded");
+  console.log("📅 CURRENT_MONTH:", CURRENT_MONTH);
+  console.log("📅 CURRENT_YEAR:", CURRENT_YEAR);
+  console.log("🔧 isEditMode:", isEditMode);
+
   const form = useForm({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -254,12 +260,22 @@ export default function NewProject() {
     },
   });
 
+  console.log("📝 Form initialized with defaultValues");
+  console.log("📝 Initial form values:", form.getValues());
+
   useEffect(() => {
+    console.log("🔄 useEffect triggered");
+    console.log("🔧 isEditMode:", isEditMode);
+    console.log("🔧 existingProject:", existingProject);
+
     if (isEditMode && existingProject) {
-      // ✅ FIX: Load user-specific estimated time from their task
+      console.log("✏️ EDIT MODE - Loading existing project");
+      
       const userTask = existingProject.userTasks?.find(
         (task) => task.userId === currentUserId,
       );
+
+      console.log("👤 User task found:", userTask);
 
       const graphicDesignData = {
         postType: "",
@@ -278,8 +294,8 @@ export default function NewProject() {
         clientName: existingProject.clientName || "",
         country: existingProject.country || "",
         serviceType: existingProject.serviceType || "",
-        month: existingProject.month || "",
-        year: existingProject.year || "",
+        month: existingProject.month || CURRENT_MONTH,
+        year: existingProject.year || CURRENT_YEAR,
         status: existingProject.status || "Draft",
         assignedTo: existingProject.assignedTo || "",
         internalNotes: existingProject.internalNotes || "",
@@ -291,7 +307,6 @@ export default function NewProject() {
           numberOfPages: "",
           technologyPreference: "",
           link: [""],
-          // referenceWebsites: "",
           pages: [],
         },
         contentWriting: existingProject.contentWriting || {
@@ -313,10 +328,35 @@ export default function NewProject() {
         },
       });
       setShowServiceForm(true);
+      console.log("✅ Edit mode form reset complete");
     } else {
+      console.log("🆕 NEW PROJECT MODE");
+      console.log("🔧 Setting default values...");
+      console.log("🔧 CURRENT_MONTH:", CURRENT_MONTH);
+      console.log("🔧 CURRENT_YEAR:", CURRENT_YEAR);
+      
       form.setValue("status", "Draft");
+      form.setValue("month", CURRENT_MONTH);
+      form.setValue("year", CURRENT_YEAR);
+      
+      console.log("✅ After setValue - status:", form.getValues("status"));
+      console.log("✅ After setValue - month:", form.getValues("month"));
+      console.log("✅ After setValue - year:", form.getValues("year"));
+      console.log("✅ All form values:", form.getValues());
     }
-  }, [isEditMode, existingProject, form, currentUserId]);
+  }, [isEditMode, existingProject, form, currentUserId, CURRENT_MONTH, CURRENT_YEAR]);
+
+  // ✅ DEBUG: Watch form values in real-time
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      console.log("👁️ Form value changed:");
+      console.log("   Field name:", name);
+      console.log("   Change type:", type);
+      console.log("   New value:", value[name]);
+      console.log("   All values:", value);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const watchedServiceType = form.watch("serviceType");
   const watchedClientName = form.watch("clientName");
@@ -326,6 +366,11 @@ export default function NewProject() {
   const watchedEstimatedHours = form.watch("estimatedHours");
   const watchedEstimatedMinutes = form.watch("estimatedMinutes");
   const watchedAssignedTo = form.watch("assignedTo");
+
+  console.log("👁️ Watched values:");
+  console.log("   Month:", watchedMonth);
+  console.log("   Year:", watchedYear);
+  console.log("   Service Type:", watchedServiceType);
 
   const generatedProjectId = useMemo(() => {
     if (isEditMode && existingProject) {
@@ -343,6 +388,7 @@ export default function NewProject() {
       !watchedMonth ||
       !watchedYear
     ) {
+      console.log("⚠️ Cannot generate project ID - missing fields");
       return "";
     }
 
@@ -355,6 +401,7 @@ export default function NewProject() {
       watchedYear,
       projects,
     );
+    console.log("🆔 Generated Project ID:", newId);
     return newId;
   }, [
     isEditMode,
@@ -369,6 +416,14 @@ export default function NewProject() {
   ]);
 
   const handleStartTimer = async () => {
+    console.log("⏰ handleStartTimer called");
+    console.log("📋 Validating fields...");
+    console.log("   Client Name:", watchedClientName);
+    console.log("   Country:", watchedCountry);
+    console.log("   Service Type:", watchedServiceType);
+    console.log("   Month:", watchedMonth);
+    console.log("   Year:", watchedYear);
+
     if (
       !watchedClientName ||
       !watchedCountry ||
@@ -376,6 +431,7 @@ export default function NewProject() {
       !watchedMonth ||
       !watchedYear
     ) {
+      console.error("❌ Missing required fields");
       toast.error("Please fill all required fields before starting timer!");
       return;
     }
@@ -383,21 +439,25 @@ export default function NewProject() {
     const hours = parseInt(watchedEstimatedHours) || 0;
     const minutes = parseInt(watchedEstimatedMinutes) || 0;
 
+    console.log("⏱️ Estimated time - Hours:", hours, "Minutes:", minutes);
+
     if (hours === 0 && minutes === 0) {
+      console.error("❌ No estimated time set");
       toast.error("Please set estimated time before starting timer!");
       return;
     }
 
     if (!generatedProjectId) {
+      console.error("❌ Project ID generation failed");
       toast.error("Project ID generation failed. Please try again.");
       return;
     }
 
     try {
+      console.log("🚀 Creating new project...");
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
 
-      // ✅ FIX: Store estimated time in user's task
       const initialUserTask = {
         userId: currentUserId,
         userEmail: currentUser?.email || "",
@@ -406,8 +466,8 @@ export default function NewProject() {
         startTime: currentTime,
         serviceType: watchedServiceType,
         endTime: null,
-        estimatedHours: watchedEstimatedHours, // ✅ USER-SPECIFIC
-        estimatedMinutes: watchedEstimatedMinutes, // ✅ USER-SPECIFIC
+        estimatedHours: watchedEstimatedHours,
+        estimatedMinutes: watchedEstimatedMinutes,
         timeLog: [
           {
             type: "start",
@@ -427,7 +487,6 @@ export default function NewProject() {
         status: "Draft",
         assignedTo: watchedAssignedTo || currentUserId,
         internalNotes: "",
-        // Keep project-level for backward compatibility (optional)
         estimatedHours: watchedEstimatedHours,
         estimatedMinutes: watchedEstimatedMinutes,
         userTasks: [initialUserTask],
@@ -437,7 +496,10 @@ export default function NewProject() {
         updatedAt: currentDateTime,
       };
 
+      console.log("📦 New project data:", newProject);
+
       const createdProject = await addProject(newProject);
+      console.log("✅ Project created:", createdProject);
       setCreatedProjectId(createdProject.id);
 
       await startTimer({
@@ -450,10 +512,11 @@ export default function NewProject() {
         userId: currentUserId,
       });
 
+      console.log("✅ Timer started");
       setShowServiceForm(true);
       toast.success("Project created and timer started!");
     } catch (error) {
-      console.error("Error creating project:", error);
+      console.error("❌ Error creating project:", error);
       toast.error("Failed to create project. Please try again.");
     }
   };
@@ -472,15 +535,20 @@ export default function NewProject() {
   };
 
   const onSubmit = async (data) => {
+    console.log("📝 Form submitted");
     console.log("🔍 Form Data:", data);
     console.log("🔍 Graphic Design Data:", data.graphicDesign);
     console.log("🔍 Links Array:", data.graphicDesign?.link);
+    
     setIsSubmitting(true);
     try {
       const projectIdToUpdate = isEditMode ? id : createdProjectId;
+      console.log("🆔 Project ID to update:", projectIdToUpdate);
+      
       if (!projectIdToUpdate) {
         throw new Error("No project ID found. Please start the timer first.");
       }
+      
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
       const existingProject = getProjectById(projectIdToUpdate);
@@ -524,14 +592,12 @@ export default function NewProject() {
       const updatedProject = {
         status: "Draft",
         internalNotes: data.internalNotes || "",
-        // Keep project-level for backward compatibility
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
         userTasks: updatedUserTasks,
         updatedAt: currentDateTime,
       };
 
-      // Add service-specific data
       if (data.serviceType === "GD" && data.graphicDesign) {
         updatedProject.graphicDesign = {
           postType: data.graphicDesign?.postType || "",
@@ -548,10 +614,7 @@ export default function NewProject() {
           designerNotes: data.graphicDesign?.designerNotes || "",
           ...getTextUpdates(data.graphicDesign),
         };
-        console.log(
-          "✅ Updated Project Graphic Design:",
-          updatedProject.graphicDesign,
-        );
+        console.log("✅ Updated Project Graphic Design:", updatedProject.graphicDesign);
         console.log("✅ Links being saved:", updatedProject.graphicDesign.link);
       }
 
@@ -567,16 +630,15 @@ export default function NewProject() {
         updatedProject.erp = data.erp;
       }
 
-      await updateProject(projectIdToUpdate, updatedProject);
       console.log("🚀 FINAL DATA SENDING TO FIREBASE:", updatedProject);
-      console.log(
-        "🚀 Graphic Design being sent:",
-        updatedProject.graphicDesign,
-      );
+      await updateProject(projectIdToUpdate, updatedProject);
+      console.log("✅ Project updated successfully");
 
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
+        console.log("⏹️ Timer stopped");
       }
+      
       clearGraphicDesignAutosave(generatedProjectId);
       clearBaseProjectAutosave(generatedProjectId);
       clearWebsiteDesignAutosave(generatedProjectId);
@@ -598,10 +660,12 @@ export default function NewProject() {
         "Are you sure you want to cancel? This will stop the timer and you may lose unsaved changes.",
       )
     ) {
+      console.log("🚫 Form cancelled");
       setShowServiceForm(false);
 
       if (activeTimer) {
         await stopTimer();
+        console.log("⏹️ Timer stopped due to cancellation");
       }
 
       navigate("/admin/projects");
@@ -609,6 +673,7 @@ export default function NewProject() {
   };
 
   if (loading) {
+    console.log("⏳ Loading...");
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -617,12 +682,15 @@ export default function NewProject() {
   }
 
   if (isEditMode && !existingProject) {
+    console.log("❌ Project not found in edit mode");
     return (
       <div className="flex min-h-[400px] items-center justify-center p-8">
         <p className="text-muted-foreground">Project not found</p>
       </div>
     );
   }
+
+  console.log("🎨 Rendering form");
 
   return (
     <div className="p-8 text-start">
@@ -697,9 +765,9 @@ export default function NewProject() {
 
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(onSubmit, (errors) =>
-            console.log("FORM ERRORS 👉", errors),
-          )}
+          onSubmit={form.handleSubmit(onSubmit, (errors) => {
+            console.log("❌ FORM ERRORS:", errors);
+          })}
           className="space-y-8"
         >
           <div className="rounded-xl border border-border bg-card p-6">
@@ -757,19 +825,7 @@ export default function NewProject() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Submit Project
-                    </>
-                  )}
-                </Button>
+                
               </div>
             </>
           )}
