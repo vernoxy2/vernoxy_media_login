@@ -442,16 +442,16 @@ useEffect(() => {
     e.preventDefault();
 
     if (hasActiveTask(project)) {
-      navigate(`/admin/projects/edit/${project.id}`);
+      navigate(`/dashboard/projects/edit/${project.id}`);
     } else {
-      navigate(`/admin/projects/${project.id}`);
+      navigate(`/dashboard/projects/${project.id}`);
     }
   };
 
   const handleEdit = (e, projectId) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/admin/projects/edit/${projectId}`);
+    navigate(`/dashboard/projects/edit/${projectId}`);
   };
 
   const handleDuplicate = (e, projectId) => {
@@ -541,7 +541,7 @@ useEffect(() => {
             : "No projects found"}
         </p>
         {isAdmin && isDataLoaded && (
-          <Link to="/admin/projects/new">
+          <Link to="/dashboard/projects/new">
             <Button className="mt-4" size="sm">
               Create New Project
             </Button>

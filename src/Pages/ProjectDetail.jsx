@@ -211,7 +211,7 @@ export default function ProjectDetail() {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
         <p className="mb-4 text-muted-foreground">Project not found</p>
-        <Link to="/admin/projects">
+        <Link to="/dashboard/projects">
           <Button variant="outline">Back to Projects</Button>
         </Link>
       </div>
@@ -333,7 +333,7 @@ export default function ProjectDetail() {
       await updateDoc(projectRef, updateData);
       toast.success("Project submitted successfully!");
       setTimeout(() => {
-        navigate("/admin/projects");
+        navigate("/dashboard/projects");
       }, 1000);
     } catch (error) {
       console.error("Error submitting project:", error);

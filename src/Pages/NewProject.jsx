@@ -202,11 +202,6 @@ export default function NewProject() {
   const currentUserId = localStorage.getItem("userId");
   const hideAdminFromDropdown = true;
 
-  console.log("🚀 NewProject Component Loaded");
-  console.log("📅 CURRENT_MONTH:", CURRENT_MONTH);
-  console.log("📅 CURRENT_YEAR:", CURRENT_YEAR);
-  console.log("🔧 isEditMode:", isEditMode);
-
   const form = useForm({
     resolver: zodResolver(projectSchema),
     defaultValues: {

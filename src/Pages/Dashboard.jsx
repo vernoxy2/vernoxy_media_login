@@ -4,6 +4,7 @@ import { StatusBreakdown } from "../Components/dashboard/StatusBreakdown";
 import { ServiceBreakdown } from "../Components/dashboard/ServiceBreakdown";
 import { RecentProjects } from "../Components/dashboard/RecentProjects";
 import { FolderKanban, Users, Clock, CheckCircle2 } from "lucide-react";
+import Headerr from "../Components/Layout/Headerr";
 
 export default function Dashboard() {
   const { projects, teamMembers, currentUser } = useProjects();
@@ -51,23 +52,27 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-2">
+      <div className="px-8 py-1.5 border-b sticky top-0 z-50 bg-white">
+      <h1 className=" text-2xl font-bold capitalize"> Hello, Nikhil Lad</h1>
+      <p className="text-black/50 text-sm">Graphic Designer &nbsp;|&nbsp; Vernoxy Media</p>
+    </div>
+      {/* <div className="mb-8 grid grid-cols-1 md:grid-cols-2">
         <div className="text-start">
           <h1 className="text-2xl font-bold text-foreground ">Dashboard</h1>
           <p className="text-muted-foreground ">
             Overview of your projects and team activity
           </p>
         </div>
-        {/* set user records(name,email and role) */}
+        set user records(name,email and role)
         <div className="flex justify-end items-start text-start">
           <UserInfoDisplay currentUser={currentUser} />
         </div>
-      </div>
+      </div> */}
 
       {/* Stats Grid */}
-      <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 px-8">
         <StatCard
           title="Total Projects"
           value={stats.total}
@@ -95,13 +100,16 @@ export default function Dashboard() {
       </div>
 
       {/* Breakdown Cards */}
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+      <div className="px-8 grid gap-6 lg:grid-cols-2">
         <StatusBreakdown projects={projects} />
         <ServiceBreakdown projects={projects} />
       </div>
 
       {/* Recent Projects */}
+      <div className="px-8">
+
       <RecentProjects projects={projects} />
+      </div>
     </div>
   );
 }
