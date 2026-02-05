@@ -255,23 +255,11 @@ export default function NewProject() {
     },
   });
 
-  console.log("📝 Form initialized with defaultValues");
-  console.log("📝 Initial form values:", form.getValues());
-
   useEffect(() => {
-    console.log("🔄 useEffect triggered");
-    console.log("🔧 isEditMode:", isEditMode);
-    console.log("🔧 existingProject:", existingProject);
-
     if (isEditMode && existingProject) {
-      console.log("✏️ EDIT MODE - Loading existing project");
-      
       const userTask = existingProject.userTasks?.find(
         (task) => task.userId === currentUserId,
       );
-
-      console.log("👤 User task found:", userTask);
-
       const graphicDesignData = {
         postType: "",
         platform: "",
@@ -329,17 +317,24 @@ export default function NewProject() {
       console.log("🔧 Setting default values...");
       console.log("🔧 CURRENT_MONTH:", CURRENT_MONTH);
       console.log("🔧 CURRENT_YEAR:", CURRENT_YEAR);
-      
+
       form.setValue("status", "Draft");
       form.setValue("month", CURRENT_MONTH);
       form.setValue("year", CURRENT_YEAR);
-      
+
       console.log("✅ After setValue - status:", form.getValues("status"));
       console.log("✅ After setValue - month:", form.getValues("month"));
       console.log("✅ After setValue - year:", form.getValues("year"));
       console.log("✅ All form values:", form.getValues());
     }
-  }, [isEditMode, existingProject, form, currentUserId, CURRENT_MONTH, CURRENT_YEAR]);
+  }, [
+    isEditMode,
+    existingProject,
+    form,
+    currentUserId,
+    CURRENT_MONTH,
+    CURRENT_YEAR,
+  ]);
 
   // ✅ DEBUG: Watch form values in real-time
   useEffect(() => {
@@ -519,7 +514,7 @@ export default function NewProject() {
       if (!projectIdToUpdate) {
         throw new Error("No project ID found. Please start the timer first.");
       }
-      
+
       const currentTime = getCurrentTime();
       const currentDateTime = new Date().toISOString();
       const existingProject = getProjectById(projectIdToUpdate);
@@ -585,7 +580,10 @@ export default function NewProject() {
           designerNotes: data.graphicDesign?.designerNotes || "",
           ...getTextUpdates(data.graphicDesign),
         };
-        console.log("✅ Updated Project Graphic Design:", updatedProject.graphicDesign);
+        console.log(
+          "✅ Updated Project Graphic Design:",
+          updatedProject.graphicDesign,
+        );
         console.log("✅ Links being saved:", updatedProject.graphicDesign.link);
       }
 
@@ -604,7 +602,7 @@ export default function NewProject() {
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
-      
+
       clearGraphicDesignAutosave(generatedProjectId);
       clearBaseProjectAutosave(generatedProjectId);
       clearWebsiteDesignAutosave(generatedProjectId);
@@ -631,7 +629,7 @@ export default function NewProject() {
         await stopTimer();
       }
 
-    navigate(`/dashboard/projects`);
+      navigate(`/dashboard/projects`);
     }
   };
 
@@ -650,7 +648,6 @@ export default function NewProject() {
       </div>
     );
   }
-
 
   return (
     <div className="p-8 text-start">
@@ -785,7 +782,19 @@ export default function NewProject() {
                 >
                   Cancel
                 </Button>
-                
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Submit Project
+                    </>
+                  )}
+                </Button>
               </div>
             </>
           )}
