@@ -21,7 +21,7 @@ export function RecentProjects({ projects, limit = 5 }) {
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <h3 className="text-sm font-semibold text-foreground">Recent Projects</h3>
         <Link
-          to="/projects"
+          to="/dashboard/projects"
           className="flex items-center gap-1 text-sm text-primary hover:underline"
         >
           View all
@@ -32,7 +32,7 @@ export function RecentProjects({ projects, limit = 5 }) {
         {recentProjects.map((project) => (
           <Link
             key={project.id}
-            to={`/projects/${project.id}`}
+            to={`/dashboard/projects/edit/${project.id}`}
             className="flex items-center justify-between px-6 py-4 transition-colors hover:bg-muted/50"
           >
             <div className="space-y-1">
