@@ -111,8 +111,6 @@ export function BaseProjectForm({
     const key = getLocalStorageKey();
     const savedData = localStorage.getItem(key);
 
-    console.log("🔍 BaseProject - Checking localStorage:", key, savedData);
-
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
