@@ -992,7 +992,7 @@ export default function NewProject() {
     getProjectById,
     loading,
     currentUser,
-    teamMembers
+    teamMembers,
   } = useProjects();
   const { startTimer, activeTimer, stopTimer } = useTimer();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1007,7 +1007,7 @@ export default function NewProject() {
   const isAdmin = currentUser?.role === "admin";
   const currentUserId = localStorage.getItem("userId");
   const hideAdminFromDropdown = true;
-
+  const userDepartment = currentUser?.department || "";
   const hasInitializedForm = useRef(false);
 
   const form = useForm({
@@ -1330,7 +1330,11 @@ export default function NewProject() {
       };
 
       const updatedProject = {
-        status: "Draft",
+        // status: "Draft",
+        status:
+          userDepartment === "Graphic Design" && data.serviceType === "GD"
+            ? "Review"
+            : "Draft",
         internalNotes: data.internalNotes || "",
         estimatedHours: data.estimatedHours,
         estimatedMinutes: data.estimatedMinutes,
