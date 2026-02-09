@@ -469,9 +469,6 @@ export function ProjectProvider({ children }) {
       console.warn("⚠️ No authenticated user for real-time listener");
       return;
     }
-
-    console.log("🔥 Setting up real-time listener for projects...");
-
     const projectsRef = collection(db, "projects");
     const q = query(projectsRef, orderBy("createdAt", "desc"));
 
@@ -578,7 +575,6 @@ export function ProjectProvider({ children }) {
         });
       });
 
-      console.log(`✅ Loaded ${projectsData.length} projects`);
       setProjects(projectsData);
     } catch (error) {
       console.error("❌ Error fetching projects:", error);
