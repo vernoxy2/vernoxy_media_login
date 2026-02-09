@@ -1,9 +1,9 @@
 // src/services/loginLogService.js
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  doc, 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
   serverTimestamp,
   query,
   where,
@@ -12,7 +12,9 @@ import {
   limit,
   Timestamp
 } from "firebase/firestore";
-import { db } from "../firebase";
+import {
+  db
+} from "../firebase";
 
 /**
  * Log user login
@@ -23,38 +25,118 @@ import { db } from "../firebase";
  * @param {string} userName - User's name
  * @returns {Promise<string>} - Document ID of the created log
  */
+// export const logUserLogin = async (userId, email, role, department = "", userName = "") => {
+//   try {
+//     const loginLogRef = collection(db, "loginLogs");
+
+//     const loginData = {
+//       userId,
+//       email,
+//       role,
+//       department,
+//       userName,
+//       loginTime: serverTimestamp(),
+//       logoutTime: null,
+//       sessionDuration: null,
+//       status: "active", // active, completed
+//       ipAddress: null, // Optional: can be added if needed
+//       browser: navigator.userAgent,
+//       createdAt: serverTimestamp(),
+//     };
+
+//     const docRef = await addDoc(loginLogRef, loginData);
+
+//     // Store the log ID in localStorage for later logout update
+//     localStorage.setItem("currentLoginLogId", docRef.id);
+
+//     console.log("Login logged successfully:", docRef.id);
+//     return docRef.id;
+//   } catch (error) {
+//     console.error("Error logging login:", error);
+//     throw error;
+//   }
+// };
+
 export const logUserLogin = async (userId, email, role, department = "", userName = "") => {
   try {
     const loginLogRef = collection(db, "loginLogs");
-    
+
+    // Check if user already logged in today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // const todayTimestamp = Timestamp.fromDate(today);
+
+    // const existingLoginQuery = query(
+    //   loginLogRef,
+    //   where("userId", "==", userId),
+    //   where("loginTime", ">=", todayTimestamp),
+    //   limit(1)
+    // );
+    // ✅ આજનો date string બનાવો
+const dateString = new Date().toISOString().split('T')[0]; // "2025-02-07"
+
+const existingLoginQuery = query(
+  loginLogRef,
+  where("userId", "==", userId),
+  where("date", "==", dateString), // ✅ આ બદલાવ કર્યો
+  limit(1)
+);
+
+    const existingLoginSnapshot = await getDocs(existingLoginQuery);
+
+    // If already logged in today, return existing log ID
+    if (!existingLoginSnapshot.empty) {
+      const existingLogId = existingLoginSnapshot.docs[0].id;
+      const existingData = existingLoginSnapshot.docs[0].data();
+
+      localStorage.setItem("currentLoginLogId", existingLogId);
+
+      console.log("✅ Already logged in today at:", existingData.loginTime ? existingData.loginTime.toDate() : null);
+      console.log("✅ Using existing log ID:", existingLogId);
+
+      return existingLogId;
+    }
+
+    // First login of the day - create new entry
+    // const loginData = {
+    //   userId,
+    //   email,
+    //   role,
+    //   department,
+    //   userName,
+    //   loginTime: serverTimestamp(),
+    //   logoutTime: null,
+    //   sessionDuration: null,
+    //   status: "active",
+    //   ipAddress: null,
+    //   browser: navigator.userAgent,
+    //   createdAt: serverTimestamp(),
+    // };
     const loginData = {
-      userId,
-      email,
-      role,
-      department,
-      userName,
-      loginTime: serverTimestamp(),
-      logoutTime: null,
-      sessionDuration: null,
-      status: "active", // active, completed
-      ipAddress: null, // Optional: can be added if needed
-      browser: navigator.userAgent,
-      createdAt: serverTimestamp(),
-    };
+  userId,
+  email,
+  role,
+  department,
+  userName,
+  loginTime: serverTimestamp(),
+  logoutTime: null,
+  sessionDuration: null,
+  status: "active",
+  date: dateString, // ✅ આ નવી લાઇન add કરો
+  ipAddress: null,
+  browser: navigator.userAgent,
+  createdAt: serverTimestamp(),
+};
 
     const docRef = await addDoc(loginLogRef, loginData);
-    
-    // Store the log ID in localStorage for later logout update
     localStorage.setItem("currentLoginLogId", docRef.id);
-    
-    console.log("Login logged successfully:", docRef.id);
+    console.log("✅ New login logged:", docRef.id);
     return docRef.id;
   } catch (error) {
     console.error("Error logging login:", error);
     throw error;
   }
 };
-
 /**
  * Log user logout and calculate session duration
  * @param {string} logId - The document ID of the login log (optional, will use localStorage if not provided)
@@ -64,7 +146,7 @@ export const logUserLogout = async (logId = null) => {
   try {
     // Get log ID from parameter or localStorage
     const loginLogId = logId || localStorage.getItem("currentLoginLogId");
-    
+
     if (!loginLogId) {
       console.warn("No active login session found to log logout");
       return;
@@ -72,7 +154,7 @@ export const logUserLogout = async (logId = null) => {
 
     const loginLogRef = doc(db, "loginLogs", loginLogId);
     const now = Timestamp.now();
-    
+
     // Update the login log with logout time
     await updateDoc(loginLogRef, {
       logoutTime: now,
@@ -82,7 +164,7 @@ export const logUserLogout = async (logId = null) => {
 
     // Clear the stored log ID
     localStorage.removeItem("currentLoginLogId");
-    
+
     console.log("Logout logged successfully:", loginLogId);
   } catch (error) {
     console.error("Error logging logout:", error);
@@ -111,7 +193,7 @@ export const getLoginLogs = async (filters = {}) => {
     if (filters.userId) {
       q = query(q, where("userId", "==", filters.userId));
     }
-    
+
     if (filters.role) {
       q = query(q, where("role", "==", filters.role));
     }
@@ -122,10 +204,10 @@ export const getLoginLogs = async (filters = {}) => {
 
     const querySnapshot = await getDocs(q);
     const logs = [];
-    
+
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      
+
       // Calculate session duration if both login and logout times exist
       let sessionDuration = null;
       if (data.loginTime && data.logoutTime) {
@@ -133,13 +215,13 @@ export const getLoginLogs = async (filters = {}) => {
         const logoutTime = data.logoutTime.toDate();
         sessionDuration = Math.floor((logoutTime - loginTime) / 1000); // Duration in seconds
       }
-      
+
       logs.push({
         id: doc.id,
         ...data,
         sessionDuration,
-        loginTime: data.loginTime?.toDate() || null,
-        logoutTime: data.logoutTime?.toDate() || null,
+        loginTime: data.loginTime ? data.loginTime.toDate() : null,
+        logoutTime: data.logoutTime ? data.logoutTime.toDate() : null,
       });
     });
 
@@ -167,14 +249,14 @@ export const getUserLoginLogs = async (userId, limitCount = 10) => {
 
     const querySnapshot = await getDocs(q);
     const logs = [];
-    
+
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       logs.push({
         id: doc.id,
         ...data,
-        loginTime: data.loginTime?.toDate() || null,
-        logoutTime: data.logoutTime?.toDate() || null,
+       loginTime: data.loginTime ? data.loginTime.toDate() : null,
+logoutTime: data.logoutTime ? data.logoutTime.toDate() : null,
       });
     });
 
@@ -199,13 +281,13 @@ export const getActiveSessions = async () => {
 
     const querySnapshot = await getDocs(q);
     const activeSessions = [];
-    
+
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       activeSessions.push({
         id: doc.id,
         ...data,
-        loginTime: data.loginTime?.toDate() || null,
+        loginTime: data.loginTime ? data.loginTime.toDate() : null,
       });
     });
 
@@ -223,11 +305,11 @@ export const getActiveSessions = async () => {
  */
 export const formatSessionDuration = (seconds) => {
   if (!seconds) return "N/A";
-  
+
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m ${secs}s`;
   } else if (minutes > 0) {
