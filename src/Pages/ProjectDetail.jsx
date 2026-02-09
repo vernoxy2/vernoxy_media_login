@@ -49,36 +49,6 @@ export default function ProjectDetail() {
   const [timerInterval, setTimerInterval] = useState(null);
   const [liveUserTask, setLiveUserTask] = useState(null);
 
-  // useEffect(() => {
-  //   if (!project) return;
-  //   if (project.notes) {
-  //     setNotes(project.notes);
-  //   }
-  //   // Load estimated time from project (preserves the time even after refresh)
-  //   if (project.estimatedHours) {
-  //     setEstimatedHours(project.estimatedHours);
-  //   } else {
-  //     setEstimatedHours("0");
-  //   }
-
-  //   if (project.estimatedMinutes) {
-  //     setEstimatedMinutes(project.estimatedMinutes);
-  //   } else {
-  //     setEstimatedMinutes("0");
-  //   }
-
-  //   const userTask = project.userTasks?.find(
-  //     (task) => task.userId === currentUserId,
-  //   );
-
-  //   // Check if user has any task (started, paused, or completed)
-  //   if (userTask && userTask.timeLog && userTask.timeLog.length > 0) {
-  //     setHasTimerStarted(true);
-  //   } else {
-  //     setHasTimerStarted(false);
-  //   }
-  // }, [project, currentUserId]);
-
   useEffect(() => {
     if (!project) return;
     if (project.notes) {
@@ -120,7 +90,7 @@ export default function ProjectDetail() {
         }
       },
       (error) => {
-        console.error("❌ Error listening to project updates:", error);
+        toast.error("Error listening to project updates");
       },
     );
 
@@ -239,7 +209,6 @@ export default function ProjectDetail() {
         year: "numeric",
       }).format(dateObj);
     } catch (error) {
-      console.error("Error formatting date:", error);
       return "Invalid date";
     }
   };
@@ -261,7 +230,6 @@ export default function ProjectDetail() {
         minute: "2-digit",
       });
     } catch (error) {
-      console.error("Error formatting dateTime:", error);
       return String(dateTime);
     }
   };
@@ -282,7 +250,6 @@ export default function ProjectDetail() {
       await updateProject(id, updateData);
       toast.success("Project accepted!");
     } catch (error) {
-      console.error("Error accepting project:", error);
       toast.error("Failed to accept project. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -337,7 +304,6 @@ export default function ProjectDetail() {
         navigate("/dashboard/projects");
       }, 1000);
     } catch (error) {
-      console.error("Error submitting project:", error);
       toast.error("Failed to submit project. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -443,7 +409,6 @@ export default function ProjectDetail() {
       setShowSubmitButton(true);
       setHasTimerStarted(true);
     } catch (error) {
-      console.error("Error starting timer:", error);
       toast.error("Failed to start timer. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -455,7 +420,24 @@ export default function ProjectDetail() {
     <div className="p-8">
       <div className="mb-8 flex items-start justify-between">
         <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const userDept =
+                currentUserDepartment || localStorage.getItem("userDepartment");
+
+              if (
+                userDept === "Graphic Design" &&
+                project.serviceType === "GD"
+              ) {
+                navigate("/dashboard/projects");
+                return;
+              }
+
+              navigate(-1);
+            }}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -660,6 +642,40 @@ export default function ProjectDetail() {
                   </div>
                 </div>
               )}
+
+              {userTask?.timeLog && userTask.timeLog.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-green-100 dark:bg-green-900/30 p-2">
+                    <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Total Hours Spent
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {String(elapsedTime.hours).padStart(2, "0")}h{" "}
+                      {String(elapsedTime.minutes).padStart(2, "0")}m{" "}
+                      {String(elapsedTime.seconds).padStart(2, "0")}s
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {project.TotalHours && project.TotalMinutes && (
+                <div className="flex items-center gap-3">
+                  <div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-2">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Total Time
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {project.TotalHours}h {project.TotalMinutes}m
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {project.internalNotes && (
@@ -783,7 +799,7 @@ export default function ProjectDetail() {
                     </p>
                   </div>
                 )}
-                {/* ✅ Main Text Updates Display - 2 Column Grid */}
+
                 {Object.keys(project.graphicDesign || {})
                   .filter(
                     (key) =>
@@ -833,7 +849,6 @@ export default function ProjectDetail() {
                   </div>
                 )}
 
-                {/* ✅ Sub Text Updates Display - 2 Column Grid */}
                 {Object.keys(project.graphicDesign || {})
                   .filter(
                     (key) =>

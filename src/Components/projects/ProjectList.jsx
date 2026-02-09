@@ -45,30 +45,30 @@ export function ProjectList({ projects }) {
   const [userDepartment, setUserDepartment] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [currentUserEmail, setCurrentUserEmail] = useState(null); 
-  
+  const [currentUserEmail, setCurrentUserEmail] = useState(null);
+
   const [projectsData, setProjectsData] = useState([]);
   const [renderKey, setRenderKey] = useState(0);
-  
+
   const [currentTime, setCurrentTime] = useState(Date.now());
-  
+
   const isAdmin = userRole === "admin";
   const serviceFilter = searchParams.get("service");
 
   useEffect(() => {
     if (projects && projects.length > 0) {
       setProjectsData([...projects]);
-      setRenderKey(prev => prev + 1);
+      setRenderKey((prev) => prev + 1);
     }
   }, [projects, projects.length]);
 
-useEffect(() => {
+  useEffect(() => {
     const loadUserData = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
       const userId = localStorage.getItem("userId");
       const userEmail = localStorage.getItem("userEmail"); // ✅ ADD THIS LINE
-      
+
       setUserRole(role);
       setUserDepartment(dept);
       setCurrentUserId(userId);
@@ -82,27 +82,29 @@ useEffect(() => {
     return () => clearTimeout(timeoutId);
   }, [projects]);
 
-useEffect(() => {
+  useEffect(() => {
     const handleStorageChange = () => {
       const role = localStorage.getItem("userRole");
       const dept = localStorage.getItem("userDepartment");
       const userId = localStorage.getItem("userId");
       const userEmail = localStorage.getItem("userEmail"); // ✅ ADD THIS LINE
-      
+
       setUserRole(role);
       setUserDepartment(dept);
       setCurrentUserId(userId);
       setCurrentUserEmail(userEmail); // ✅ ADD THIS LINE
     };
-    
+
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   useEffect(() => {
-    const hasActiveProjects = projectsData.some(project => {
+    const hasActiveProjects = projectsData.some((project) => {
       const userId = currentUserId || localStorage.getItem("userId");
-      const userTask = project.userTasks?.find(task => task.userId === userId);
+      const userTask = project.userTasks?.find(
+        (task) => task.userId === userId,
+      );
       return userTask && userTask.taskStatus === "in_progress";
     });
 
@@ -147,7 +149,6 @@ useEffect(() => {
   //   return filtered;
   // }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
 
-
   const filteredProjects = useMemo(() => {
     let filtered = projectsData;
 
@@ -176,8 +177,8 @@ useEffect(() => {
     }
 
     // ✅ NEW: Apply creator/assigned visibility rules
-  const userEmail = currentUserEmail || localStorage.getItem("userEmail");
-    
+    const userEmail = currentUserEmail || localStorage.getItem("userEmail");
+
     filtered = filtered.filter((project) => {
       // Admin sees all projects (already filtered by department/service)
       if (userRole === "admin") {
@@ -186,7 +187,7 @@ useEffect(() => {
 
       // Check if current user is the creator
       const isCreator = project.createdBy === currentUserEmail;
-      
+
       // If creator, always show the project
       if (isCreator) {
         return true;
@@ -194,7 +195,7 @@ useEffect(() => {
 
       // Check if current user is assigned to this project
       const isAssigned = project.assignedTo === currentUserId;
-      
+
       // If not creator and not assigned, don't show
       if (!isAssigned) {
         return false;
@@ -203,7 +204,7 @@ useEffect(() => {
       // User is assigned but not creator
       // Check if the creator has completed their task
       const creatorTask = project.userTasks?.find(
-        (task) => task.userEmail === project.createdBy
+        (task) => task.userEmail === project.createdBy,
       );
 
       // Only show to assigned user if creator has completed their task
@@ -211,8 +212,16 @@ useEffect(() => {
     });
 
     return filtered;
-  }, [projectsData, userRole, userDepartment, serviceFilter, renderKey, currentUserId, currentUserEmail]);
-  
+  }, [
+    projectsData,
+    userRole,
+    userDepartment,
+    serviceFilter,
+    renderKey,
+    currentUserId,
+    currentUserEmail,
+  ]);
+
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
@@ -233,17 +242,17 @@ useEffect(() => {
 
   const getUserTask = (project) => {
     const userId = currentUserId || localStorage.getItem("userId");
-    
+
     if (!userId) {
       return null;
     }
-    
+
     if (!project.userTasks || project.userTasks.length === 0) {
       return null;
     }
-    
-    const userTask = project.userTasks.find(task => task.userId === userId);
-    
+
+    const userTask = project.userTasks.find((task) => task.userId === userId);
+
     return userTask || null;
   };
 
@@ -260,40 +269,49 @@ useEffect(() => {
   // NEVER fallback to project-level estimate
   const getEstimatedTime = (project) => {
     const userTask = getUserTask(project);
-    
+
     // Helper function to check if a value is valid (not null, undefined, empty string, or "0")
     const isValidEstimate = (value) => {
-      if (value === undefined || value === null || value === "" || value === "0") {
+      if (
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        value === "0"
+      ) {
         return false;
       }
       const num = parseInt(value, 10);
       return !isNaN(num) && num > 0;
     };
-    
+
     // ✅ No userTask = user hasn't started work yet = show blank
     if (!userTask) {
       return "--:--";
     }
-    
+
     // ✅ Check if user's own estimate exists in their userTask
     const userTaskHasValidHours = isValidEstimate(userTask.estimatedHours);
     const userTaskHasValidMinutes = isValidEstimate(userTask.estimatedMinutes);
-    
+
     // If userTask has valid estimated time, show it
     if (userTaskHasValidHours || userTaskHasValidMinutes) {
-      const hours = userTaskHasValidHours ? parseInt(userTask.estimatedHours, 10) : 0;
-      const minutes = userTaskHasValidMinutes ? parseInt(userTask.estimatedMinutes, 10) : 0;
-      
+      const hours = userTaskHasValidHours
+        ? parseInt(userTask.estimatedHours, 10)
+        : 0;
+      const minutes = userTaskHasValidMinutes
+        ? parseInt(userTask.estimatedMinutes, 10)
+        : 0;
+
       return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m`;
     }
-    
+
     // ✅ User has task but no valid estimate set yet = show blank
     return "--:--";
   };
 
   const calculateTotalTime = (project) => {
     const userTask = getUserTask(project);
-    
+
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return "--:--";
     }
@@ -313,37 +331,36 @@ useEffect(() => {
       // Calculate total time from all start/pause/resume/end pairs
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
-        
+
         if (log.type === "start" || log.type === "resume") {
           const startDate = new Date(log.dateTime || log.timestamp);
-          
+
           if (isNaN(startDate.getTime())) {
             continue;
           }
-          
+
           currentStartTime = startDate;
-        } 
-        else if (log.type === "pause" || log.type === "end") {
+        } else if (log.type === "pause" || log.type === "end") {
           if (currentStartTime) {
             const endDate = new Date(log.dateTime || log.timestamp);
-            
+
             if (!isNaN(endDate.getTime())) {
               const sessionMs = endDate - currentStartTime;
-              
+
               if (sessionMs > 0) {
                 totalMs += sessionMs;
               }
             }
-            
+
             currentStartTime = null;
           }
         }
       }
-      
+
       // If task is still in progress, add current running time
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
-        
+
         if (runningMs > 0) {
           totalMs += runningMs;
         }
@@ -383,7 +400,7 @@ useEffect(() => {
       let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const period = hours >= 12 ? "PM" : "AM";
-      
+
       hours = hours % 12;
       hours = hours ? hours : 12;
       const formattedHours = String(hours).padStart(2, "0");
@@ -402,11 +419,11 @@ useEffect(() => {
 
   const getEndTime = (project) => {
     const userTask = getUserTask(project);
-    
+
     if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
       return { time: "--:--", date: "" };
     }
-    
+
     const endLog = userTask.timeLog.find((log) => log.type === "end");
     if (!endLog) return { time: "--:--", date: "" };
 
@@ -420,7 +437,7 @@ useEffect(() => {
       let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
       const period = hours >= 12 ? "PM" : "AM";
-      
+
       hours = hours % 12;
       hours = hours ? hours : 12;
       const formattedHours = String(hours).padStart(2, "0");
@@ -440,6 +457,12 @@ useEffect(() => {
 
   const handleProjectClick = (e, project) => {
     e.preventDefault();
+    const userDept = userDepartment || localStorage.getItem("userDepartment");
+
+    if (userDept === "Graphic Design" && project.serviceType === "GD") {
+      navigate(`/dashboard/projects/${project.id}`);
+      return;
+    }
 
     if (hasActiveTask(project)) {
       navigate(`/dashboard/projects/edit/${project.id}`);
@@ -534,11 +557,11 @@ useEffect(() => {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card py-16 px-8">
         <p className="text-muted-foreground mb-4">
-          {!isDataLoaded 
-            ? "Loading projects..." 
+          {!isDataLoaded
+            ? "Loading projects..."
             : serviceFilter
-            ? `No ${SERVICE_NAMES[serviceFilter]} projects found`
-            : "No projects found"}
+              ? `No ${SERVICE_NAMES[serviceFilter]} projects found`
+              : "No projects found"}
         </p>
         {isAdmin && isDataLoaded && (
           <Link to="/dashboard/projects/new">
@@ -553,7 +576,10 @@ useEffect(() => {
 
   return (
     <>
-      <div className="rounded-xl border border-border bg-card overflow-hidden" key={renderKey}>
+      <div
+        className="rounded-xl border border-border bg-card overflow-hidden"
+        key={renderKey}
+      >
         <div className="overflow-x-auto table-scroll-container">
           <div className="min-w-[1600px]">
             <div className="grid grid-cols-[2fr_1fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1.5fr_1fr_1fr_0.5fr] gap-4 border-b border-border text-start bg-muted/30 px-6 py-3 text-sm font-medium text-muted-foreground">
