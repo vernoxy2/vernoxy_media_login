@@ -28,7 +28,6 @@ export function GraphicDesignForm({
   const [mainTextUpdates, setMainTextUpdates] = useState([]);
   const [subTextUpdates, setSubTextUpdates] = useState([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const hasLoadedFromStorage = useRef(false);
 
   const postTypes = ["Social Post", "Banner", "Ad", "Poster", "Thumbnail"];
   const platforms = ["Instagram", "Facebook", "LinkedIn", "Website"];
@@ -36,12 +35,10 @@ export function GraphicDesignForm({
 
   const [links, setLinks] = useState([""]);
 
-  // ✅ Update form value whenever links change
   useEffect(() => {
     form.setValue("graphicDesign.link", links);
   }, [links, form]);
 
-  // ✅ Load existing data in edit mode
   useEffect(() => {
     if (isEditMode && existingData?.link?.length) {
       setLinks(existingData.link);
@@ -62,7 +59,6 @@ export function GraphicDesignForm({
     setLinks(links.filter((_, i) => i !== index));
   };
 
-  // ✅ Memoize localStorage key
   const autosaveKeyRef = useRef(null);
 
   useEffect(() => {
@@ -77,7 +73,6 @@ export function GraphicDesignForm({
 
   const saveToLocalStorage = useCallback(
     (watchedValues) => {
-      // Don't save if we haven't loaded yet or no projectId
       if (!isInitialized || !projectId) return;
 
       const graphicDesignData = watchedValues?.graphicDesign || {};
@@ -106,59 +101,34 @@ export function GraphicDesignForm({
 
       const key = getLocalStorageKey();
       localStorage.setItem(key, JSON.stringify(dataToSave));
-      console.log("✅ Saved to localStorage:", key, dataToSave);
     },
     [getLocalStorageKey, isInitialized, projectId, links, mainTextUpdates, subTextUpdates],
   );
 
-  // ✅ Load data from localStorage - IMPROVED WITH FORCE RESTORE
   useEffect(() => {
     if (!projectId) {
-      console.log("⏳ Waiting for projectId...");
-      return;
-    }
-
-    // Don't reload if already loaded
-    if (hasLoadedFromStorage.current) {
-      console.log("ℹ️ Already loaded from storage");
       return;
     }
 
     const key = getLocalStorageKey();
     const savedData = localStorage.getItem(key);
 
-    console.log("🔍 Loading data for projectId:", projectId);
-    console.log("🔍 localStorage key:", key);
-    console.log("🔍 savedData:", savedData);
-
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        console.log("📥 Parsed data from localStorage:", parsed);
 
-        // ✅ Force restore after a delay to ensure form is mounted
         setTimeout(() => {
-          // ✅ Restore ALL form fields with force update
           if (parsed.formData) {
-            console.log("📝 Restoring formData:", parsed.formData);
-            
             Object.entries(parsed.formData).forEach(([fieldKey, value]) => {
               const fieldPath = `graphicDesign.${fieldKey}`;
               form.setValue(fieldPath, value, { 
                 shouldValidate: false,
                 shouldDirty: true
               });
-              console.log(`✅ Set ${fieldPath} =`, value);
             });
-
-            // ✅ Force form to re-render
-            const currentValues = form.getValues("graphicDesign");
-            console.log("🔎 Form values after restore:", currentValues);
           }
 
-          // ✅ Restore links
           if (parsed.links?.length > 0) {
-            console.log("🔗 Restoring links:", parsed.links);
             setLinks(parsed.links);
             form.setValue("graphicDesign.link", parsed.links, { 
               shouldValidate: false,
@@ -166,9 +136,7 @@ export function GraphicDesignForm({
             });
           }
 
-          // ✅ Restore main text updates
           if (parsed.mainTextUpdates?.length > 0) {
-            console.log("📝 Restoring mainTextUpdates:", parsed.mainTextUpdates);
             setMainTextUpdates(parsed.mainTextUpdates);
             parsed.mainTextUpdates.forEach((item) => {
               form.setValue(`graphicDesign.mainText${item.index}`, item.value, {
@@ -178,9 +146,7 @@ export function GraphicDesignForm({
             });
           }
 
-          // ✅ Restore sub text updates
           if (parsed.subTextUpdates?.length > 0) {
-            console.log("📝 Restoring subTextUpdates:", parsed.subTextUpdates);
             setSubTextUpdates(parsed.subTextUpdates);
             parsed.subTextUpdates.forEach((item) => {
               form.setValue(`graphicDesign.subText${item.index}`, item.value, {
@@ -190,37 +156,27 @@ export function GraphicDesignForm({
             });
           }
 
-          hasLoadedFromStorage.current = true;
           setIsInitialized(true);
-          console.log("✅ localStorage restore complete!");
           
-        }, 200);
+        }, 300);
 
       } catch (error) {
-        console.error("❌ Error restoring data:", error);
-        hasLoadedFromStorage.current = true;
+        console.error("Error restoring data:", error);
         setIsInitialized(true);
       }
     } else {
-      console.log("ℹ️ No saved data found for key:", key);
-      hasLoadedFromStorage.current = true;
       setIsInitialized(true);
     }
   }, [projectId, form, getLocalStorageKey]);
 
-  // ✅ Load existing data in edit mode
   useEffect(() => {
     if (!isEditMode || !existingData) return;
-    
-    console.log("📝 Edit mode: Loading existing data", existingData);
 
-    // Load existing link data
     if (existingData?.link?.length) {
       setLinks(existingData.link);
       form.setValue("graphicDesign.link", existingData.link);
     }
 
-    // Load existing main text updates
     const existingMainUpdates = [];
     Object.keys(existingData).forEach((key) => {
       if (key.startsWith("mainText") && key !== "mainText") {
@@ -239,7 +195,6 @@ export function GraphicDesignForm({
     existingMainUpdates.sort((a, b) => a.index - b.index);
     setMainTextUpdates(existingMainUpdates);
 
-    // Load existing sub text updates
     const existingSubUpdates = [];
     Object.keys(existingData).forEach((key) => {
       if (key.startsWith("subText") && key !== "subText") {
@@ -259,11 +214,9 @@ export function GraphicDesignForm({
     setSubTextUpdates(existingSubUpdates);
 
     setIsInitialized(true);
-    hasLoadedFromStorage.current = true;
     
   }, [isEditMode, existingData, form]);
 
-  // ✅ Watch form changes and auto-save
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -279,19 +232,6 @@ export function GraphicDesignForm({
     const currentFormValues = form.getValues();
     saveToLocalStorage(currentFormValues);
   }, [links, isInitialized, saveToLocalStorage, form]);
-
-  // ✅ DEBUG: Check form values
-  useEffect(() => {
-    if (isInitialized) {
-      console.log("🔎 Current form values after initialization:");
-      console.log("   postType:", form.getValues("graphicDesign.postType"));
-      console.log("   platform:", form.getValues("graphicDesign.platform"));
-      console.log("   size:", form.getValues("graphicDesign.size"));
-      console.log("   mainText:", form.getValues("graphicDesign.mainText"));
-      console.log("   subText:", form.getValues("graphicDesign.subText"));
-      console.log("   All graphicDesign:", form.getValues("graphicDesign"));
-    }
-  }, [isInitialized, form]);
 
   const addMainTextUpdate = () => {
     const highestIndex =
@@ -357,7 +297,6 @@ export function GraphicDesignForm({
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Post Type Field */}
         <FormField
           control={form.control}
           name="graphicDesign.postType"
@@ -387,7 +326,6 @@ export function GraphicDesignForm({
           )}
         />
 
-        {/* Platform Field */}
         <FormField
           control={form.control}
           name="graphicDesign.platform"
@@ -417,7 +355,6 @@ export function GraphicDesignForm({
           )}
         />
 
-        {/* Size Field */}
         <FormField
           control={form.control}
           name="graphicDesign.size"
@@ -480,7 +417,6 @@ export function GraphicDesignForm({
         </FormMessage>
       </div>
 
-      {/* Main Text Field */}
       <FormField
         control={form.control}
         name="graphicDesign.mainText"
@@ -499,7 +435,6 @@ export function GraphicDesignForm({
         )}
       />
 
-      {/* Main Text Updates Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Main Text Updates</label>
@@ -559,7 +494,6 @@ export function GraphicDesignForm({
         )}
       </div>
 
-      {/* Sub Text Field */}
       <FormField
         control={form.control}
         name="graphicDesign.subText"
@@ -578,7 +512,6 @@ export function GraphicDesignForm({
         )}
       />
 
-      {/* Sub Text Updates Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium">Sub Text Updates</label>
@@ -639,7 +572,6 @@ export function GraphicDesignForm({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* CTA Text Field */}
         <FormField
           control={form.control}
           name="graphicDesign.ctaText"
@@ -658,7 +590,6 @@ export function GraphicDesignForm({
           )}
         />
 
-        {/* Hashtags Field */}
         <FormField
           control={form.control}
           name="graphicDesign.hashtags"
@@ -677,7 +608,6 @@ export function GraphicDesignForm({
           )}
         />
 
-        {/* Caption Field */}
         <FormField
           control={form.control}
           name="graphicDesign.caption"
@@ -697,7 +627,6 @@ export function GraphicDesignForm({
         />
       </div>
 
-      {/* Designer Notes Field */}
       <FormField
         control={form.control}
         name="graphicDesign.designerNotes"
@@ -723,5 +652,4 @@ export function GraphicDesignForm({
 export const clearGraphicDesignAutosave = (projectId) => {
   const key = `graphicDesign_autosave_${projectId}`;
   localStorage.removeItem(key);
-  console.log("🗑️ Cleared localStorage:", key);
 };

@@ -80,24 +80,25 @@ export default function ProjectDetail() {
   // }, [project, currentUserId]);
 
   useEffect(() => {
-  if (!project) return;
-  if (project.notes) {
-    setNotes(project.notes);
-  }
-  const userTask = project.userTasks?.find(
-    (task) => task.userId === currentUserId,
-  );
-  const timerStarted = userTask && userTask.timeLog && userTask.timeLog.length > 0;
-  if (timerStarted) {
-    setHasTimerStarted(true);
-    setEstimatedHours(project.estimatedHours || "0");
-    setEstimatedMinutes(project.estimatedMinutes || "0");
-  } else {
-    setHasTimerStarted(false);
-    setEstimatedHours("0");
-    setEstimatedMinutes("0");
-  }
-}, [project, currentUserId]);
+    if (!project) return;
+    if (project.notes) {
+      setNotes(project.notes);
+    }
+    const userTask = project.userTasks?.find(
+      (task) => task.userId === currentUserId,
+    );
+    const timerStarted =
+      userTask && userTask.timeLog && userTask.timeLog.length > 0;
+    if (timerStarted) {
+      setHasTimerStarted(true);
+      setEstimatedHours(project.estimatedHours || "0");
+      setEstimatedMinutes(project.estimatedMinutes || "0");
+    } else {
+      setHasTimerStarted(false);
+      setEstimatedHours("0");
+      setEstimatedMinutes("0");
+    }
+  }, [project, currentUserId]);
 
   useEffect(() => {
     if (!id) return;
@@ -780,6 +781,105 @@ export default function ProjectDetail() {
                     <p className=" text-foreground">
                       {project.graphicDesign.subText}
                     </p>
+                  </div>
+                )}
+                {/* ✅ Main Text Updates Display - 2 Column Grid */}
+                {Object.keys(project.graphicDesign || {})
+                  .filter(
+                    (key) =>
+                      key.startsWith("mainText") &&
+                      key !== "mainText" &&
+                      project.graphicDesign[key],
+                  )
+                  .sort((a, b) => {
+                    const numA = parseInt(a.replace("mainText", ""));
+                    const numB = parseInt(b.replace("mainText", ""));
+                    return numA - numB;
+                  }).length > 0 && (
+                  <div className="mt-6 text-start">
+                    <p className="text-sm font-semibold text-muted-foreground mb-3">
+                      Main Text Updates
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {Object.keys(project.graphicDesign)
+                        .filter(
+                          (key) =>
+                            key.startsWith("mainText") &&
+                            key !== "mainText" &&
+                            project.graphicDesign[key],
+                        )
+                        .sort((a, b) => {
+                          const numA = parseInt(a.replace("mainText", ""));
+                          const numB = parseInt(b.replace("mainText", ""));
+                          return numA - numB;
+                        })
+                        .map((key) => {
+                          const updateNumber = key.replace("mainText", "");
+                          return (
+                            <div
+                              key={key}
+                              className="pl-4 border-l-2 border-service-graphic/40 bg-blue-50 dark:bg-blue-950/20 p-3 rounded-r-md"
+                            >
+                              <p className="text-xs font-medium text-service-graphic mb-1">
+                                Update {updateNumber}
+                              </p>
+                              <p className="text-sm text-foreground">
+                                {project.graphicDesign[key]}
+                              </p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ Sub Text Updates Display - 2 Column Grid */}
+                {Object.keys(project.graphicDesign || {})
+                  .filter(
+                    (key) =>
+                      key.startsWith("subText") &&
+                      key !== "subText" &&
+                      project.graphicDesign[key],
+                  )
+                  .sort((a, b) => {
+                    const numA = parseInt(a.replace("subText", ""));
+                    const numB = parseInt(b.replace("subText", ""));
+                    return numA - numB;
+                  }).length > 0 && (
+                  <div className="mt-6 text-start">
+                    <p className="text-sm font-semibold text-muted-foreground mb-3">
+                      Sub Text Updates
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {Object.keys(project.graphicDesign)
+                        .filter(
+                          (key) =>
+                            key.startsWith("subText") &&
+                            key !== "subText" &&
+                            project.graphicDesign[key],
+                        )
+                        .sort((a, b) => {
+                          const numA = parseInt(a.replace("subText", ""));
+                          const numB = parseInt(b.replace("subText", ""));
+                          return numA - numB;
+                        })
+                        .map((key) => {
+                          const updateNumber = key.replace("subText", "");
+                          return (
+                            <div
+                              key={key}
+                              className="pl-4 border-l-2 border-service-graphic/40 bg-blue-50 dark:bg-blue-950/20 p-3 rounded-r-md"
+                            >
+                              <p className="text-xs font-medium text-service-graphic mb-1">
+                                Update {updateNumber}
+                              </p>
+                              <p className="text-sm text-foreground">
+                                {project.graphicDesign[key]}
+                              </p>
+                            </div>
+                          );
+                        })}
+                    </div>
                   </div>
                 )}
               </div>
