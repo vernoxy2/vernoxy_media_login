@@ -81,6 +81,7 @@ export function SideBar() {
   const [userRole, setUserRole] = useState(null);
   const [filteredServices, setFilteredServices] = useState(allServiceLinks);
   const [userEmail, setUserEmail] = useState(null);
+  const [userName, setUserName] = useState(null);
   const userInitial = userRole?.charAt(0).toUpperCase();
 
   // Get timer context
@@ -98,10 +99,12 @@ export function SideBar() {
             const userData = userDoc.data();
             const department = userData.department;
             const role = userData.role;
+            const email = user.email;
+            const name = userData.name;
             setUserDepartment(department);
             setUserRole(role);
-            const email = user.email;
             setUserEmail(email);
+            setUserName(name);
 
             if (role === "admin") {
               setFilteredServices(allServiceLinks);
@@ -215,7 +218,7 @@ export function SideBar() {
           <p className="text-xs text-gray-400">
             <span className="font-bold capitalize text-white">
               {" "}
-              {userRole?.toLowerCase() === "admin" ? "Admin Panel" : userRole}
+              {userRole?.toLowerCase() === "admin" ? "Admin Panel" : ""}
             </span>
             {userDepartment && ` | ${userDepartment}`}
           </p>
@@ -350,11 +353,11 @@ export function SideBar() {
       "
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-primary text-white font-semibold text-sm">
-          {userInitial}
+          {userName?.charAt(0).toUpperCase() || "U"}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-white truncate capitalize">
-            {userRole}
+            {userName}
           </p>
           <p className="text-xs text-gray-400 truncate">{userEmail}</p>
         </div>
