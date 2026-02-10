@@ -6,7 +6,7 @@ import {
   getDocs,
   updateDoc,
   doc,
-  Timestamp
+  Timestamp,
 } from "firebase/firestore";
 import {
   db

@@ -551,7 +551,7 @@
 // }
 
 // src/Pages/Admin/UserLoginLogs.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   getLoginLogs,
   formatSessionDuration,
@@ -587,7 +587,6 @@ export default function UserLoginLogs() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
 
   // Auto-refresh interval (in milliseconds) - 5 seconds
   const REFRESH_INTERVAL = 5000;
@@ -612,9 +611,19 @@ export default function UserLoginLogs() {
   // Apply filters whenever logs or filter values change
   useEffect(() => {
     applyFilters();
-    setCurrentPage(1); // Reset to first page when filters change
   }, [
     logs,
+    filterRole,
+    filterStatus,
+    filterUsername,
+    filterStartDate,
+    filterEndDate,
+  ]);
+
+  // ✅ NEW: Only reset page when filters change (NOT when logs update)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
     filterRole,
     filterStatus,
     filterUsername,
@@ -782,11 +791,42 @@ export default function UserLoginLogs() {
     }
   };
 
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  // ✅ DAY-WISE PAGINATION - Group logs by date
+  const groupedByDate = useMemo(() => {
+    const grouped = {};
+
+    filteredLogs.forEach((log) => {
+      if (!log.loginTime) return;
+
+      // Get the date from loginTime
+      const date = new Date(log.loginTime);
+      const dateKey = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(log);
+    });
+
+    // Sort dates in descending order (newest first)
+    const sortedDates = Object.keys(grouped).sort(
+      (a, b) => new Date(b) - new Date(a),
+    );
+
+    return { grouped, sortedDates };
+  }, [filteredLogs]);
+
+  const totalPages = groupedByDate.sortedDates.length;
+
+  // ✅ Get logs for current page (day)
+  const currentItems = useMemo(() => {
+    if (groupedByDate.sortedDates.length === 0) return [];
+
+    const currentDateKey = groupedByDate.sortedDates[currentPage - 1];
+    return groupedByDate.grouped[currentDateKey] || [];
+  }, [groupedByDate, currentPage]);
+
+  const currentDate = groupedByDate.sortedDates[currentPage - 1];
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
@@ -922,12 +962,6 @@ export default function UserLoginLogs() {
               <p className="text-gray-600 text-sm font-medium">
                 Completed Sessions
               </p>
-              {/* <p className="text-3xl font-bold text-gray-600 mt-2">
-                {
-                  filteredLogs.filter((log) => log.status === "completed")
-                    .length
-                }
-              </p> */}
               <p className="text-3xl font-bold text-gray-600 mt-2">
                 {
                   filteredLogs.filter(
@@ -1173,13 +1207,6 @@ export default function UserLoginLogs() {
                       {formatSessionDuration(log.sessionDuration)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {/* <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        log.status === "active" 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {log.status === "active" ? "Active" : "Completed"}
-                      </span> */}
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           log.status === "active"
@@ -1226,12 +1253,19 @@ export default function UserLoginLogs() {
               <div>
                 <p className="text-sm text-gray-700">
                   Showing{" "}
-                  <span className="font-medium">{indexOfFirstItem + 1}</span> to{" "}
+                  <span className="font-medium">{currentItems.length}</span>{" "}
+                  logs from{" "}
                   <span className="font-medium">
-                    {Math.min(indexOfLastItem, filteredLogs.length)}
+                    {currentDate
+                      ? new Date(currentDate).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "N/A"}
                   </span>{" "}
-                  of <span className="font-medium">{filteredLogs.length}</span>{" "}
-                  results
+                  (Page <span className="font-medium">{currentPage}</span> of{" "}
+                  <span className="font-medium">{totalPages}</span>)
                 </p>
               </div>
               <div>
