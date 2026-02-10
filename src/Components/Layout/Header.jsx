@@ -125,7 +125,7 @@ const handleLogout = async () => {
 
   return (
     <>
-      <header className="bg-white shadow flex items-center justify-between px-4 md:pr-16 relative z-10 py-2">
+      <header className="bg-white shadow flex items-center justify-between px-4 z-50  sticky top-0">
         {/* Mobile Menu Icon */}
         <div className="flex items-center gap-2">
           <IoMenu
@@ -140,7 +140,7 @@ const handleLogout = async () => {
 
         {/* Timer Display - Center */}
         {activeTimer && (
-          <div className="flex-1 flex px-4 justify-end items-end">
+          <div className="flex-1 flex justify-end items-end my-2">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-3 shadow-lg max-w-md ">
               <div className="flex items-center justify-between gap-3">
                 {/* Timer Info */}
@@ -182,7 +182,7 @@ const handleLogout = async () => {
         {/* Action Buttons */}
         <div className="flex items-center space-x-2 md:space-x-5 z-10">
           {/* Notifications */}
-          <div className="relative" ref={notificationRef}>
+          {/* <div className="relative" ref={notificationRef}>
             <button
               aria-label="Notifications"
               className="bg-[#3668B1] rounded-full text-white w-10 md:w-12 h-10 md:h-12 flex items-center justify-center relative hover:bg-[#2a5492] transition-colors"
@@ -195,10 +195,10 @@ const handleLogout = async () => {
                 </span>
               )}
             </button>
-          </div>
+          </div> */}
 
           {/* User Profile Menu */}
-          <div className="relative" ref={userMenuRef}>
+          {/* <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               aria-label="User Menu"
@@ -230,7 +230,7 @@ const handleLogout = async () => {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
         </div>
       </header>
 
