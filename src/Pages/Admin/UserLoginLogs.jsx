@@ -587,24 +587,19 @@ export default function UserLoginLogs() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-
-  // Auto-refresh interval (in milliseconds) - 5 seconds
+  // const [itemsPerPage] = useState(10);
   const REFRESH_INTERVAL = 5000;
-
-  // Initial fetch on component mount
   useEffect(() => {
     fetchLogs();
   }, []);
 
-  // Auto-refresh effect
   useEffect(() => {
     if (!autoRefresh) return;
 
     const intervalId = setInterval(() => {
-      fetchLogs(true); // true indicates it's an auto-refresh
+      fetchLogs(true);
     }, REFRESH_INTERVAL);
 
-    // Cleanup interval on unmount or when autoRefresh changes
     return () => clearInterval(intervalId);
   }, [autoRefresh]);
 
@@ -630,6 +625,26 @@ export default function UserLoginLogs() {
     filterStartDate,
     filterEndDate,
   ]);
+  // ✅ ADDED THIS ENTIRE BLOCK:
+  const groupedByDate = useMemo(() => {
+    const grouped = {};
+
+    filteredLogs.forEach((log) => {
+      if (!log.loginTime) return;
+      // Get the date from loginTime
+      const date = new Date(log.loginTime);
+      const dateKey = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(log);
+    });
+    // Sort dates in descending order (newest first)
+    const sortedDates = Object.keys(grouped).sort(
+      (a, b) => new Date(b) - new Date(a),
+    );
+    return { grouped, sortedDates };
+  }, [filteredLogs]);
 
   const fetchLogs = async (isAutoRefresh = false) => {
     try {
@@ -791,43 +806,20 @@ export default function UserLoginLogs() {
     }
   };
 
-  // ✅ DAY-WISE PAGINATION - Group logs by date
-  const groupedByDate = useMemo(() => {
-    const grouped = {};
-
-    filteredLogs.forEach((log) => {
-      if (!log.loginTime) return;
-
-      // Get the date from loginTime
-      const date = new Date(log.loginTime);
-      const dateKey = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = [];
-      }
-      grouped[dateKey].push(log);
-    });
-
-    // Sort dates in descending order (newest first)
-    const sortedDates = Object.keys(grouped).sort(
-      (a, b) => new Date(b) - new Date(a),
-    );
-
-    return { grouped, sortedDates };
-  }, [filteredLogs]);
-
+  // // Pagination logic
+  // const indexOfLastItem = currentPage * itemsPerPage;
+  // const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  // const currentItems = filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
+  // const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
   const totalPages = groupedByDate.sortedDates.length;
-
-  // ✅ Get logs for current page (day)
+  // ✅ ADDED THIS:
   const currentItems = useMemo(() => {
     if (groupedByDate.sortedDates.length === 0) return [];
 
     const currentDateKey = groupedByDate.sortedDates[currentPage - 1];
     return groupedByDate.grouped[currentDateKey] || [];
   }, [groupedByDate, currentPage]);
-
   const currentDate = groupedByDate.sortedDates[currentPage - 1];
-
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const getPageNumbers = () => {
