@@ -954,12 +954,6 @@ export default function UserLoginLogs() {
               <p className="text-gray-600 text-sm font-medium">
                 Completed Sessions
               </p>
-              {/* <p className="text-3xl font-bold text-gray-600 mt-2">
-                {
-                  filteredLogs.filter((log) => log.status === "completed")
-                    .length
-                }
-              </p> */}
               <p className="text-3xl font-bold text-gray-600 mt-2">
                 {
                   filteredLogs.filter(
@@ -1205,13 +1199,6 @@ export default function UserLoginLogs() {
                       {formatSessionDuration(log.sessionDuration)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {/* <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        log.status === "active" 
-                          ? "bg-green-100 text-green-800" 
-                          : "bg-gray-100 text-gray-800"
-                      }`}>
-                        {log.status === "active" ? "Active" : "Completed"}
-                      </span> */}
                       <span
                         className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           log.status === "active"
