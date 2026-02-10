@@ -806,16 +806,9 @@ export default function UserLoginLogs() {
     }
   };
 
-  // // Pagination logic
-  // const indexOfLastItem = currentPage * itemsPerPage;
-  // const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  // const currentItems = filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
-  // const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
   const totalPages = groupedByDate.sortedDates.length;
-  // ✅ ADDED THIS:
   const currentItems = useMemo(() => {
     if (groupedByDate.sortedDates.length === 0) return [];
-
     const currentDateKey = groupedByDate.sortedDates[currentPage - 1];
     return groupedByDate.grouped[currentDateKey] || [];
   }, [groupedByDate, currentPage]);
@@ -971,7 +964,6 @@ export default function UserLoginLogs() {
         </div>
       </div>
 
-      {/* Search Bar and Filter Toggle */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           {/* Full Width Search Bar */}
