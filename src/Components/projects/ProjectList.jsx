@@ -309,6 +309,77 @@ export function ProjectList({ projects }) {
     return "--:--";
   };
 
+  // const calculateTotalTime = (project) => {
+  //   const userTask = getUserTask(project);
+
+  //   if (!userTask || !userTask.timeLog || userTask.timeLog.length === 0) {
+  //     return "--:--";
+  //   }
+
+  //   try {
+  //     const timeLogs = userTask.timeLog;
+  //     let totalMs = 0;
+  //     let currentStartTime = null;
+
+  //     // Sort logs by time
+  //     const sortedLogs = [...timeLogs].sort((a, b) => {
+  //       const dateA = new Date(a.dateTime || a.timestamp);
+  //       const dateB = new Date(b.dateTime || b.timestamp);
+  //       return dateA - dateB;
+  //     });
+
+  //     // Calculate total time from all start/pause/resume/end pairs
+  //     for (let i = 0; i < sortedLogs.length; i++) {
+  //       const log = sortedLogs[i];
+
+  //       if (log.type === "start" || log.type === "resume") {
+  //         const startDate = new Date(log.dateTime || log.timestamp);
+
+  //         if (isNaN(startDate.getTime())) {
+  //           continue;
+  //         }
+
+  //         currentStartTime = startDate;
+  //       } else if (log.type === "pause" || log.type === "end") {
+  //         if (currentStartTime) {
+  //           const endDate = new Date(log.dateTime || log.timestamp);
+
+  //           if (!isNaN(endDate.getTime())) {
+  //             const sessionMs = endDate - currentStartTime;
+
+  //             if (sessionMs > 0) {
+  //               totalMs += sessionMs;
+  //             }
+  //           }
+
+  //           currentStartTime = null;
+  //         }
+  //       }
+  //     }
+
+  //     // If task is still in progress, add current running time
+  //     if (currentStartTime && userTask.taskStatus === "in_progress") {
+  //       const runningMs = currentTime - currentStartTime.getTime();
+
+  //       if (runningMs > 0) {
+  //         totalMs += runningMs;
+  //       }
+  //     }
+
+  //     // Convert to hours and minutes
+  //     const totalMinutes = Math.floor(totalMs / (1000 * 60));
+  //     const hours = Math.floor(totalMinutes / 60);
+  //     const minutes = totalMinutes % 60;
+
+  //     const displayHours = Math.max(0, hours);
+  //     const displayMinutes = Math.max(0, minutes);
+
+  //     return `${String(displayHours).padStart(2, "0")}h ${String(displayMinutes).padStart(2, "0")}m`;
+  //   } catch (error) {
+  //     return "--:--";
+  //   }
+  // };
+
   const calculateTotalTime = (project) => {
     const userTask = getUserTask(project);
 
@@ -321,52 +392,79 @@ export function ProjectList({ projects }) {
       let totalMs = 0;
       let currentStartTime = null;
 
-      // Sort logs by time
+      // ✅ ADD THIS DEBUG
+      console.log("🔍 Calculating for project:", project.projectId);
+      console.log("📊 TimeLogs:", timeLogs);
+
       const sortedLogs = [...timeLogs].sort((a, b) => {
         const dateA = new Date(a.dateTime || a.timestamp);
         const dateB = new Date(b.dateTime || b.timestamp);
         return dateA - dateB;
       });
 
-      // Calculate total time from all start/pause/resume/end pairs
+      // ✅ ADD THIS DEBUG
+      console.log("📊 Sorted Logs:", sortedLogs);
+
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
 
         if (log.type === "start" || log.type === "resume") {
           const startDate = new Date(log.dateTime || log.timestamp);
 
+          // ✅ ADD THIS DEBUG
+          console.log(
+            `▶️ ${log.type}:`,
+            startDate,
+            "Valid:",
+            !isNaN(startDate.getTime()),
+          );
+
           if (isNaN(startDate.getTime())) {
             continue;
           }
-
           currentStartTime = startDate;
         } else if (log.type === "pause" || log.type === "end") {
           if (currentStartTime) {
             const endDate = new Date(log.dateTime || log.timestamp);
 
+            // ✅ ADD THIS DEBUG
+            console.log(
+              `⏸️ ${log.type}:`,
+              endDate,
+              "Valid:",
+              !isNaN(endDate.getTime()),
+            );
+
             if (!isNaN(endDate.getTime())) {
               const sessionMs = endDate - currentStartTime;
+
+              // ✅ ADD THIS DEBUG
+              console.log(
+                `⏱️ Session time: ${sessionMs}ms (${Math.floor(sessionMs / 1000)}s)`,
+              );
 
               if (sessionMs > 0) {
                 totalMs += sessionMs;
               }
             }
-
             currentStartTime = null;
           }
         }
       }
 
+      // ✅ ADD THIS DEBUG
+      console.log("✅ Total MS:", totalMs);
+      console.log("✅ Task Status:", userTask.taskStatus);
+
       // If task is still in progress, add current running time
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
-
+        console.log("🏃 Running MS:", runningMs);
         if (runningMs > 0) {
           totalMs += runningMs;
         }
       }
 
-      // Convert to hours and minutes
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
@@ -374,12 +472,15 @@ export function ProjectList({ projects }) {
       const displayHours = Math.max(0, hours);
       const displayMinutes = Math.max(0, minutes);
 
+      // ✅ ADD THIS DEBUG
+      console.log(`🎯 Final: ${displayHours}h ${displayMinutes}m`);
+
       return `${String(displayHours).padStart(2, "0")}h ${String(displayMinutes).padStart(2, "0")}m`;
     } catch (error) {
+      console.error("❌ Error in calculateTotalTime:", error);
       return "--:--";
     }
   };
-
   const getStartTime = (project) => {
     const userTask = getUserTask(project);
 
@@ -455,15 +556,90 @@ export function ProjectList({ projects }) {
     }
   };
 
+  //   const handleProjectClick = (e, project) => {
+  //     e.preventDefault();
+  //     const userDept = userDepartment || localStorage.getItem("userDepartment");
+  //     const isQuickTask = project.projectId?.startsWith("QT-") || project.isQuickTask === true;
+  //     console.log("🔍 Row Click Check:", {
+  //       projectId: project.projectId,
+  //       firebaseId: project.id,
+  //       isQuickTask: project.isQuickTask,
+  //       startsWithQT: project.projectId?.startsWith("QT-"),
+  //       finalDecision: isQuickTask,
+  //       hasActiveTask: hasActiveTask(project)
+  //     });
+
+  //  // ✅ For Quick Tasks, always go to quick-task route
+  //     if (isQuickTask) {
+  //       if (hasActiveTask(project)) {
+  //         navigate(`/dashboard/quick-task/edit/${project.id}`);
+  //       } else {
+  //         navigate(`/dashboard/quick-task/${project.id}`);
+  //       }
+  //       return;
+  //     }
+  //     if (userDept === "Graphic Design" && project.serviceType === "GD") {
+  //       navigate(`/dashboard/projects/${project.id}`);
+  //       return;
+  //     }
+
+  //     if (hasActiveTask(project)) {
+  //       navigate(`/dashboard/projects/edit/${project.id}`);
+  //     } else {
+  //       navigate(`/dashboard/projects/${project.id}`);
+  //     }
+  //   };
+
+  // const handleEdit = (e, projectId) => {
+  //   e.preventDefault();
+  //   e.stopPropagation();
+
+  //   // ✅ Find project from Firebase data (filteredProjects)
+  //   const project = filteredProjects.find((p) => p.id === projectId);
+
+  //   if (!project) {
+  //     toast.error("Project not found");
+  //     return;
+  //   }
+
+  //   // ✅ Check BOTH conditions: projectId starts with "QT-" OR isQuickTask flag
+  //   const isQuickTask =
+  //     project.projectId?.startsWith("QT-") || project.isQuickTask === true;
+
+  //   console.log("🔍 Edit Check:", {
+  //     projectId: project.projectId,
+  //     firebaseId: projectId,
+  //     isQuickTask: project.isQuickTask,
+  //     startsWithQT: project.projectId?.startsWith("QT-"),
+  //     finalDecision: isQuickTask,
+  //   });
+
+  //   if (isQuickTask) {
+  //     navigate(`/dashboard/quick-task/edit/${projectId}`);
+  //   } else {
+  //     navigate(`/dashboard/projects/edit/${projectId}`);
+  //   }
+  // };
+
   const handleProjectClick = (e, project) => {
     e.preventDefault();
-    const userDept = userDepartment || localStorage.getItem("userDepartment");
+    const isQuickTask =
+      project.projectId?.startsWith("QT-") || project.isQuickTask === true;
+    if (isQuickTask) {
+      if (hasActiveTask(project)) {
+        // Active task = edit page
+        navigate(`/dashboard/quick-task/edit/${project.id}`);
+      } else {
+        navigate(`/dashboard/quick-task/${project.id}`);
+      }
+      return;
+    }
 
+    const userDept = userDepartment || localStorage.getItem("userDepartment");
     if (userDept === "Graphic Design" && project.serviceType === "GD") {
       navigate(`/dashboard/projects/${project.id}`);
       return;
     }
-
     if (hasActiveTask(project)) {
       navigate(`/dashboard/projects/edit/${project.id}`);
     } else {
@@ -474,7 +650,18 @@ export function ProjectList({ projects }) {
   const handleEdit = (e, projectId) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/dashboard/projects/edit/${projectId}`);
+    const project = filteredProjects.find((p) => p.id === projectId);
+    if (!project) {
+      toast.error("Project not found");
+      return;
+    }
+    const isQuickTask =
+      project.projectId?.startsWith("QT-") || project.isQuickTask === true;
+    if (isQuickTask) {
+      navigate(`/dashboard/quick-task/edit/${projectId}`);
+    } else {
+      navigate(`/dashboard/projects/edit/${projectId}`);
+    }
   };
 
   const handleDuplicate = (e, projectId) => {
@@ -611,6 +798,11 @@ export function ProjectList({ projects }) {
                     <div className="space-y-1">
                       <div className="font-mono text-sm font-medium flex items-center gap-2">
                         {project.projectId}
+                        {project.projectId.startsWith("QT-") && (
+                          <span className="text-xs px-1 py-0 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 rounded-full font-medium">
+                            ⚡ Quick
+                          </span>
+                        )}
                         {hasActiveTask(project) && (
                           <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] rounded-full">
                             Active
