@@ -28,7 +28,7 @@ import Settings from "./Pages/Settings";
 import Welcome from "./Pages/Admin/Welcome";
 import UserLoginLogs from "./Pages/Admin/UserLoginLogs";
 import QuickTask from "./Components/projects/forms/QuickTask";
-import QuickTaskDetail from './pages/QuickTaskDetail';
+import QuickTaskDetail from './Pages/QuickTaskDetail';
 import { TimerProvider } from "./context/TimerContext";
 
 // Layout wrapper to conditionally show Navbar/Footer
