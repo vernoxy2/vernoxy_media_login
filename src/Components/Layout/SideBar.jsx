@@ -12,6 +12,7 @@ import {
   Code,
   ClipboardList,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -23,6 +24,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "All Projects", href: "/dashboard/projects", icon: FolderKanban },
   { name: "New Project", href: "/dashboard/projects/new", icon: PlusCircle },
+  { name: "Quick Task", href: "/dashboard/quick-task", icon: Zap },
 ];
 
 const allServiceLinks = [

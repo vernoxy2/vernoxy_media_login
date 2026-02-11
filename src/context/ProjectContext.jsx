@@ -401,8 +401,6 @@ export function ProjectProvider({ children }) {
             localStorage.setItem("userEmail", user.email);
             localStorage.setItem("userName", userData.name || "");
             localStorage.setItem("userDepartment", userData.department);
-            
-            console.log("✅ User authenticated:", userInfo);
           } else {
             setCurrentUser(null);
           }
@@ -474,9 +472,7 @@ export function ProjectProvider({ children }) {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        console.log("📡 Real-time update received from Firebase");
-        
+      (snapshot) => {  
         const projectsData = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
@@ -511,7 +507,6 @@ export function ProjectProvider({ children }) {
 
         // ✅ Update state silently (no loading spinner, no toast)
         setProjects(projectsData);
-        console.log(`✅ Real-time update: ${projectsData.length} projects`);
       },
       (error) => {
         console.error("❌ Real-time listener error:", error);

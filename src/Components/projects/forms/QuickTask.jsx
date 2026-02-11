@@ -1,34 +1,34 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Form } from "../Components/ui/form";
-import { Button } from "../Components/ui/button";
+import { Form } from "../../../Components/ui/form";
+import { Button } from "../../../Components/ui/button";
 import {
   BaseProjectForm,
   clearBaseProjectAutosave,
-} from "../Components/projects/forms/BaseProjectForm";
+} from "../../../Components/projects/forms/BaseProjectForm";
 import {
   GraphicDesignForm,
   clearGraphicDesignAutosave,
-} from "../Components/projects/forms/GraphicDesignForm";
+} from "../../../Components/projects/forms/GraphicDesignForm";
 import {
   WebsiteDesignForm,
   clearWebsiteDesignAutosave,
-} from "../Components/projects/forms/WebsiteDesignForm";
-import { ContentWritingForm } from "../Components/projects/forms/ContentWritingForm";
+} from "../../../Components/projects/forms/WebsiteDesignForm";
+import { ContentWritingForm } from "../../../Components/projects/forms/ContentWritingForm";
 import {
   ERPForm,
   clearERPAutosave,
-} from "../Components/projects/forms/ERPForm";
-// import {
-//   QuickTask,
-//   clearBaseProjectAutosave,
-// } from "../Components/projects/forms/BaseProjectForm";
-import { useProjects } from "../context/ProjectContext";
-import { useTimer } from "../context/TimerContext";
-import { generateProjectId, generateClientCode } from "../lib/projectUtils";
+} from "../../../Components/projects/forms/ERPForm";
+import {
+  SimpleQuickTaskForm,
+  clearQuickTaskAutosave,
+} from "../../../Components/projects/forms/SimpleQuickTaskForm";
+import { useProjects } from "../../../context/ProjectContext";
+import { useTimer } from "../../../context/TimerContext";
+import { generateProjectId, generateClientCode } from "../../lib/projectUtils";
 import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -79,6 +79,12 @@ const projectSchema = z.object({
   internalNotes: z.string().optional(),
   estimatedHours: z.string().optional(),
   estimatedMinutes: z.string().optional(),
+  quickTask: z
+    .object({
+      taskType: z.string().optional(),
+      description: z.string().optional(),
+    })
+    .optional(),
   graphicDesign: z
     .object({
       postType: z.string().optional(),
@@ -159,6 +165,12 @@ const projectSchema = z.object({
   erp: z
     .object({
       erpType: z.string().optional(),
+      quickTask: z
+        .object({
+          taskType: z.string().optional(),
+          description: z.string().optional(),
+        })
+        .optional(),
       link: z
         .array(
           z
@@ -180,9 +192,12 @@ const projectSchema = z.object({
     .optional(),
 });
 
-export default function NewProject() {
+export default function QuickTask() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const location = useLocation();
+  // const isQuickTask = location.pathname.includes("/quick-task");
+  const isQuickTask = true;
   const {
     projects,
     addProject,
@@ -221,6 +236,10 @@ export default function NewProject() {
       internalNotes: "",
       estimatedHours: "0",
       estimatedMinutes: "0",
+      quickTask: {
+      taskType: "",
+      description: "",
+    },
       graphicDesign: {
         postType: "",
         platform: "",
@@ -262,9 +281,10 @@ export default function NewProject() {
   });
 
   useEffect(() => {
-    if (hasInitializedForm.current) {
+    if (hasInitializedForm.current ) {
       return;
     }
+    
 
     if (isEditMode && existingProject) {
       const userTask = existingProject.userTasks?.find(
@@ -294,31 +314,35 @@ export default function NewProject() {
         internalNotes: existingProject.internalNotes || "",
         estimatedHours: userTask?.estimatedHours || "0",
         estimatedMinutes: userTask?.estimatedMinutes || "0",
-        graphicDesign: graphicDesignData,
-        websiteDesign: existingProject.websiteDesign || {
-          websiteType: "",
-          numberOfPages: "",
-          technologyPreference: "",
-          link: [""],
-          pages: [],
-        },
-        contentWriting: existingProject.contentWriting || {
-          contentType: "",
-          wordCount: "",
-          tone: "",
-          mainContent: "",
-          cta: "",
-          seoKeywords: "",
-          reviewNotes: "",
-        },
-        erp: existingProject.erp || {
-          erpType: "",
-          modulesRequired: [],
-          workflowDescription: "",
-          userRoles: "",
-          integrationsRequired: "",
-          technicalNotes: "",
-        },
+         quickTask: existingProject.quickTask || {
+      taskType: "",
+      description: "",
+    },
+        // graphicDesign: graphicDesignData,
+        // websiteDesign: existingProject.websiteDesign || {
+        //   websiteType: "",
+        //   numberOfPages: "",
+        //   technologyPreference: "",
+        //   link: [""],
+        //   pages: [],
+        // },
+        // contentWriting: existingProject.contentWriting || {
+        //   contentType: "",
+        //   wordCount: "",
+        //   tone: "",
+        //   mainContent: "",
+        //   cta: "",
+        //   seoKeywords: "",
+        //   reviewNotes: "",
+        // },
+        // erp: existingProject.erp || {
+        //   erpType: "",
+        //   modulesRequired: [],
+        //   workflowDescription: "",
+        //   userRoles: "",
+        //   integrationsRequired: "",
+        //   technicalNotes: "",
+        // },
       });
       setShowServiceForm(true);
       hasInitializedForm.current = true;
@@ -350,22 +374,25 @@ export default function NewProject() {
 
     if (
       !watchedCountry ||
-      !watchedServiceType ||
+      // !watchedServiceType ||
       !watchedClientName ||
       !watchedMonth ||
       !watchedYear
     ) {
       return "";
     }
-
+const serviceType = watchedServiceType || "QT";
     const clientCode = generateClientCode(watchedClientName);
     const newId = generateProjectId(
       watchedCountry,
-      watchedServiceType,
+      serviceType,
+      // watchedServiceType,
       clientCode,
       watchedMonth,
       watchedYear,
       projects,
+      isQuickTask,
+       true,
     );
     return newId;
   }, [
@@ -378,9 +405,13 @@ export default function NewProject() {
     watchedMonth,
     watchedYear,
     projects,
+    isQuickTask,
   ]);
 
   const handleStartTimer = async () => {
+    if (!watchedServiceType) {
+  form.setValue("serviceType", "QT"); // Quick Task default
+}
     if (
       !watchedClientName ||
       !watchedCountry ||
@@ -443,6 +474,7 @@ export default function NewProject() {
         acceptedAt: currentDateTime,
         createdAt: currentDateTime,
         updatedAt: currentDateTime,
+        isQuickTask: isQuickTask,
       };
 
       const createdProject = await addProject(newProject);
@@ -528,7 +560,6 @@ export default function NewProject() {
       };
 
       const updatedProject = {
-        // status: "Draft",
         status:
           userDepartment === "Graphic Design" && data.serviceType === "GD"
             ? "Review"
@@ -539,7 +570,16 @@ export default function NewProject() {
         userTasks: updatedUserTasks,
         updatedAt: currentDateTime,
       };
-
+     if (isQuickTask) {
+  const taskType = form.getValues("quickTask.taskType");
+  const description = form.getValues("quickTask.description");
+  
+  updatedProject.quickTask = {
+    taskType: taskType || "",
+    description: description || "",
+  };
+  updatedProject.isQuickTask = true;
+}
       if (data.serviceType === "GD" && data.graphicDesign) {
         updatedProject.graphicDesign = {
           postType: data.graphicDesign?.postType || "",
@@ -565,20 +605,32 @@ export default function NewProject() {
       if (data.serviceType === "CW" && data.contentWriting) {
         updatedProject.contentWriting = data.contentWriting;
       }
+
       if (data.serviceType === "ERP" && data.erp) {
         updatedProject.erp = data.erp;
       }
+
       await updateProject(projectIdToUpdate, updatedProject);
+
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
 
-      clearGraphicDesignAutosave(generatedProjectId);
+      // Clear appropriate autosave
+      if (isQuickTask) {
+        clearQuickTaskAutosave(generatedProjectId);
+      } else {
+        clearGraphicDesignAutosave(generatedProjectId);
+        clearWebsiteDesignAutosave(generatedProjectId);
+        clearERPAutosave(generatedProjectId);
+      }
       clearBaseProjectAutosave(generatedProjectId);
-      clearWebsiteDesignAutosave(generatedProjectId);
-      clearERPAutosave(generatedProjectId);
 
-      toast.success("Project submitted successfully!");
+      toast.success(
+        isQuickTask
+          ? "Quick Task submitted successfully!"
+          : "Project submitted successfully!",
+      );
       navigate(`/dashboard/projects`);
     } catch (error) {
       toast.error(`Error saving project: ${error.message}. Please try again.`);
@@ -627,12 +679,12 @@ export default function NewProject() {
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground">
-            {isEditMode ? "Edit Project" : "New Project"}
+            {isEditMode ? "Edit Project" : "New Quick Task"}
           </h1>
           <p className="text-muted-foreground text-md">
             {isEditMode
               ? `Update project details for ${existingProject?.projectId}`
-              : "Create a new project with all required details"}
+              : "Create a new quick task with all required details"}
           </p>
         </div>
 
@@ -720,34 +772,46 @@ export default function NewProject() {
 
           {showServiceForm && (
             <>
-              {watchedServiceType === "GD" && (
-                <GraphicDesignForm
+              {isQuickTask ? (
+                <SimpleQuickTaskForm
                   form={form}
-                  isEditMode={isEditMode}
-                  existingData={existingProject?.graphicDesign}
                   projectId={generatedProjectId}
-                />
-              )}
-              {watchedServiceType === "WD" && (
-                <WebsiteDesignForm
-                  form={form}
                   isEditMode={isEditMode}
-                  existingData={existingProject?.websiteDesign}
-                  projectId={generatedProjectId}
+                  existingData={existingProject?.quickTask}
                 />
-              )}
-              {watchedServiceType === "CW" && (
-                <ContentWritingForm form={form} isEditMode={isEditMode} />
-              )}
-              {watchedServiceType === "ERP" && (
-                <ERPForm
-                  form={form}
-                  isEditMode={isEditMode}
-                  existingData={existingProject?.erp}
-                  projectId={generatedProjectId}
-                />
+              ) : (
+                <>
+                  {/* {watchedServiceType === "GD" && (
+                    <GraphicDesignForm
+                      form={form}
+                      isEditMode={isEditMode}
+                      existingData={existingProject?.graphicDesign}
+                      projectId={generatedProjectId}
+                    />
+                  )}
+                  {watchedServiceType === "WD" && (
+                    <WebsiteDesignForm
+                      form={form}
+                      isEditMode={isEditMode}
+                      existingData={existingProject?.websiteDesign}
+                      projectId={generatedProjectId}
+                    />
+                  )}
+                  {watchedServiceType === "CW" && (
+                    <ContentWritingForm form={form} isEditMode={isEditMode} />
+                  )}
+                  {watchedServiceType === "ERP" && (
+                    <ERPForm
+                      form={form}
+                      isEditMode={isEditMode}
+                      existingData={existingProject?.erp}
+                      projectId={generatedProjectId}
+                    />
+                  )} */}
+                </>
               )}
 
+              {/* Submit Buttons - બધા માટે સામાન્ય */}
               <div className="flex items-center justify-end gap-4">
                 <Button
                   type="button"
@@ -765,7 +829,7 @@ export default function NewProject() {
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Submit Project
+                      {isQuickTask ? "Submit Quick Task" : "Submit Project"}
                     </>
                   )}
                 </Button>
