@@ -150,77 +150,40 @@ export function ProjectList({ projects }) {
   // }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
 
   const filteredProjects = useMemo(() => {
-    let filtered = projectsData;
+  let filtered = projectsData;
 
-    // Apply service filter first
-    if (serviceFilter) {
-      filtered = filtered.filter((p) => p.serviceType === serviceFilter);
-    } else {
-      // Department-based filtering
-      if (userRole === "admin") {
-        filtered = projectsData;
-      } else if (
-        userDepartment === "Graphic Design" ||
-        userDepartment === "Content Writing"
-      ) {
-        filtered = projectsData.filter(
-          (p) => p.serviceType === "GD" || p.serviceType === "CW",
-        );
-      } else if (
-        userDepartment === "Front-End Developer" ||
-        userDepartment === "Website"
-      ) {
-        filtered = projectsData.filter((p) => p.serviceType === "WD");
-      } else if (userDepartment === "ERP") {
-        filtered = projectsData.filter((p) => p.serviceType === "ERP");
-      }
+  // Step 1: Apply service filter from URL
+  if (serviceFilter) {
+    filtered = filtered.filter((p) => p.serviceType === serviceFilter);
+  }
+
+  // Step 2: Admin sees all projects
+  if (userRole === "admin") {
+    return filtered;
+  }
+
+  // Step 3: Regular users see only their projects
+  filtered = filtered.filter((project) => {
+    // User created this project
+    if (project.createdBy === currentUserId) {
+      return true;
     }
 
-    // ✅ NEW: Apply creator/assigned visibility rules
-    const userEmail = currentUserEmail || localStorage.getItem("userEmail");
+    // User is assigned to this project
+    if (project.assignedTo === currentUserId) {
+      return true;
+    }
 
-    filtered = filtered.filter((project) => {
-      // Admin sees all projects (already filtered by department/service)
-      if (userRole === "admin") {
-        return true;
-      }
+    // User has a task in this project
+    if (project.userTasks?.some(task => task.userId === currentUserId)) {
+      return true;
+    }
 
-      // Check if current user is the creator
-      const isCreator = project.createdBy === currentUserEmail;
+    return false;
+  });
 
-      // If creator, always show the project
-      if (isCreator) {
-        return true;
-      }
-
-      // Check if current user is assigned to this project
-      const isAssigned = project.assignedTo === currentUserId;
-
-      // If not creator and not assigned, don't show
-      if (!isAssigned) {
-        return false;
-      }
-
-      // User is assigned but not creator
-      // Check if the creator has completed their task
-      const creatorTask = project.userTasks?.find(
-        (task) => task.userEmail === project.createdBy,
-      );
-
-      // Only show to assigned user if creator has completed their task
-      return creatorTask && creatorTask.taskStatus === "completed";
-    });
-
-    return filtered;
-  }, [
-    projectsData,
-    userRole,
-    userDepartment,
-    serviceFilter,
-    renderKey,
-    currentUserId,
-    currentUserEmail,
-  ]);
+  return filtered;
+}, [projectsData, userRole, serviceFilter, currentUserId, renderKey]);
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
@@ -391,34 +354,16 @@ export function ProjectList({ projects }) {
       const timeLogs = userTask.timeLog;
       let totalMs = 0;
       let currentStartTime = null;
-
-      // ✅ ADD THIS DEBUG
-      console.log("🔍 Calculating for project:", project.projectId);
-      console.log("📊 TimeLogs:", timeLogs);
-
       const sortedLogs = [...timeLogs].sort((a, b) => {
         const dateA = new Date(a.dateTime || a.timestamp);
         const dateB = new Date(b.dateTime || b.timestamp);
         return dateA - dateB;
       });
-
-      // ✅ ADD THIS DEBUG
-      console.log("📊 Sorted Logs:", sortedLogs);
-
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
 
         if (log.type === "start" || log.type === "resume") {
           const startDate = new Date(log.dateTime || log.timestamp);
-
-          // ✅ ADD THIS DEBUG
-          console.log(
-            `▶️ ${log.type}:`,
-            startDate,
-            "Valid:",
-            !isNaN(startDate.getTime()),
-          );
-
           if (isNaN(startDate.getTime())) {
             continue;
           }
@@ -426,23 +371,8 @@ export function ProjectList({ projects }) {
         } else if (log.type === "pause" || log.type === "end") {
           if (currentStartTime) {
             const endDate = new Date(log.dateTime || log.timestamp);
-
-            // ✅ ADD THIS DEBUG
-            console.log(
-              `⏸️ ${log.type}:`,
-              endDate,
-              "Valid:",
-              !isNaN(endDate.getTime()),
-            );
-
             if (!isNaN(endDate.getTime())) {
               const sessionMs = endDate - currentStartTime;
-
-              // ✅ ADD THIS DEBUG
-              console.log(
-                `⏱️ Session time: ${sessionMs}ms (${Math.floor(sessionMs / 1000)}s)`,
-              );
-
               if (sessionMs > 0) {
                 totalMs += sessionMs;
               }
@@ -452,29 +382,18 @@ export function ProjectList({ projects }) {
         }
       }
 
-      // ✅ ADD THIS DEBUG
-      console.log("✅ Total MS:", totalMs);
-      console.log("✅ Task Status:", userTask.taskStatus);
-
       // If task is still in progress, add current running time
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
-        console.log("🏃 Running MS:", runningMs);
         if (runningMs > 0) {
           totalMs += runningMs;
         }
       }
-
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
-
       const displayHours = Math.max(0, hours);
       const displayMinutes = Math.max(0, minutes);
-
-      // ✅ ADD THIS DEBUG
-      console.log(`🎯 Final: ${displayHours}h ${displayMinutes}m`);
-
       return `${String(displayHours).padStart(2, "0")}h ${String(displayMinutes).padStart(2, "0")}m`;
     } catch (error) {
       console.error("❌ Error in calculateTotalTime:", error);

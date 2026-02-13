@@ -112,9 +112,7 @@ export function WebsiteDesignForm({
   const saveToLocalStorage = useCallback(
     (watchedValues) => {
       if (!isInitialized) return;
-
       const websiteData = watchedValues?.websiteDesign || {};
-
       const formData = {
         websiteType: websiteData.websiteType || "",
         numberOfPages: websiteData.numberOfPages || "",
@@ -122,15 +120,12 @@ export function WebsiteDesignForm({
         link: (websiteData.link || []).filter((l) => l && l.trim() !== ""),
         pages: websiteData.pages || [],
       };
-
       const dataToSave = {
         formData,
         timestamp: new Date().toISOString(),
       };
-
       const key = getLocalStorageKey();
       localStorage.setItem(key, JSON.stringify(dataToSave));
-      console.log("✅ Website Design saved to localStorage:", key, dataToSave);
     },
     [getLocalStorageKey, isInitialized],
   );
@@ -138,19 +133,12 @@ export function WebsiteDesignForm({
   // ✅ ADD THIS COMPLETE useEffect
   useEffect(() => {
     if (hasLoadedFromStorage.current || !projectId) return;
-
     const key = getLocalStorageKey();
     const savedData = localStorage.getItem(key);
-
-    console.log("🔍 Checking Website Design localStorage:", key, savedData);
-
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-
         if (!isEditMode || !existingData) {
-          console.log("📥 Restoring Website Design from localStorage:", parsed);
-
           setTimeout(() => {
             if (parsed.formData) {
               if (parsed.formData.websiteType) {
@@ -211,7 +199,6 @@ export function WebsiteDesignForm({
         setIsInitialized(true);
       }
     } else {
-      console.log("ℹ️ No Website Design saved data found");
       hasLoadedFromStorage.current = true;
       setIsInitialized(true);
     }

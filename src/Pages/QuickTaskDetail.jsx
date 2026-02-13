@@ -143,7 +143,6 @@ export default function QuickTaskDetail() {
 
     // Quick Task માટે buttons બતાવવા (except Content Writer)
     if (currentUserEmail && project.isQuickTask) {
-      console.log("✅ Showing buttons for Quick Task");
       setShowButtons(true);
     } else {
       setShowButtons(false);
@@ -158,7 +157,6 @@ export default function QuickTaskDetail() {
 
     // Rule 1: Content Writer department never sees Start button
     if (currentUserDepartment === "Content Writer") {
-      console.log("🚫 Content Writer - Start button hidden");
       setShowStartButton(false);
       return;
     }
@@ -168,21 +166,12 @@ export default function QuickTaskDetail() {
       const isAssignedToCurrentUser = project.assignedTo === currentUserId;
 
       if (isAssignedToCurrentUser) {
-        console.log(
-          "✅ Graphic Design - Assigned to current user - Show Start button",
-        );
         setShowStartButton(true);
       } else {
-        console.log(
-          "🚫 Graphic Design - Not assigned to current user - Hide Start button",
-        );
         setShowStartButton(false);
       }
       return;
     }
-
-    // Rule 3: All other departments - hide Start button by default
-    // તમે જરૂર હોય તો આ logic બદલી શકો છો
     console.log("🚫 Other department - Start button hidden by default");
     setShowStartButton(false);
   }, [project, currentUserDepartment, currentUserId]);
