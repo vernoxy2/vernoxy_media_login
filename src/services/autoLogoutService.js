@@ -14,22 +14,20 @@ import {
 
 export const autoLogoutAfter8PM = async () => {
   try {
+    const now = new Date();
+    const currentHour = now.getHours();
+
+    if (currentHour < 20) {
+      console.log("⏰ Not yet 8 PM, skipping auto-logout");
+      return;
+    }
+
+    console.log("✅ It's past 8 PM, proceeding with auto-logout...");
+
     const loginLogsRef = collection(db, "loginLogs");
-
-    // Get today's date starting from 00:00:00
-    // const today = new Date();
-    // today.setHours(0, 0, 0, 0);
-    // const todayStart = Timestamp.fromDate(today);
-
-    // // Query: Find today's records where logoutTime is NULL
-    // const notLoggedOutQuery = query(
-    //   loginLogsRef,
-    //   where("loginTime", ">=", todayStart),
-    //   where("logoutTime", "==", null)
-    // );
-   
     const today = new Date();
-    const dateString = today.toISOString().split('T')[0]; 
+    const dateString = today.toISOString().split('T')[0];
+
     const notLoggedOutQuery = query(
       loginLogsRef,
       where("date", "==", dateString),
@@ -37,32 +35,38 @@ export const autoLogoutAfter8PM = async () => {
     );
 
     const snapshot = await getDocs(notLoggedOutQuery);
+
     if (snapshot.empty) {
       console.log("✅ All users logged out properly!");
       return;
     }
-    const now = new Date();
+
+    // Set logout time to 8:00 PM of today
     const logout8PM = new Date(
       now.getFullYear(),
       now.getMonth(),
       now.getDate(),
-      20, 
+      20,
       0,
       0,
       0
     );
     const logoutTimestamp = Timestamp.fromDate(logout8PM);
+
     const updatePromises = snapshot.docs.map(async (docSnap) => {
-      const data = docSnap.data();
       const logRef = doc(db, "loginLogs", docSnap.id);
       await updateDoc(logRef, {
         logoutTime: logoutTimestamp,
         status: "auto-completed",
         updatedAt: Timestamp.now()
       });
+
+      console.log(`✅ Auto-logged out user: ${docSnap.data().userName}`);
     });
 
     await Promise.all(updatePromises);
+    console.log(`✅ Auto-logout completed for ${snapshot.docs.length} users`);
+
   } catch (error) {
     console.error("❌ Auto-logout error:", error);
   }
@@ -74,8 +78,8 @@ export const scheduleAutoLogout = () => {
     now.getFullYear(),
     now.getMonth(),
     now.getDate(),
-    20, 
-    5, 
+    20,
+    5,
     0,
     0
   );

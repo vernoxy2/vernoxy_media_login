@@ -71,7 +71,7 @@ export default function Projects() {
     <div className="space-y-6">
       {/* Header */}
 
-      <div className="px-8 py-1.5 border-b sticky top-0 z-50 bg-white">
+      <div className="px-8 py-1.5 border-b sticky top-0 z10 bg-white">
         <h1 className="text-2xl font-bold text-foreground">Projects</h1>
         <p className="text-muted-foreground">
           Showing {filteredProjects.length} of {projects.length} projects

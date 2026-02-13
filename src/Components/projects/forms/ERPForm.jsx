@@ -353,33 +353,24 @@ export function ERPForm({ form, isEditMode = false, existingData = null, project
       technicalNotes: erpData.technicalNotes || '',
       link: (erpData.link || []).filter(l => l && l.trim() !== ''),
     };
-
     const dataToSave = {
       formData,
       timestamp: new Date().toISOString()
     };
-
     const key = getLocalStorageKey();
     localStorage.setItem(key, JSON.stringify(dataToSave));
-    console.log('✅ ERP saved to localStorage:', key, dataToSave);
   }, [getLocalStorageKey, isInitialized]);
 
-  // ✅ Load data from localStorage
+
   useEffect(() => {
     if (hasLoadedFromStorage.current || !projectId) return;
     
     const key = getLocalStorageKey();
     const savedData = localStorage.getItem(key);
-    
-    console.log('🔍 Checking ERP localStorage:', key, savedData);
-    
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
-        
         if (!isEditMode || !existingData) {
-          console.log('📥 Restoring ERP from localStorage:', parsed);
-          
           setTimeout(() => {
             if (parsed.formData) {
               Object.keys(parsed.formData).forEach((key) => {
@@ -389,7 +380,6 @@ export function ERPForm({ form, isEditMode = false, existingData = null, project
                     shouldValidate: false,
                     shouldDirty: false
                   });
-                  console.log(`✅ Restored erp.${key}:`, value);
                 }
               });
 
