@@ -351,7 +351,7 @@ export function SideBar() {
 
       {/* User Profile */}
       <div
-        className="flex text-start items-center gap-3 p-3 transition-colors mx-2m mb-2 border-t border-sidebar-border
+        className="flex text-start items-center gap-3 p-3 transition-colors mx-2 mb-2 border-t border-sidebar-border
       "
       >
         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sidebar-primary text-white font-semibold text-sm">

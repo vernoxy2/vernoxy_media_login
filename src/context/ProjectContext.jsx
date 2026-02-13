@@ -614,7 +614,6 @@ export function ProjectProvider({ children }) {
         };
         
         userTasks = [initialUserTask];
-        console.log("✅ Created initial userTask for:", assignedMember?.name);
       }
 
       const newProject = {

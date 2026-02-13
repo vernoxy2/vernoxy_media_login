@@ -21,7 +21,6 @@ export const saveQuickTaskAutosave = (projectId, data) => {
   if (!projectId) return;
   const key = `${AUTOSAVE_KEY_PREFIX}${projectId}`;
   localStorage.setItem(key, JSON.stringify(data));
-  console.log("💾 Data saved:", data);
 };
 
 export const loadQuickTaskAutosave = (projectId) => {
@@ -50,8 +49,6 @@ export function SimpleQuickTaskForm({ form, projectId, isEditMode, existingData 
     if (projectId && !isEditMode && !hasLoadedData.current) {
       const savedData = loadQuickTaskAutosave(projectId);
       if (savedData) {
-        console.log("📂 Loading autosave:", savedData);
-        
         // Load taskType
         if (savedData.taskType) {
           form.setValue("quickTask.taskType", savedData.taskType, {

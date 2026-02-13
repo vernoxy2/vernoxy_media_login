@@ -22,8 +22,6 @@ export const generateProjectId = (
   existingProjects = [],
   isQuickTask = false  // ✅ KEY PARAMETER
 ) => {
-  console.log('🟢 FUNCTION CALLED - isQuickTask:', isQuickTask);
-  
   if (!country || !serviceType || !clientCode || !month || !year) {
     return "";
   }
@@ -45,14 +43,8 @@ export const generateProjectId = (
 
   const monthNumber = monthMap[month];
   const yearShort = year.slice(-2);
-  
-  // ✅ ADD QT- PREFIX FOR QUICK TASKS
   const prefix = isQuickTask ? "QT-" : "";
-  console.log('🟢 PREFIX:', prefix);
-  
   const basePattern = `${prefix}${country}-${serviceType}-${clientCode}-${monthNumber}${yearShort}`;
-  console.log('🟢 BASE PATTERN:', basePattern);
-  
   const allSequenceNumbers = existingProjects
     .map(project => {
       if (!project.projectId) return 0;
@@ -67,13 +59,9 @@ export const generateProjectId = (
   const maxSequence = allSequenceNumbers.length > 0 
     ? Math.max(...allSequenceNumbers) 
     : 0;
-  
   const newSequence = maxSequence + 1;
   const sequenceFormatted = String(newSequence).padStart(4, '0');
   const finalId = `${basePattern}-${sequenceFormatted}`;
-  
-  console.log('🟢 FINAL ID:', finalId);
-  
   return finalId;
 };
 
