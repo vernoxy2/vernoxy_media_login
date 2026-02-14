@@ -50,7 +50,7 @@ export default function QuickTaskDetail() {
   const [timerInterval, setTimerInterval] = useState(null);
   const [liveUserTask, setLiveUserTask] = useState(null);
 
-  // ✅ NEW STATE: Start button visibility માટે
+  // ✅ Start button visibility માટે
   const [showStartButton, setShowStartButton] = useState(false);
 
   useEffect(() => {
@@ -126,22 +126,14 @@ export default function QuickTaskDetail() {
       setShowButtons(false);
       return;
     }
-
-    // Get department from localStorage
     const dept = localStorage.getItem("userDepartment");
-    console.log("🔍 Department for showButtons check:", dept);
-
-    // Content Writer = hide ALL buttons
     if (
       dept &&
       (dept === "Content Writer" || dept.toLowerCase().includes("content"))
     ) {
-      console.log("🚫 Content Writer - ALL buttons hidden");
       setShowButtons(false);
       return;
     }
-
-    // Quick Task માટે buttons બતાવવા (except Content Writer)
     if (currentUserEmail && project.isQuickTask) {
       setShowButtons(true);
     } else {
@@ -334,11 +326,48 @@ export default function QuickTaskDetail() {
         }
         return task;
       });
+
+      // ✅ Calculate total elapsed time from the final timeLog
+      const finalUserTask = updatedUserTasks.find(
+        (t) => t.userId === currentUserId,
+      );
+      let totalElapsedMs = 0;
+      if (finalUserTask?.timeLog) {
+        let lastStart = null;
+        const sortedLog = [...finalUserTask.timeLog].sort(
+          (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+        );
+        for (const entry of sortedLog) {
+          const entryTime = new Date(entry.timestamp).getTime();
+          if (isNaN(entryTime)) continue;
+          if (entry.type === "start" || entry.type === "resume") {
+            lastStart = entryTime;
+          } else if (
+            (entry.type === "pause" || entry.type === "end") &&
+            lastStart
+          ) {
+            totalElapsedMs += entryTime - lastStart;
+            lastStart = null;
+          }
+        }
+      }
+      const isOverOneHour = totalElapsedMs >= 3600000; // 1 hour in ms
+
       const updateData = {
         status: "Review",
         updatedAt: currentDateTime,
         userTasks: updatedUserTasks,
       };
+
+      // ✅ If over 1 hour and projectId starts with "QT-", convert to normal ID
+      if (isOverOneHour && project.projectId?.startsWith("QT-")) {
+        const normalProjectId = project.projectId.replace(/^QT-/, "");
+        updateData.projectId = normalProjectId;
+        updateData.isQuickTask = false;
+        toast.info(
+          `Task exceeded 1 hour. Project ID converted to: ${normalProjectId}`,
+        );
+      }
 
       const projectRef = doc(db, "projects", id);
       await updateDoc(projectRef, updateData);
@@ -457,6 +486,7 @@ export default function QuickTaskDetail() {
       setIsSubmitting(false);
     }
   };
+
   const userTask = getCurrentUserTask();
 
   // ✅ Task Type માટે display name
@@ -529,12 +559,9 @@ export default function QuickTaskDetail() {
               </Button>
             )}
 
-            {/* ============================================================================ */}
-            {/* ✅ MODIFIED: Start Button with Department Check */}
-            {/* ============================================================================ */}
             {(project.status === "Accepted" ||
               project.status === "In Progress") &&
-              showStartButton && ( // ✅ NEW CONDITION ADDED
+              showStartButton && (
                 <>
                   <select
                     value={estimatedHours}
@@ -577,7 +604,7 @@ export default function QuickTaskDetail() {
                 </>
               )}
 
-            {/* Submit Button - બધા માટે દેખાય */}
+            {/* Submit Button */}
             {(project.status === "Accepted" ||
               project.status === "In Progress") && (
               <Button
@@ -712,7 +739,7 @@ export default function QuickTaskDetail() {
             )}
           </div>
 
-          {/* ✅ QUICK TASK DETAILS - નવો સેક્શન */}
+          {/* QUICK TASK DETAILS */}
           {project.quickTask && (
             <div className="rounded-xl border border-purple-500/20 bg-purple-100/40 dark:bg-purple-950/10 p-6">
               <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-foreground">

@@ -151,34 +151,28 @@ export function ProjectList({ projects }) {
 
   const filteredProjects = useMemo(() => {
   let filtered = projectsData;
-
   // Step 1: Apply service filter from URL
   if (serviceFilter) {
     filtered = filtered.filter((p) => p.serviceType === serviceFilter);
   }
-
   // Step 2: Admin sees all projects
   if (userRole === "admin") {
     return filtered;
   }
-
   // Step 3: Regular users see only their projects
   filtered = filtered.filter((project) => {
     // User created this project
     if (project.createdBy === currentUserId) {
       return true;
     }
-
     // User is assigned to this project
     if (project.assignedTo === currentUserId) {
       return true;
     }
-
     // User has a task in this project
     if (project.userTasks?.some(task => task.userId === currentUserId)) {
       return true;
     }
-
     return false;
   });
 

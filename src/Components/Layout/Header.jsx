@@ -295,8 +295,8 @@ const Header = ({ toggleMobileSidebar }) => {
     return;
   }
   const unsubscribe = subscribeToNotifications(userId, (notifications) => {
-    const unread = notifications.filter((n) => !n.read).length;
-    setUnreadCount(unread);
+    // const unread = notifications.filter((n) => !n.read).length;
+   setUnreadCount(notifications.length); 
   });
 
   return () => unsubscribe();
