@@ -570,41 +570,18 @@ export default function NewProject() {
         updatedProject.erp = data.erp;
       }
       await updateProject(projectIdToUpdate, updatedProject);
+
       if (activeTimer && activeTimer.firebaseId === projectIdToUpdate) {
         await stopTimer();
       }
-      // Send notification to assigned user when project is submitted
+
+      // ✨ ADD THIS NOTIFICATION CODE ✨
       const assignedUserId = data.assignedTo || existingProject?.assignedTo;
-      console.log("=== NOTIFICATION DEBUG START ===");
-      console.log("1. Current User ID:", currentUserId);
-      console.log("2. Assigned User ID:", assignedUserId);
-      console.log("3. Are they different?", assignedUserId !== currentUserId);
-      console.log("4. Team Members:", teamMembers);
-
-      // if (assignedUserId && assignedUserId !== currentUserId) {
-      //   try {
-      //     const assignedUser = teamMembers.find((m) => m.id === assignedUserId);
-      //     await notifyTaskAssigned({
-      //       assignedUserId: assignedUserId,
-      //       assignedUserName: assignedUser?.name || "Team Member",
-      //       taskTitle: `${data.clientName || existingProject?.clientName} - ${data.serviceType}`,
-      //       taskId: projectIdToUpdate,
-      //       projectId: generatedProjectId,
-      //       fromUserId: currentUserId,
-      //       fromUserName:
-      //         currentUser?.name || currentUser?.email || "Team Member",
-      //     });
-
-      //     console.log("✅ Notification sent to assigned user");
-      //   } catch (notifError) {
-      //     console.error("❌ Notification error:", notifError);
-      //     // Don't stop the flow if notification fails
-      //   }
-      // }
       if (assignedUserId && assignedUserId !== currentUserId) {
         try {
           const assignedUser = teamMembers.find((m) => m.id === assignedUserId);
-          const notificationData = {
+
+          await notifyTaskAssigned({
             assignedUserId: assignedUserId,
             assignedUserName: assignedUser?.name || "Team Member",
             taskTitle: `${data.clientName || existingProject?.clientName} - ${data.serviceType}`,
@@ -613,23 +590,12 @@ export default function NewProject() {
             fromUserId: currentUserId,
             fromUserName:
               currentUser?.name || currentUser?.email || "Team Member",
-          };
-          await notifyTaskAssigned(notificationData);
+          });
+
+          console.log("✅ Notification sent to assigned user");
         } catch (notifError) {
           console.error("❌ Notification error:", notifError);
-          console.error("Error details:", {
-            message: notifError.message,
-            stack: notifError.stack,
-          });
         }
-      } else {
-        if (!assignedUserId) {
-          console.log("   - No assigned user ID");
-        }
-        if (assignedUserId === currentUserId) {
-          console.log("   - Assigned to self (same user)");
-        }
-        console.log("=== NOTIFICATION DEBUG END ===");
       }
 
       clearGraphicDesignAutosave(generatedProjectId);

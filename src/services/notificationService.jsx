@@ -4,7 +4,6 @@ import {
   addDoc,
   query,
   where,
-  orderBy,
   onSnapshot,
   updateDoc,
   doc,
@@ -14,18 +13,6 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 
-/**
- * Create a notification
- * @param {Object} notificationData
- * @param {string} notificationData.userId - User who will receive the notification
- * @param {string} notificationData.type - Type: 'task_assigned', 'task_created', 'info_shared', 'task_updated'
- * @param {string} notificationData.title - Notification title
- * @param {string} notificationData.message - Notification message
- * @param {string} notificationData.url - Destination URL when clicked
- * @param {string} notificationData.fromUserId - User who triggered the action
- * @param {string} notificationData.fromUserName - Name of user who triggered
- * @param {Object} notificationData.metadata - Additional data (taskId, projectId, etc.)
- */
 export const createNotification = async (notificationData) => {
   try {
     const notification = {
@@ -50,29 +37,22 @@ export const createNotification = async (notificationData) => {
   }
 };
 
-/**
- * Subscribe to user's notifications
- * @param {string} userId - Current user ID
- * @param {Function} callback - Callback function that receives notifications array
- * @returns {Function} Unsubscribe function
- */
 export const subscribeToNotifications = (userId, callback) => {
   try {
-    // Create query WITHOUT orderBy first to avoid index issues
     const q = query(
       collection(db, "notifications"),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
+      where("read", "==", false), // ✅ ONLY UNREAD notifications
     );
 
     return onSnapshot(
       q,
       (snapshot) => {
         const notifications = [];
-        
+
         snapshot.forEach((doc) => {
           const data = doc.data();
-          
-          // Convert Firestore Timestamp to Date object
+
           let createdAt = null;
           if (data.createdAt) {
             if (data.createdAt.toDate) {
@@ -80,7 +60,7 @@ export const subscribeToNotifications = (userId, callback) => {
             } else if (data.createdAt.seconds) {
               createdAt = new Timestamp(
                 data.createdAt.seconds,
-                data.createdAt.nanoseconds
+                data.createdAt.nanoseconds,
               );
             }
           }
@@ -92,56 +72,60 @@ export const subscribeToNotifications = (userId, callback) => {
           });
         });
 
-        // Sort by createdAt in JavaScript (newest first)
+        // Sort by newest first
         notifications.sort((a, b) => {
           if (!a.createdAt) return 1;
           if (!b.createdAt) return -1;
           return b.createdAt.toMillis() - a.createdAt.toMillis();
         });
 
-        console.log("✅ Notifications loaded:", notifications.length);
+        console.log("✅ Unread notifications loaded:", notifications.length);
         callback(notifications);
       },
       (error) => {
         console.error("❌ Error subscribing to notifications:", error);
-        // Return empty array on error to prevent infinite loading
         callback([]);
-      }
+      },
     );
   } catch (error) {
-    console.error("❌ Error setting up notifications subscription:", error);
-    // Return a no-op unsubscribe function
+    console.error("❌ Error setting up notification subscription:", error);
     return () => {};
   }
 };
 
-/**
- * Mark notification as read
- * @param {string} notificationId - Notification ID
- */
+// ✅ Mark single notification as read
 export const markAsRead = async (notificationId) => {
   try {
+    console.log("📝 Marking notification as read:", notificationId);
+
+    if (!notificationId) {
+      throw new Error("No notification ID provided");
+    }
+
     const notificationRef = doc(db, "notifications", notificationId);
+
     await updateDoc(notificationRef, {
       read: true,
+      readAt: serverTimestamp(),
     });
-    console.log("✅ Notification marked as read:", notificationId);
+
+    console.log("✅ Successfully marked as read:", notificationId);
+    return true;
   } catch (error) {
     console.error("❌ Error marking notification as read:", error);
     throw error;
   }
 };
 
-/**
- * Mark all notifications as read for a user
- * @param {string} userId - User ID
- */
+// ✅ Mark all notifications as read for a user
 export const markAllAsRead = async (userId) => {
   try {
+    console.log("📝 Marking all notifications as read for user:", userId);
+
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", userId),
-      where("read", "==", false)
+       where("read", "==", false)
     );
 
     const snapshot = await getDocs(q);
@@ -149,20 +133,24 @@ export const markAllAsRead = async (userId) => {
 
     snapshot.forEach((document) => {
       const notificationRef = doc(db, "notifications", document.id);
-      updatePromises.push(updateDoc(notificationRef, { read: true }));
+      updatePromises.push(
+        updateDoc(notificationRef, {
+          read: true,
+          readAt: serverTimestamp(),
+        }),
+      );
     });
 
     await Promise.all(updatePromises);
-    console.log("✅ All notifications marked as read");
+    console.log(`✅ Marked ${updatePromises.length} notifications as read`);
+    return true;
   } catch (error) {
     console.error("❌ Error marking all notifications as read:", error);
     throw error;
   }
 };
 
-/**
- * Helper function to create task assigned notification
- */
+// ✅ Notify when task is assigned to a user
 export const notifyTaskAssigned = async ({
   assignedUserId,
   assignedUserName,
@@ -177,16 +165,14 @@ export const notifyTaskAssigned = async ({
     type: "task_assigned",
     title: "New Task Assigned",
     message: `${fromUserName} assigned you a task: "${taskTitle}"`,
-    url: `/dashboard/projects`, // Changed to projects list page
+    url: `/dashboard/projects`,
     fromUserId,
     fromUserName,
     metadata: { taskId, projectId, taskTitle },
   });
 };
 
-/**
- * Helper function to create task created notification
- */
+// ✅ Notify when a new task is created
 export const notifyTaskCreated = async ({
   userId,
   taskTitle,
@@ -207,9 +193,7 @@ export const notifyTaskCreated = async ({
   });
 };
 
-/**
- * Helper function to create info shared notification
- */
+// ✅ Notify when information is shared
 export const notifyInfoShared = async ({
   userId,
   infoTitle,
@@ -230,9 +214,7 @@ export const notifyInfoShared = async ({
   });
 };
 
-/**
- * Helper function to create task updated notification
- */
+// ✅ Notify when a task is updated
 export const notifyTaskUpdated = async ({
   userId,
   taskTitle,
