@@ -17,7 +17,7 @@ import {
 import { auth, db } from "../../firebase";
 import { LogIn, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { logUserLogin } from "../../services/loginLogService";
-import { scheduleAutoLogout } from "../../services/autoLogoutService";
+// import { scheduleAutoLogout } from "../../services/autoLogoutService";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -31,10 +31,7 @@ export default function Login() {
   const [resetError, setResetError] = useState("");
   const navigate = useNavigate();
 // Schedule auto-logout system
-useEffect(() => {
-  scheduleAutoLogout();
-  console.log("🕐 Auto-logout system started (will run at 7:05 PM daily)");
-}, []);
+
   // Check if already logged in
   useEffect(() => {
     const checkAuth = async () => {
@@ -63,11 +60,6 @@ useEffect(() => {
     checkAuth();
   }, [navigate]);
 
-  // ✅ ADD THIS NEW useEffect
-  useEffect(() => {
-    scheduleAutoLogout();
-    console.log("🕐 Auto-logout system started (will run at 7:05 PM daily)");
-  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
