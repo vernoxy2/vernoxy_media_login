@@ -150,34 +150,34 @@ export function ProjectList({ projects }) {
   // }, [projectsData, userRole, userDepartment, serviceFilter, renderKey]);
 
   const filteredProjects = useMemo(() => {
-  let filtered = projectsData;
-  // Step 1: Apply service filter from URL
-  if (serviceFilter) {
-    filtered = filtered.filter((p) => p.serviceType === serviceFilter);
-  }
-  // Step 2: Admin sees all projects
-  if (userRole === "admin") {
-    return filtered;
-  }
-  // Step 3: Regular users see only their projects
-  filtered = filtered.filter((project) => {
-    // User created this project
-    if (project.createdBy === currentUserId) {
-      return true;
+    let filtered = projectsData;
+    // Step 1: Apply service filter from URL
+    if (serviceFilter) {
+      filtered = filtered.filter((p) => p.serviceType === serviceFilter);
     }
-    // User is assigned to this project
-    if (project.assignedTo === currentUserId) {
-      return true;
+    // Step 2: Admin sees all projects
+    if (userRole === "admin") {
+      return filtered;
     }
-    // User has a task in this project
-    if (project.userTasks?.some(task => task.userId === currentUserId)) {
-      return true;
-    }
-    return false;
-  });
+    // Step 3: Regular users see only their projects
+    filtered = filtered.filter((project) => {
+      // User created this project
+      if (project.createdBy === currentUserId) {
+        return true;
+      }
+      // User is assigned to this project
+      if (project.assignedTo === currentUserId) {
+        return true;
+      }
+      // User has a task in this project
+      if (project.userTasks?.some((task) => task.userId === currentUserId)) {
+        return true;
+      }
+      return false;
+    });
 
-  return filtered;
-}, [projectsData, userRole, serviceFilter, currentUserId, renderKey]);
+    return filtered;
+  }, [projectsData, userRole, serviceFilter, currentUserId, renderKey]);
 
   const totalPages = Math.ceil(filteredProjects.length / ITEMS_PER_PAGE);
   const paginatedProjects = filteredProjects.slice(
@@ -199,18 +199,12 @@ export function ProjectList({ projects }) {
 
   const getUserTask = (project) => {
     const userId = currentUserId || localStorage.getItem("userId");
+    console.log("🔍 userId:", userId);
+    console.log("🔍 userTasks:", project.userTasks);
 
-    if (!userId) {
-      return null;
-    }
-
-    if (!project.userTasks || project.userTasks.length === 0) {
-      return null;
-    }
-
-    const userTask = project.userTasks.find((task) => task.userId === userId);
-
-    return userTask || null;
+    if (!userId) return null;
+    if (!project.userTasks || project.userTasks.length === 0) return null;
+    return project.userTasks.find((task) => task.userId === userId) || null;
   };
 
   const hasActiveTask = (project) => {
@@ -348,49 +342,43 @@ export function ProjectList({ projects }) {
       const timeLogs = userTask.timeLog;
       let totalMs = 0;
       let currentStartTime = null;
+
       const sortedLogs = [...timeLogs].sort((a, b) => {
-        const dateA = new Date(a.dateTime || a.timestamp);
-        const dateB = new Date(b.dateTime || b.timestamp);
-        return dateA - dateB;
+        return (
+          new Date(a.timestamp || a.dateTime) -
+          new Date(b.timestamp || b.dateTime)
+        );
       });
+
       for (let i = 0; i < sortedLogs.length; i++) {
         const log = sortedLogs[i];
 
         if (log.type === "start" || log.type === "resume") {
-          const startDate = new Date(log.dateTime || log.timestamp);
-          if (isNaN(startDate.getTime())) {
-            continue;
-          }
-          currentStartTime = startDate;
+          // ✅ timestamp first (exact seconds છે)
+          currentStartTime = new Date(log.timestamp || log.dateTime);
         } else if (log.type === "pause" || log.type === "end") {
           if (currentStartTime) {
-            const endDate = new Date(log.dateTime || log.timestamp);
-            if (!isNaN(endDate.getTime())) {
-              const sessionMs = endDate - currentStartTime;
-              if (sessionMs > 0) {
-                totalMs += sessionMs;
-              }
-            }
+            // ✅ timestamp first
+            const endDate = new Date(log.timestamp || log.dateTime);
+            const sessionMs = endDate - currentStartTime;
+            if (sessionMs > 0) totalMs += sessionMs;
             currentStartTime = null;
           }
         }
       }
 
-      // If task is still in progress, add current running time
+      // ✅ Only add live time if task is still in_progress
       if (currentStartTime && userTask.taskStatus === "in_progress") {
         const runningMs = currentTime - currentStartTime.getTime();
-        if (runningMs > 0) {
-          totalMs += runningMs;
-        }
+        if (runningMs > 0) totalMs += runningMs;
       }
+
       const totalMinutes = Math.floor(totalMs / (1000 * 60));
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
-      const displayHours = Math.max(0, hours);
-      const displayMinutes = Math.max(0, minutes);
-      return `${String(displayHours).padStart(2, "0")}h ${String(displayMinutes).padStart(2, "0")}m`;
+
+      return `${String(Math.max(0, hours)).padStart(2, "0")}h ${String(Math.max(0, minutes)).padStart(2, "0")}m`;
     } catch (error) {
-      console.error("❌ Error in calculateTotalTime:", error);
       return "--:--";
     }
   };
