@@ -256,60 +256,125 @@ export default function ProjectDetail() {
     }
   };
 
+  // const handleSubmitClick = async () => {
+  //   const userTask = liveUserTask || getCurrentUserTask();
+  //   if (
+  //     !userTask ||
+  //     (userTask.taskStatus !== "in_progress" &&
+  //       userTask.taskStatus !== "paused")
+  //   ) {
+  //     toast.info("No active task to submit!");
+  //     return;
+  //   }
+
+  //   setIsSubmitting(true);
+  //   try {
+  //     const currentDateTime = new Date().toISOString();
+  //     const existingUserTasks = project.userTasks || [];
+  //     const updatedUserTasks = existingUserTasks.map((task) => {
+  //       if (task.userId === currentUserId) {
+  //         const currentTimeLogs = Array.isArray(userTask.timeLog)
+  //           ? [...userTask.timeLog]
+  //           : [];
+  //         const endEntry = {
+  //           type: "end",
+  //           timestamp: currentDateTime,
+  //           dateTime: formatDateTime(currentDateTime),
+  //         };
+  //         const finalTimeLogs = [...currentTimeLogs, endEntry];
+  //         return {
+  //           ...task,
+  //           taskStatus: "completed",
+  //           endTime: formatDateTime(currentDateTime),
+  //           timeLog: finalTimeLogs,
+  //         };
+  //       }
+  //       return task;
+  //     });
+  //     const updateData = {
+  //       status: "Review",
+  //       updatedAt: currentDateTime,
+  //       userTasks: updatedUserTasks,
+  //     };
+
+  //     const projectRef = doc(db, "projects", id);
+  //     await updateDoc(projectRef, updateData);
+  //     toast.success("Project submitted successfully!");
+  //     setTimeout(() => {
+  //       navigate("/dashboard/projects");
+  //     }, 1000);
+  //   } catch (error) {
+  //     toast.error("Failed to submit project. Please try again.");
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
   const handleSubmitClick = async () => {
-    const userTask = liveUserTask || getCurrentUserTask();
-    if (
-      !userTask ||
-      (userTask.taskStatus !== "in_progress" &&
-        userTask.taskStatus !== "paused")
-    ) {
-      toast.info("No active task to submit!");
-      return;
-    }
+  const userTask = liveUserTask || getCurrentUserTask();
+  if (
+    !userTask ||
+    (userTask.taskStatus !== "in_progress" &&
+      userTask.taskStatus !== "paused")
+  ) {
+    toast.info("No active task to submit!");
+    return;
+  }
 
-    setIsSubmitting(true);
-    try {
-      const currentDateTime = new Date().toISOString();
-      const existingUserTasks = project.userTasks || [];
-      const updatedUserTasks = existingUserTasks.map((task) => {
-        if (task.userId === currentUserId) {
-          const currentTimeLogs = Array.isArray(userTask.timeLog)
-            ? [...userTask.timeLog]
-            : [];
-          const endEntry = {
-            type: "end",
-            timestamp: currentDateTime,
-            dateTime: formatDateTime(currentDateTime),
-          };
-          const finalTimeLogs = [...currentTimeLogs, endEntry];
-          return {
-            ...task,
-            taskStatus: "completed",
-            endTime: formatDateTime(currentDateTime),
-            timeLog: finalTimeLogs,
-          };
-        }
-        return task;
-      });
-      const updateData = {
-        status: "Review",
-        updatedAt: currentDateTime,
-        userTasks: updatedUserTasks,
-      };
+  setIsSubmitting(true);
+  try {
+    const currentDateTime = new Date().toISOString();
+    const existingUserTasks = project.userTasks || [];
 
-      const projectRef = doc(db, "projects", id);
-      await updateDoc(projectRef, updateData);
-      toast.success("Project submitted successfully!");
-      setTimeout(() => {
-        navigate("/dashboard/projects");
-      }, 1000);
-    } catch (error) {
-      toast.error("Failed to submit project. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    // ✅ Calculate actual elapsed time (work time minus pauses)
+    const elapsed = calculateElapsedTime(userTask.timeLog);
 
+    const updatedUserTasks = existingUserTasks.map((task) => {
+      if (task.userId === currentUserId) {
+        const currentTimeLogs = Array.isArray(userTask.timeLog)
+          ? [...userTask.timeLog]
+          : [];
+        const endEntry = {
+          type: "end",
+          timestamp: currentDateTime,
+          dateTime: formatDateTime(currentDateTime),
+        };
+        const finalTimeLogs = [...currentTimeLogs, endEntry];
+        return {
+          ...task,
+          taskStatus: "completed",
+          endTime: formatDateTime(currentDateTime),
+          timeLog: finalTimeLogs,
+          // ✅ Save calculated total time to the userTask
+          totalHours: elapsed.hours,
+          totalMinutes: elapsed.minutes,
+          totalSeconds: elapsed.seconds,
+        };
+      }
+      return task;
+    });
+
+    const updateData = {
+      status: "Review",
+      updatedAt: currentDateTime,
+      userTasks: updatedUserTasks,
+      // ✅ Also save to project level for the Project Overview card
+      TotalHours: String(elapsed.hours),
+      TotalMinutes: String(elapsed.minutes),
+    };
+
+    const projectRef = doc(db, "projects", id);
+    await updateDoc(projectRef, updateData);
+    toast.success("Project submitted successfully!");
+    setTimeout(() => {
+      navigate("/dashboard/projects");
+    }, 1000);
+  } catch (error) {
+    toast.error("Failed to submit project. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const handleStartClick = async (e) => {
     if (e) {
       e.preventDefault();
